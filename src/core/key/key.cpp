@@ -186,6 +186,11 @@ void LoadMovableSedKeys(const std::string& path) {
     SetKeyY(0x26, key);
 }
 
+void ClearKeys() {
+    key_slots = {};
+    common_key_y_slots = {};
+}
+
 void SetKeyX(std::size_t slot_id, const AESKey& key) {
     key_slots.at(slot_id).SetKeyX(key);
 }

@@ -1,0 +1,50 @@
+# Copyright 2019 threeSD Project
+# Licensed under GPLv2 or any later version
+# Refer to the license.txt file included.
+
+# GM9 Script for dumping necessary files automatically.
+
+set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779"
+set OUT "0:/threeSD"
+if not find $[OUT] NULL
+    mkdir $[OUT]
+end
+
+if not ask "Execute threeSD Dumper?"
+    goto Exit
+end
+
+set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nWorking..."
+
+cp -w -n "1:/private/movable.sed" $[OUT]/movable.sed
+cp -w -n "M:/boot9.bin" $[OUT]/boot9.bin
+
+if not find $[OUT]/firm NULL
+    mkdir $[OUT]/firm
+end
+if chk $[ONTYPE] "N3DS"
+    if not find $[OUT]/firm/new NULL
+        mkdir $[OUT]/firm/new
+    end
+    cp -w -n "1:/title/00040138/20000003/content" $[OUT]/firm/new
+    rm $[OUT]/firm/new/cmd
+else
+    if not find $[OUT]/firm/old NULL
+        mkdir $[OUT]/firm/old
+    end
+    cp -w -n "1:/title/00040138/00000003/content" $[OUT]/firm/old
+    rm $[OUT]/firm/old/cmd
+end
+
+if chk $[ONTYPE] "N3DS"
+    cp -w -n "S:/sector0x96.bin" $[OUT]/sector0x96.bin
+end
+
+sdump -w seeddb.bin
+cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
+rm "0:/gm9/out/seeddb.bin"
+
+set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
+echo "Successfully dumped necessary\nfiles for threeSD."
+
+@Exit

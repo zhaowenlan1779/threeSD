@@ -58,6 +58,7 @@ using AESKey = std::array<u8, AES_BLOCK_SIZE>;
 
 void LoadBootromKeys(const std::string& path);
 void LoadMovableSedKeys(const std::string& path);
+void ClearKeys();
 
 void SetKeyX(std::size_t slot_id, const AESKey& key);
 void SetKeyY(std::size_t slot_id, const AESKey& key);

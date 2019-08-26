@@ -29,7 +29,7 @@ bool InnerFAT::ExtractDirectory(const std::string& path, std::size_t index) cons
     std::string new_path = name.empty() ? path : path + name + "/"; // Name is empty for root
 
     if (!FileUtil::CreateFullPath(new_path)) {
-        LOG_ERROR(Frontend, "Could not create path {}", new_path);
+        LOG_ERROR(Core, "Could not create path {}", new_path);
         return false;
     }
 
@@ -54,7 +54,7 @@ bool InnerFAT::ExtractDirectory(const std::string& path, std::size_t index) cons
 
 bool InnerFAT::WriteMetadata(const std::string& path) const {
     if (!FileUtil::CreateFullPath(path)) {
-        LOG_ERROR(Frontend, "Could not create path {}", path);
+        LOG_ERROR(Core, "Could not create path {}", path);
         return false;
     }
 
@@ -62,11 +62,11 @@ bool InnerFAT::WriteMetadata(const std::string& path) const {
 
     FileUtil::IOFile file(path, "wb");
     if (!file.IsOpen()) {
-        LOG_ERROR(Frontend, "Could not open file {}", path);
+        LOG_ERROR(Core, "Could not open file {}", path);
         return false;
     }
     if (file.WriteBytes(&format_info, sizeof(format_info)) != sizeof(format_info)) {
-        LOG_ERROR(Frontend, "Write data failed (file: {})", path);
+        LOG_ERROR(Core, "Write data failed (file: {})", path);
         return false;
     }
     return true;
@@ -88,7 +88,7 @@ bool SDSavegame::Init() {
     // Read header
     std::memcpy(&header, header_iter, sizeof(header));
     if (header.magic != MakeMagic('S', 'A', 'V', 'E') || header.version != 0x40000) {
-        LOG_ERROR(Frontend, "File is invalid, decryption errors may have happened.");
+        LOG_ERROR(Core, "File is invalid, decryption errors may have happened.");
         return false;
     }
 
@@ -140,7 +140,7 @@ bool SDSavegame::Init() {
 
 bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
     if (!FileUtil::CreateFullPath(path)) {
-        LOG_ERROR(Frontend, "Could not create path {}", path);
+        LOG_ERROR(Core, "Could not create path {}", path);
         return false;
     }
 
@@ -152,7 +152,7 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
     std::string name{name_data.data()};
     FileUtil::IOFile file(path + name, "wb");
     if (!file.IsOpen()) {
-        LOG_ERROR(Frontend, "Could not open file {}", path + name);
+        LOG_ERROR(Core, "Could not open file {}", path + name);
         return false;
     }
 
@@ -173,7 +173,7 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
         std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
         if (file.WriteBytes(data_region.data() + fs_info.data_region_block_size * block, size) !=
             size) {
-            LOG_ERROR(Frontend, "Write data failed (file: {})", path + name);
+            LOG_ERROR(Core, "Write data failed (file: {})", path + name);
             return false;
         }
 
@@ -231,7 +231,7 @@ bool SDExtdata::Init() {
     // Read VSXE file
     auto vsxe_raw = decryptor.DecryptFile(data_path + "00000000/00000001");
     if (vsxe_raw.empty()) {
-        LOG_ERROR(Frontend, "Failed to load or decrypt VSXE");
+        LOG_ERROR(Core, "Failed to load or decrypt VSXE");
         return false;
     }
     DataContainer vsxe_container(vsxe_raw);
@@ -240,7 +240,7 @@ bool SDExtdata::Init() {
     // Read header
     std::memcpy(&header, vsxe.data(), sizeof(header));
     if (header.magic != MakeMagic('V', 'S', 'X', 'E') || header.version != 0x30000) {
-        LOG_ERROR(Frontend, "File is invalid, decryption errors may have happened.");
+        LOG_ERROR(Core, "File is invalid, decryption errors may have happened.");
         return false;
     }
 
@@ -299,7 +299,7 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
     std::string name{name_data.data()};
     FileUtil::IOFile file(path + name, "wb");
     if (!file) {
-        LOG_ERROR(Frontend, "Could not open file {}", path + name);
+        LOG_ERROR(Core, "Could not open file {}", path + name);
         return false;
     }
 
@@ -311,14 +311,14 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
 
     auto container_data = decryptor.DecryptFile(device_file_path);
     if (container_data.empty()) { // File does not exist?
-        LOG_WARNING(Frontend, "Ignoring file {}", device_file_path);
+        LOG_WARNING(Core, "Ignoring file {}", device_file_path);
         return true;
     }
 
     DataContainer container(container_data);
     auto data = container.GetIVFCLevel4Data()[0];
     if (file.WriteBytes(data.data(), data.size()) != data.size()) {
-        LOG_ERROR(Frontend, "Write data failed (file: {})", path + name);
+        LOG_ERROR(Core, "Write data failed (file: {})", path + name);
         return false;
     }
 

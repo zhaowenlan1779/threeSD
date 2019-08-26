@@ -59,7 +59,7 @@ bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source,
                                  aes, new CryptoPP::FileSink(destination.c_str(), true)),
                              true);
     } catch (CryptoPP::Exception& e) {
-        LOG_ERROR(Frontend, "Error decrypting and writing file: {}", e.what());
+        LOG_ERROR(Core, "Error decrypting and writing file: {}", e.what());
         return false;
     }
     return true;
@@ -73,7 +73,7 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
 
     FileUtil::IOFile file(root_folder + source, "rb");
     if (!file) {
-        LOG_ERROR(Frontend, "Could not open {}", root_folder + source);
+        LOG_ERROR(Core, "Could not open {}", root_folder + source);
         return {};
     }
 
@@ -81,7 +81,7 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
 
     std::vector<u8> encrypted_data(size);
     if (file.ReadBytes(encrypted_data.data(), size) != size) {
-        LOG_ERROR(Frontend, "Could not read file {}", root_folder + source);
+        LOG_ERROR(Core, "Could not read file {}", root_folder + source);
         return {};
     }
 

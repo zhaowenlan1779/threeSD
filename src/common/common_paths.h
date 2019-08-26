@@ -37,3 +37,4 @@
 #define BOOTROM9 "boot9.bin"
 #define SECRET_SECTOR "sector0x96.bin"
 #define MOVABLE_SED "movable.sed"
+#define SEED_DB "seeddb.bin"

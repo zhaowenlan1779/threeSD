@@ -665,6 +665,10 @@ std::unordered_map<UserPath, std::string> g_paths;
 }
 
 void SetUserPath(const std::string& path) {
+    if (!g_paths.empty()) {
+        g_paths.clear();
+    }
+
     std::string& user_path = g_paths[UserPath::UserDir];
 
     if (!path.empty() && CreateFullPath(path)) {
@@ -716,7 +720,6 @@ const std::string& GetUserPath(UserPath path) {
         SetUserPath();
     return g_paths[path];
 }
-
 
 std::size_t WriteStringToFile(bool text_file, const std::string& filename, std::string_view str) {
     return IOFile(filename, text_file ? "w" : "wb").WriteString(str);

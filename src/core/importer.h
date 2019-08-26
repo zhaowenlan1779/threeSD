@@ -4,9 +4,12 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 #include "common/common_types.h"
+
+class SDMCDecryptor;
 
 /**
  * Type of an importable content.
@@ -18,6 +21,7 @@ enum class ContentType {
     DLC,
     Savegame,
     Extdata,
+    Sysdata,
 };
 
 /**
@@ -26,22 +30,30 @@ enum class ContentType {
 struct ContentSpecifier {
     ContentType type;
     u64 id;
+    bool already_exists; ///< Tells whether a file already exists in target path.
 };
 
 /**
  * A set of values that are used to initialize the importer.
+ * All paths to directories shall end with a '/' (will be automatically added when not present)
  */
 struct Config {
     std::string sdmc_path; ///< SDMC root path ("Nintendo 3DS/<ID0>/<ID1>")
+    std::string user_path; ///< Target user path of Citra
 
     // Necessary system files keys are loaded from.
     std::string movable_sed_path; ///< Path to movable.sed
-    std::string bootrom_path;     ///< Path to bootrom (boot9.bin)
+    std::string bootrom_path;     ///< Path to bootrom (boot9.bin) (Sysdata 0)
 
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
-    std::string safe_mode_firm_path; ///< Path to safe mode firm
-    std::string secret_sector_path;  ///< Path to secret sector (New3DS only)
+
+    std::string safe_mode_firm_path; ///< Path to safe mode firm (A folder) (Sysdata 1)
+    std::string seed_db_path;        ///< Path to seeddb.bin (Sysdata 2)
+    std::string secret_sector_path;  ///< Path to secret sector (New3DS only) (Sysdata 3)
+
+    // Whether this config has all necessary information
+    bool is_good;
 };
 
 class SDMCImporter {
@@ -65,10 +77,22 @@ public:
      */
     std::vector<ContentSpecifier> ListContent() const;
 
+    /**
+     * Returns whether the importer is in good state.
+     */
+    bool IsGood() const;
+
 private:
+    bool Init();
     bool ImportTitle(u64 id);
     bool ImportSavegame(u64 id);
     bool ImportExtdata(u64 id);
+    bool ImportSysdata(u64 id);
+    void ListTitle(std::vector<ContentSpecifier>& out) const;
+    void ListExtdata(std::vector<ContentSpecifier>& out) const;
+    void ListSysdata(std::vector<ContentSpecifier>& out) const;
 
+    bool is_good{};
     Config config;
+    std::unique_ptr<SDMCDecryptor> decryptor;
 };
