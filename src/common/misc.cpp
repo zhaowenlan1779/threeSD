@@ -3,11 +3,11 @@
 // Refer to the license.txt file included.
 
 #include <cstddef>
+#include <cstring>
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <cerrno>
-#include <cstring>
 #endif
 
 #include "common/common_funcs.h"
@@ -27,5 +27,5 @@ std::string GetLastErrorMsg() {
     strerror_r(errno, err_str, buff_size);
 #endif
 
-    return std::string(err_str, buff_size);
+    return std::string(err_str, strnlen(err_str, buff_size));
 }

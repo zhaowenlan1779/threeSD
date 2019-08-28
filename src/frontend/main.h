@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <QDialog>
+#include "core/importer.h"
 
 namespace Ui {
 class MainDialog;
@@ -19,5 +20,10 @@ public:
     ~MainDialog() override;
 
 private:
+    void LoadPresetConfig();
+    void ShowAdvanced();
+    void HideAdvanced();
+
+    std::vector<Core::Config> preset_config_list;
     std::unique_ptr<Ui::MainDialog> ui;
 };

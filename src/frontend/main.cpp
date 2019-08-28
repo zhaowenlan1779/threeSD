@@ -2,22 +2,127 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <string>
 #include <QApplication>
+#include <QStorageInfo>
+#include <qdevicewatcher.h>
+#include "common/file_util.h"
 #include "frontend/main.h"
 #include "ui_main.h"
 
 #ifdef __APPLE__
-#include <string>
 #include <unistd.h>
 #include "common/common_paths.h"
-#include "common/file_util.h"
 #endif
 
 MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
     ui->setupUi(this);
+
+    setFixedWidth(width());
+    ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));
+
+    LoadPresetConfig();
+
+    connect(ui->advancedButton, &QPushButton::clicked, [this] {
+        if (ui->customGroupBox->isVisible()) {
+            HideAdvanced();
+        } else {
+            ShowAdvanced();
+        }
+    });
+
+    connect(ui->buttonBox, &QDialogButtonBox::clicked, [this](QAbstractButton* button) {
+        if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)) {
+            LoadPresetConfig();
+        }
+    });
+
+    // Set up device watcher
+    auto* device_watcher = new QDeviceWatcher(this);
+    device_watcher->start();
+    connect(device_watcher, &QDeviceWatcher::deviceAdded, this, &MainDialog::LoadPresetConfig);
+    connect(device_watcher, &QDeviceWatcher::deviceChanged, this, &MainDialog::LoadPresetConfig);
+    connect(device_watcher, &QDeviceWatcher::deviceRemoved, this, &MainDialog::LoadPresetConfig);
 }
 
 MainDialog::~MainDialog() = default;
+
+void MainDialog::LoadPresetConfig() {
+    ui->configSelect->clear();
+    preset_config_list.clear();
+
+    for (const auto& storage : QStorageInfo::mountedVolumes()) {
+        if (!storage.isValid() || !storage.isReady()) {
+            continue;
+        }
+
+        auto list = Core::LoadPresetConfig(storage.rootPath().toStdString());
+        for (std::size_t i = 0; i < list.size(); ++i) {
+            preset_config_list.emplace_back(list[i]);
+            ui->configSelect->addItem(QString::fromStdString(list[i].sdmc_path));
+        }
+    }
+
+    if (preset_config_list.empty()) {
+        // Clear the text
+        ui->sdmcPath->setText(QString{});
+        ui->userPath->setText(
+            QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)));
+        ui->movableSedPath->setText(QString{});
+        ui->bootrom9Path->setText(QString{});
+        ui->safeModeFirmPath->setText(QString{});
+        ui->seeddbPath->setText(QString{});
+        ui->secretSectorPath->setText(QString{});
+
+        ui->advancedButton->setVisible(false);
+        ShowAdvanced();
+        ui->configSelect->addItem(tr("None"));
+        ui->configSelect->setCurrentText(tr("None"));
+    } else {
+        ui->advancedButton->setVisible(true);
+        if (ui->customGroupBox->isVisible()) {
+            HideAdvanced();
+        }
+    }
+}
+
+void MainDialog::ShowAdvanced() {
+    ui->configSelect->setEnabled(false);
+    ui->advancedButton->setText(tr("Hide Custom Config"));
+    ui->customGroupBox->setVisible(true);
+
+    setMaximumHeight(1000000);
+    adjustSize();
+
+    const int index = ui->configSelect->currentIndex();
+    ui->configSelect->addItem(tr("Custom"));
+    ui->configSelect->setCurrentText(tr("Custom"));
+
+    if (index == -1) {
+        return;
+    }
+
+    // Load preset data
+    const auto config = preset_config_list[static_cast<u32>(index)];
+    ui->sdmcPath->setText(QString::fromStdString(config.sdmc_path));
+    ui->userPath->setText(QString::fromStdString(config.user_path));
+    ui->movableSedPath->setText(QString::fromStdString(config.movable_sed_path));
+    ui->bootrom9Path->setText(QString::fromStdString(config.bootrom_path));
+    ui->safeModeFirmPath->setText(QString::fromStdString(config.safe_mode_firm_path));
+    ui->seeddbPath->setText(QString::fromStdString(config.seed_db_path));
+    ui->secretSectorPath->setText(QString::fromStdString(config.secret_sector_path));
+}
+
+void MainDialog::HideAdvanced() {
+    ui->configSelect->setEnabled(true);
+    ui->advancedButton->setText(tr("Customize..."));
+    ui->customGroupBox->setVisible(false);
+
+    LoadPresetConfig();
+
+    setMaximumHeight(130);
+    adjustSize();
+}
 
 int main(int argc, char* argv[]) {
     // Init settings params

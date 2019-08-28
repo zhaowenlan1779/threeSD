@@ -11,6 +11,8 @@
 #include "core/inner_fat.h"
 #include "core/key/key.h"
 
+namespace Core {
+
 SDMCImporter::SDMCImporter(const Config& config_) : config(config_) {
     is_good = Init();
 }
@@ -305,7 +307,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         nullptr, mount_point + "Nintendo 3DS/",
         [&id_regex, &ProcessDirectory](u64* /*num_entries_out*/, const std::string& directory,
                                        const std::string& virtual_name) {
-            if (!FileUtil::IsDirectory(directory + virtual_name)) {
+            if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                 return true;
             }
 
@@ -313,8 +315,10 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
                 return true;
             }
 
-            return ProcessDirectory(directory + virtual_name);
+            return ProcessDirectory(directory + virtual_name + "/");
         });
 
     return out;
 }
+
+} // namespace Core

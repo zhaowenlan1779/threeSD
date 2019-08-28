@@ -11,7 +11,7 @@
 #include "core/key/arithmetic128.h"
 #include "core/key/key.h"
 
-namespace Key {
+namespace Core::Key {
 
 namespace {
 
@@ -216,4 +216,4 @@ void SelectCommonKeyIndex(u8 index) {
     key_slots[KeySlotID::TicketCommonKey].SetKeyY(common_key_y_slots.at(index));
 }
 
-} // namespace Key
+} // namespace Core::Key

@@ -14,6 +14,8 @@
 #include <fmt/format.h>
 #include "common/string_util.h"
 
+#include <iostream>
+
 template <typename... Args>
 void PrintLog(std::FILE* f, const std::string& log_class, const std::string& level,
               const std::string& color, const std::string& file, int line, const std::string& func,
@@ -23,9 +25,13 @@ void PrintLog(std::FILE* f, const std::string& log_class, const std::string& lev
                        std::chrono::steady_clock::now() - time_origin)
                        .count();
     const auto real_class = Common::ReplaceAll(log_class, "_", ".");
-    fmt::print(f, "\x1b{}[{:12.6f}] {} <{}> {}:{}:{}: " + format + "\x1b[0m\n", color,
-               us / 1000000.0, log_class, level, file, line, func, args...);
-    fflush(stderr);
+    try {
+        fmt::print(f, "\x1b{}[{:12.6f}] {} <{}> {}:{}:{}: " + format + "\x1b[0m\n", color,
+                   us / 1000000.0, real_class, level, file, line, func, args...);
+        fflush(stderr);
+    } catch (...) {
+        std::cerr << "FMT failed with exception" << std::endl;
+    }
 }
 
 #ifdef _DEBUG

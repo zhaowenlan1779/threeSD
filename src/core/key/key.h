@@ -9,7 +9,7 @@
 #include <string>
 #include "common/common_types.h"
 
-namespace Key {
+namespace Core::Key {
 
 enum KeySlotID : std::size_t {
 
@@ -69,4 +69,4 @@ AESKey GetNormalKey(std::size_t slot_id);
 
 void SelectCommonKeyIndex(u8 index);
 
-} // namespace Key
+} // namespace Core::Key

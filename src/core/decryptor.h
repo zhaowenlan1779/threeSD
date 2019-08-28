@@ -8,6 +8,8 @@
 #include <vector>
 #include "common/common_types.h"
 
+namespace Core {
+
 class SDMCDecryptor {
 public:
     /**
@@ -35,3 +37,5 @@ public:
 private:
     std::string root_folder;
 };
+
+} // namespace Core

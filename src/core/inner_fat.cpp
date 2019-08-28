@@ -9,6 +9,8 @@
 #include "core/decryptor.h"
 #include "core/inner_fat.h"
 
+namespace Core {
+
 constexpr u32 MakeMagic(char a, char b, char c, char d) {
     return a | b << 8 | c << 16 | d << 24;
 }
@@ -334,3 +336,5 @@ ArchiveFormatInfo SDExtdata::GetFormatInfo() const {
 
     return format_info;
 }
+
+} // namespace Core

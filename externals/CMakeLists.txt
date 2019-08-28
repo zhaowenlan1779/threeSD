@@ -1,2 +1,8 @@
+# Crypto++
 add_subdirectory(cryptopp)
+
+# fmt
 add_subdirectory(fmt)
+
+# QDeviceWatcher
+add_subdirectory(qdevicewatcher)

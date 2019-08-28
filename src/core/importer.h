@@ -9,6 +9,8 @@
 #include <vector>
 #include "common/common_types.h"
 
+namespace Core {
+
 class SDMCDecryptor;
 
 /**
@@ -99,3 +101,5 @@ private:
  * @return a list of preset config available. can be empty
  */
 std::vector<Config> LoadPresetConfig(std::string mount_point);
+
+} // namespace Core

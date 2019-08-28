@@ -4,3 +4,6 @@
 [submodule "cryptopp"]
 	path = externals/cryptopp/cryptopp
 	url = https://github.com/weidai11/cryptopp.git
+[submodule "qdevicewatcher"]
+	path = externals/qdevicewatcher/qdevicewatcher
+	url = https://github.com/wang-bin/qdevicewatcher.git

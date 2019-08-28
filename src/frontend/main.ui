@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>450</height>
+    <height>130</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,11 +26,11 @@
      <item>
       <widget class="QComboBox" name="configSelect">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
       </widget>
      </item>
     </layout>
@@ -40,7 +40,7 @@
      <item>
       <widget class="QPushButton" name="advancedButton">
        <property name="text">
-        <string>Advanced...</string>
+        <string>Customize...</string>
        </property>
       </widget>
      </item>
@@ -54,160 +54,159 @@
     </layout>
    </item>
    <item>
-    <widget class="QGroupBox">
+    <widget class="QGroupBox" name="customGroupBox">
      <property name="title">
       <string>Custom</string>
      </property>
      <property name="visible">
       <bool>false</bool>
      </property>
-     <layout class="QVBoxLayout">
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>SDMC:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="sdmcPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="sdmcPathExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+     <layout class="QGridLayout">
+      <item row="0" column="0">
+        <widget class="QLabel">
+         <property name="text">
+          <string>SDMC (Required)</string>
+         </property>
+         <property name="toolTip">
+          <string>Path to the Nintendo 3DS/&lt;ID0>/&lt;ID1> folder.</string>
+         </property>
+        </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>User Directory:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="userPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="userPathExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="sdmcPath">
+        <property name="toolTip">
+          <string>Path to the Nintendo 3DS/&lt;ID0>/&lt;ID1> folder.</string>
+         </property>
+       </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>movable.sed:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="movableSedPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="movableSedExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="0" column="2">
+       <widget class="QToolButton" name="sdmcPathExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>boot9.bin:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="bootrom9Path"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="bootrom9Explore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="1" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Citra User Directory (Required)</string>
+        </property>
+        <property name="toolTip">
+         <string>Path to the User Directory of Citra to put imported content into.</string>
+        </property>
+       </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>Safe mode firm Path:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="safeModeFirmPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="safeModeFirmExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="userPath">
+        <property name="toolTip">
+         <string>Path to the User Directory of Citra to put imported content into.</string>
+        </property>
+       </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>seeddb.bin:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="seeddbPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="seeddbExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="1" column="2">
+       <widget class="QToolButton" name="userPathExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout">
-        <item>
-         <widget class="QLabel">
-          <property name="text">
-           <string>sector0x96.bin:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="secretSectorPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="secretSectorExplore">
-          <property name="text">
-           <string>...</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+      <item row="2" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>movable.sed (Required)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="movableSedPath"/>
+      </item>
+      <item row="2" column="2">
+       <widget class="QToolButton" name="movableSedExplore">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>boot9.bin (Required)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="bootrom9Path"/>
+      </item>
+      <item row="3" column="2">
+       <widget class="QToolButton" name="bootrom9Explore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Safe mode firm</string>
+        </property>
+        <property name="toolTip">
+         <string>Path to the safe mode firm.&lt;br>This is a folder, and needs to contain another folder named 'new' or 'old' corresponding to the system's type.&lt;br>The 'new' or 'old' folder should hold files from the 'content' folder of the firm title in NAND. (i.e. tmd and app)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLineEdit" name="safeModeFirmPath">
+        <property name="toolTip">
+         <string>Path to the safe mode firm.&lt;br>This is a folder, and needs to contain another folder named 'new' or 'old' corresponding to the system's type.&lt;br>The 'new' or 'old' folder should hold files from the 'content' folder of the firm title in NAND. (i.e. tmd and app)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2">
+       <widget class="QToolButton" name="safeModeFirmExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>seeddb.bin</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QLineEdit" name="seeddbPath"/>
+      </item>
+      <item row="5" column="2">
+       <widget class="QToolButton" name="seeddbExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>sector0x96.bin</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLineEdit" name="secretSectorPath"/>
+      </item>
+      <item row="6" column="2">
+       <widget class="QToolButton" name="secretSectorExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

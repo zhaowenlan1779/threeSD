@@ -10,6 +10,8 @@
 #include "common/common_types.h"
 #include "common/swap.h"
 
+namespace Core {
+
 #pragma pack(push, 1)
 struct DataDescriptor {
     u64_le offset;
@@ -127,3 +129,5 @@ private:
     std::vector<DataDescriptor> partition_descriptors;
     std::vector<DataDescriptor> partitions;
 };
+
+} // namespace Core

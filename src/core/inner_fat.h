@@ -4,6 +4,8 @@
 
 #pragma once
 
+namespace Core {
+
 #include <array>
 #include <type_traits>
 #include <vector>
@@ -194,3 +196,5 @@ private:
     std::string data_path;
     const SDMCDecryptor& decryptor;
 };
+
+} // namespace Core

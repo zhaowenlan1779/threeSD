@@ -6,6 +6,8 @@
 #include "common/assert.h"
 #include "core/data_container.h"
 
+namespace Core {
+
 constexpr u32 MakeMagic(char a, char b, char c, char d) {
     return a | b << 8 | c << 16 | d << 24;
 }
@@ -150,3 +152,5 @@ std::vector<std::vector<u8>> DataContainer::GetIVFCLevel4Data() const {
         return {GetPartitionData(0), GetPartitionData(1)};
     }
 }
+
+} // namespace Core

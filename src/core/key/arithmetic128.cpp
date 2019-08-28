@@ -6,7 +6,7 @@
 #include <functional>
 #include "core/key/arithmetic128.h"
 
-namespace Key {
+namespace Core::Key {
 
 AESKey Lrot128(const AESKey& in, u32 rot) {
     AESKey out;
@@ -56,4 +56,4 @@ AESKey Xor128(const AESKey& a, const AESKey& b) {
     return out;
 }
 
-} // namespace Key
+} // namespace Core::Key

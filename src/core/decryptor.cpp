@@ -15,6 +15,8 @@
 #include "core/decryptor.h"
 #include "core/key/key.h"
 
+namespace Core {
+
 SDMCDecryptor::SDMCDecryptor(const std::string& root_folder_) : root_folder(root_folder_) {
     ASSERT_MSG(Key::IsNormalKeyAvailable(Key::SDKey),
                "SD Key must be available in order to decrypt");
@@ -89,3 +91,5 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
     aes.ProcessData(data.data(), encrypted_data.data(), encrypted_data.size());
     return data;
 }
+
+} // namespace Core
