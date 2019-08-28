@@ -1,14 +1,16 @@
-target_sources(threeSD PRIVATE
-  common/assert.h
-  common/bit_field.h
-  common/common_funcs.h
-  common/common_paths.h
-  common/common_types.h
-  common/file_util.cpp
-  common/file_util.h
-  common/logging/log.h
-  common/misc.cpp
-  common/string_util.cpp
-  common/string_util.h
-  common/swap.h
+add_library(common STATIC
+  assert.h
+  bit_field.h
+  common_funcs.h
+  common_paths.h
+  common_types.h
+  file_util.cpp
+  file_util.h
+  logging/log.h
+  misc.cpp
+  string_util.cpp
+  string_util.h
+  swap.h
 )
+
+target_link_libraries(common PUBLIC fmt)

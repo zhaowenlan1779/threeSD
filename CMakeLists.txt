@@ -1,7 +1,19 @@
 # CMake 3.8 required for 17 to be a valid value for CXX_STANDARD
 cmake_minimum_required(VERSION 3.8)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
+include(DownloadExternals)
+include(CMakeDependentOption)
+
+if (POLICY CMP0076)
+    # TODO: set this to NEW
+    cmake_policy(SET CMP0076 OLD)
+endif()
 
 project(threeSD)
+
+option(WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+CMAKE_DEPENDENT_OPTION(USE_BUNDLED_QT "Download bundled Qt binaries" ON "MSVC" OFF)
+CMAKE_DEPENDENT_OPTION(COMPILE_WITH_DWARF "Add DWARF debugging information" ON "MINGW" OFF)
 
 # Sanity check : Check that all submodules are present
 # =======================================================================
@@ -25,6 +37,55 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # set up output paths for executable binaries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+
+# System imported libraries
+# ======================
+
+# TODO: Is this necessary?
+
+# Prefer the -pthread flag on Linux.
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+if (USE_BUNDLED_QT)
+    if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1930) AND ARCHITECTURE_x86_64)
+        set(QT_VER qt-5.10.0-msvc2017_64)
+    else()
+        message(FATAL_ERROR "No bundled Qt binaries for your toolchain. Disable CITRA_USE_BUNDLED_QT and provide your own.")
+    endif()
+
+    if (DEFINED QT_VER)
+        download_bundled_external("qt/" ${QT_VER} QT_PREFIX)
+    endif()
+
+    set(QT_PREFIX_HINT HINTS "${QT_PREFIX}")
+else()
+    # Passing an empty HINTS seems to cause default system paths to get ignored in CMake 2.8 so
+    # make sure to not pass anything if we don't have one.
+    set(QT_PREFIX_HINT)
+endif()
+
+find_package(Qt5 REQUIRED COMPONENTS Widgets ${QT_PREFIX_HINT})
+
+# Platform-specific library requirements
+# ======================================
+# TODO: Check the necessity of these
+
+if (APPLE)
+    # Umbrella framework for everything GUI-related
+    find_library(COCOA_LIBRARY Cocoa)
+    set(PLATFORM_LIBRARIES ${COCOA_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+elseif (WIN32)
+    # WSAPoll and SHGetKnownFolderPath (AppData/Roaming) didn't exist before WinNT 6.x (Vista)
+    add_definitions(-D_WIN32_WINNT=0x0600 -DWINVER=0x0600)
+    set(PLATFORM_LIBRARIES winmm ws2_32)
+    if (MINGW)
+        # PSAPI is the Process Status API
+        set(PLATFORM_LIBRARIES ${PLATFORM_LIBRARIES} psapi imm32 version)
+    endif()
+elseif (CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU|SunOS)$")
+    set(PLATFORM_LIBRARIES rt)
+endif()
 
 # Include source code
 # ===================

@@ -31,7 +31,8 @@ struct KeyDesc {
     bool same_as_before;
 };
 
-AESKey HexToKey(const std::string& hex) {
+// TODO: Use this to support manual input of keys
+[[maybe_unused]] AESKey HexToKey(const std::string& hex) {
     if (hex.size() < 32) {
         throw std::invalid_argument("hex string is too short");
     }

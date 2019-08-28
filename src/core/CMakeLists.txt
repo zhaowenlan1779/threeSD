@@ -1,14 +1,16 @@
-target_sources(threeSD PRIVATE
-  core/data_container.cpp
-  core/data_container.h
-  core/decryptor.cpp
-  core/decryptor.h
-  core/importer.cpp
-  core/importer.h
-  core/inner_fat.cpp
-  core/inner_fat.h
-  core/key/arithmetic128.cpp
-  core/key/arithmetic128.h
-  core/key/key.cpp
-  core/key/key.h
+add_library(core STATIC
+  data_container.cpp
+  data_container.h
+  decryptor.cpp
+  decryptor.h
+  importer.cpp
+  importer.h
+  inner_fat.cpp
+  inner_fat.h
+  key/arithmetic128.cpp
+  key/arithmetic128.h
+  key/key.cpp
+  key/key.h
 )
+
+target_link_libraries(core PRIVATE common cryptopp)

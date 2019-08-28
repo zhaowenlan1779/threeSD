@@ -1,14 +1,38 @@
-// Dummy
+// Copyright 2014 Citra Emulator Project / 2019 threeSD Project
+// Licensed under GPLv2 or any later version
+// Refer to the license.txt file included.
 
-#include <iostream>
-#include "common/logging/log.h"
+#include <QApplication>
+#include "frontend/main.h"
+#include "ui_main.h"
 
-int main() {
+#ifdef __APPLE__
+#include <string>
+#include <unistd.h>
+#include "common/common_paths.h"
+#include "common/file_util.h"
+#endif
 
-    LOG_ERROR(Frontend, "test");
-    _sleep(1000);
-    LOG_WARNING(Frontend, "test2");
-    system("pause");
+MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
+    ui->setupUi(this);
+}
 
-    return 0;
+MainDialog::~MainDialog() = default;
+
+int main(int argc, char* argv[]) {
+    // Init settings params
+    QCoreApplication::setOrganizationName("zhaowenlan1779");
+    QCoreApplication::setApplicationName("threeSD");
+
+#ifdef __APPLE__
+    std::string bin_path = FileUtil::GetBundleDirectory() + DIR_SEP + "..";
+    chdir(bin_path.c_str());
+#endif
+
+    QApplication app(argc, argv);
+
+    MainDialog main_dialog;
+    main_dialog.show();
+
+    return app.exec();
 }

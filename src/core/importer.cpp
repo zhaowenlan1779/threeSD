@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <regex>
 #include "common/assert.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
@@ -17,7 +18,7 @@ SDMCImporter::SDMCImporter(const Config& config_) : config(config_) {
 SDMCImporter::~SDMCImporter() = default;
 
 bool SDMCImporter::Init() {
-    ASSERT_MSG(config.is_good && !config.sdmc_path.empty() && !config.user_path.empty() &&
+    ASSERT_MSG(!config.sdmc_path.empty() && !config.user_path.empty() &&
                    !config.bootrom_path.empty() && !config.movable_sed_path.empty(),
                "Config is not good");
 
@@ -244,4 +245,76 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
     } while (0);
 
 #undef CHECK_CONTENT
+}
+
+std::vector<Config> LoadPresetConfig(std::string mount_point) {
+    if (mount_point.back() != '/' && mount_point.back() != '\\') {
+        mount_point += '/';
+    }
+
+    // Not a Nintendo 3DS sd card at all
+    if (!FileUtil::Exists(mount_point + "Nintendo 3DS/")) {
+        return {};
+    }
+
+    Config config_template{};
+    config_template.user_path = FileUtil::GetUserPath(FileUtil::UserPath::UserDir);
+
+    // Load dumped data paths if using our dumper
+    if (FileUtil::Exists(mount_point + "threeSD/")) {
+#define LOAD_DATA(var, path)                                                                       \
+    if (FileUtil::Exists(mount_point + "threeSD/" + path)) {                                       \
+        config_template.var = mount_point + "threeSD/" + path;                                     \
+    }
+
+        LOAD_DATA(movable_sed_path, MOVABLE_SED);
+        LOAD_DATA(bootrom_path, BOOTROM9);
+        LOAD_DATA(safe_mode_firm_path, "firm/");
+        LOAD_DATA(seed_db_path, SEED_DB);
+        LOAD_DATA(secret_sector_path, SECRET_SECTOR);
+#undef LOAD_DATA
+    }
+
+    // Regex for 3DS ID0 and ID1
+    const std::regex id_regex{"[0-9a-f]{32}"};
+
+    // Load SDMC dir
+    std::vector<Config> out;
+    const auto ProcessDirectory = [&id_regex, &config_template, &out](const std::string& path) {
+        return FileUtil::ForeachDirectoryEntry(
+            nullptr, path,
+            [&id_regex, &config_template, &out](u64* /*num_entries_out*/,
+                                                const std::string& directory,
+                                                const std::string& virtual_name) {
+                if (!FileUtil::IsDirectory(directory + virtual_name)) {
+                    return true;
+                }
+
+                if (!std::regex_match(virtual_name, id_regex)) {
+                    return true;
+                }
+
+                Config config = config_template;
+                config.sdmc_path = directory + virtual_name + "/";
+                out.push_back(config);
+                return true;
+            });
+    };
+
+    FileUtil::ForeachDirectoryEntry(
+        nullptr, mount_point + "Nintendo 3DS/",
+        [&id_regex, &ProcessDirectory](u64* /*num_entries_out*/, const std::string& directory,
+                                       const std::string& virtual_name) {
+            if (!FileUtil::IsDirectory(directory + virtual_name)) {
+                return true;
+            }
+
+            if (!std::regex_match(virtual_name, id_regex)) {
+                return true;
+            }
+
+            return ProcessDirectory(directory + virtual_name);
+        });
+
+    return out;
 }
