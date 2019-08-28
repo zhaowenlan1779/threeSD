@@ -30,7 +30,7 @@ void PrintLog(std::FILE* f, const std::string& log_class, const std::string& lev
                    us / 1000000.0, real_class, level, file, line, func, args...);
         fflush(stderr);
     } catch (...) {
-        std::cerr << "FMT failed with exception" << std::endl;
+        std::cerr << "(unexpected) fmt failed with exception" << std::endl;
     }
 }
 

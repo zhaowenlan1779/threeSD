@@ -23,6 +23,7 @@ private:
     void LoadPresetConfig();
     void ShowAdvanced();
     void HideAdvanced();
+    Core::Config GetCurrentConfig();
 
     std::vector<Core::Config> preset_config_list;
     std::unique_ptr<Ui::MainDialog> ui;

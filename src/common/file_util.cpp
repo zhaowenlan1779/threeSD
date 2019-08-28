@@ -367,6 +367,37 @@ u64 GetSize(FILE* f) {
     return size;
 }
 
+u64 GetDirectoryTreeSize(const std::string& path, unsigned int recursion) {
+    if (!IsDirectory(path)) {
+        LOG_ERROR(Common_FileSystem, "failed {}: is a file", path);
+        return 0;
+    }
+
+    std::string real_path = path;
+    if (real_path.back() != '/' && real_path.back() != '\\') {
+        real_path += '/';
+    }
+
+    u64 total_size = 0;
+    const auto callback = [recursion, &total_size](u64* /*num_entries_out*/,
+                                                   const std::string& directory,
+                                                   const std::string& virtual_name) -> bool {
+        if (IsDirectory(directory + virtual_name)) {
+            if (recursion == 0) {
+                LOG_WARNING(Common_FileSystem, "directory tree too deep");
+                return true;
+            }
+            total_size += GetDirectoryTreeSize(directory + virtual_name, recursion - 1);
+        } else { // is a file
+            total_size += GetSize(directory + virtual_name);
+        }
+
+        return true;
+    };
+
+    return ForeachDirectoryEntry(nullptr, real_path, callback) ? total_size : 0;
+}
+
 bool CreateEmptyFile(const std::string& filename) {
     LOG_TRACE(Common_Filesystem, "{}", filename);
 

@@ -33,6 +33,8 @@ struct ContentSpecifier {
     ContentType type;
     u64 id;
     bool already_exists; ///< Tells whether a file already exists in target path.
+    u64 maximum_size; ///< The maximum size of the content. May be slightly bigger than real size.
+    std::string name; ///< Optional. The content's preferred display name.
 };
 
 /**

@@ -7,6 +7,9 @@ if (POLICY CMP0071)
 endif()
 
 add_executable(threeSD
+  import_dialog.cpp
+  import_dialog.h
+  import_dialog.ui
   main.cpp
   main.h
   main.ui
@@ -47,6 +50,9 @@ target_compile_definitions(threeSD PRIVATE
 
     # Disable implicit QString->QUrl conversions to enforce use of proper resolving functions.
     -DQT_NO_URL_CAST_FROM_STRING
+
+    # Disable automatic conversions from 8-bit strings (char *) to unicode QStrings
+    -DQT_NO_CAST_FROM_ASCII
 )
 
 if (MSVC)

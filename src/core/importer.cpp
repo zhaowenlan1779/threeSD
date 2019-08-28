@@ -80,7 +80,10 @@ bool SDMCImporter::ImportTitle(u64 id) {
             }
             return decryptor->DecryptAndWriteFile(
                 "/" + path + virtual_name,
-                FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) + path + virtual_name);
+                FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
+                    "Nintendo "
+                    "3DS/00000000000000000000000000000000/00000000000000000000000000000000/" +
+                    path + virtual_name);
         });
 }
 
@@ -91,7 +94,9 @@ bool SDMCImporter::ImportSavegame(u64 id) {
         return false;
     }
 
-    return save.Extract(FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) + path);
+    return save.Extract(
+        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
+        "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
 bool SDMCImporter::ImportExtdata(u64 id) {
@@ -101,7 +106,9 @@ bool SDMCImporter::ImportExtdata(u64 id) {
         return false;
     }
 
-    return extdata.Extract(FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) + path);
+    return extdata.Extract(
+        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
+        "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
 bool SDMCImporter::ImportSysdata(u64 id) {
@@ -130,7 +137,7 @@ bool SDMCImporter::ImportSysdata(u64 id) {
                 }
                 return FileUtil::Copy(
                     directory + virtual_name,
-                    fmt::format("{}title/00040138/{}/content/{}",
+                    fmt::format("{}00000000000000000000000000000000/title/00040138/{}/content/{}",
                                 FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
                                 (is_new_3ds ? "20000003" : "00000003"), virtual_name));
             });
@@ -167,16 +174,20 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
             nullptr, fmt::format("{}title/{:08x}/", sdmc_path, high_id),
             [type, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
                                   const std::string& virtual_name) {
-                if (!FileUtil::IsDirectory(directory + virtual_name)) {
+                if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
 
                 const u64 id = (high_id << 32) + std::stoull(virtual_name, nullptr, 16);
                 const auto citra_path = fmt::format(
-                    "{}title/{:08x}/{}/", FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir),
-                    high_id, virtual_name);
+                    "{}Nintendo "
+                    "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/"
+                    "{:08x}/{}/",
+                    FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), high_id, virtual_name);
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
-                    out.push_back({type, id, FileUtil::Exists(citra_path + "content/")});
+                    out.push_back(
+                        {type, id, FileUtil::Exists(citra_path + "content/"),
+                         FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/")});
                 }
 
                 if (type != ContentType::Application) {
@@ -184,7 +195,8 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                 }
                 if (FileUtil::Exists(directory + virtual_name + "/data/")) {
                     out.push_back(
-                        {ContentType::Savegame, id, FileUtil::Exists(citra_path + "data/")});
+                        {ContentType::Savegame, id, FileUtil::Exists(citra_path + "data/"),
+                         FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/data/")});
                 }
                 return true;
             });
@@ -200,31 +212,37 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
         nullptr, fmt::format("{}extdata/00000000/", config.sdmc_path),
         [&out](u64* /*num_entries_out*/, const std::string& directory,
                const std::string& virtual_name) {
-            if (!FileUtil::IsDirectory(directory + virtual_name)) {
+            if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                 return true;
             }
 
             const u64 id = std::stoull(virtual_name, nullptr, 16);
             const auto citra_path =
-                fmt::format("{}extdata/00000000/{}",
+                fmt::format("{}Nintendo "
+                            "3DS/00000000000000000000000000000000/00000000000000000000000000000000/"
+                            "extdata/00000000/{}",
                             FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), virtual_name);
-            out.push_back({ContentType::Extdata, id, FileUtil::Exists(citra_path)});
+            out.push_back({ContentType::Extdata, id, FileUtil::Exists(citra_path),
+                           FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/")});
             return true;
         });
 }
 
 void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
-#define CHECK_CONTENT(id, var_path, citra_path)                                                    \
+#define CHECK_CONTENT(id, var_path, citra_path, display_name)                                      \
     if (!var_path.empty()) {                                                                       \
-        out.push_back({ContentType::Sysdata, id, FileUtil::Exists(citra_path)});                   \
+        out.push_back({ContentType::Sysdata, id, FileUtil::Exists(citra_path),                     \
+                       FileUtil::GetSize(var_path), display_name});                                \
     }
 
     {
         const auto sysdata_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir);
-        CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9);
-        CHECK_CONTENT(2, config.seed_db_path, sysdata_path + SEED_DB);
-        CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR);
+        CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
+        CHECK_CONTENT(2, config.seed_db_path, sysdata_path + SEED_DB, SEED_DB);
+        CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
     }
+
+#undef CHECK_CONTENT
 
     do {
         if (config.safe_mode_firm_path.empty()) {
@@ -240,13 +258,15 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
             break;
         }
 
-        const auto citra_path = fmt::format("{}title/00040138/{}/content/",
-                                            FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
-                                            (is_new ? "20000003" : "00000003"));
-        CHECK_CONTENT(1, config.safe_mode_firm_path, citra_path);
+        const auto citra_path = fmt::format(
+            "{}00000000000000000000000000000000/title/00040138/{}/content/",
+            FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (is_new ? "20000003" : "00000003"));
+        if (!config.safe_mode_firm_path.empty()) {
+            out.push_back({ContentType::Sysdata, 1, FileUtil::Exists(citra_path),
+                           FileUtil::GetDirectoryTreeSize(config.safe_mode_firm_path),
+                           "Safe mode firm"});
+        }
     } while (0);
-
-#undef CHECK_CONTENT
 }
 
 std::vector<Config> LoadPresetConfig(std::string mount_point) {
@@ -288,7 +308,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
             [&id_regex, &config_template, &out](u64* /*num_entries_out*/,
                                                 const std::string& directory,
                                                 const std::string& virtual_name) {
-                if (!FileUtil::IsDirectory(directory + virtual_name)) {
+                if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
 

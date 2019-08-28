@@ -7,6 +7,7 @@
 #include <QStorageInfo>
 #include <qdevicewatcher.h>
 #include "common/file_util.h"
+#include "frontend/import_dialog.h"
 #include "frontend/main.h"
 #include "ui_main.h"
 
@@ -34,6 +35,9 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
     connect(ui->buttonBox, &QDialogButtonBox::clicked, [this](QAbstractButton* button) {
         if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)) {
             LoadPresetConfig();
+        } else if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)) {
+            ImportDialog dialog(this, GetCurrentConfig());
+            dialog.exec();
         }
     });
 
@@ -124,10 +128,27 @@ void MainDialog::HideAdvanced() {
     adjustSize();
 }
 
+Core::Config MainDialog::GetCurrentConfig() {
+    if (ui->customGroupBox->isVisible()) {
+        Core::Config config{
+            /*sdmc_path*/ ui->sdmcPath->text().toStdString(),
+            /*user_path*/ ui->userPath->text().toStdString(),
+            /*movable_sed_path*/ ui->movableSedPath->text().toStdString(),
+            /*bootrom_path*/ ui->bootrom9Path->text().toStdString(),
+            /*safe_mode_firm_path*/ ui->safeModeFirmPath->text().toStdString(),
+            /*seed_db_path*/ ui->seeddbPath->text().toStdString(),
+            /*secret_sector_path*/ ui->secretSectorPath->text().toStdString(),
+        };
+        return config;
+    } else {
+        return preset_config_list[ui->configSelect->currentIndex()];
+    }
+}
+
 int main(int argc, char* argv[]) {
     // Init settings params
-    QCoreApplication::setOrganizationName("zhaowenlan1779");
-    QCoreApplication::setApplicationName("threeSD");
+    QCoreApplication::setOrganizationName(QStringLiteral("zhaowenlan1779"));
+    QCoreApplication::setApplicationName(QStringLiteral("threeSD"));
 
 #ifdef __APPLE__
     std::string bin_path = FileUtil::GetBundleDirectory() + DIR_SEP + "..";

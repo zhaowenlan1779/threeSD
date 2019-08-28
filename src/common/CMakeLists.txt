@@ -8,6 +8,7 @@ add_library(common STATIC
   file_util.h
   logging/log.h
   misc.cpp
+  scope_exit.h
   string_util.cpp
   string_util.h
   swap.h

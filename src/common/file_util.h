@@ -59,6 +59,9 @@ u64 GetSize(const int fd);
 // Overloaded GetSize, accepts FILE*
 u64 GetSize(FILE* f);
 
+// Returns the size of a directory tree
+u64 GetDirectoryTreeSize(const std::string& path, unsigned int recursion = 256);
+
 // Returns true if successful, or path already exists.
 bool CreateDir(const std::string& filename);
 
