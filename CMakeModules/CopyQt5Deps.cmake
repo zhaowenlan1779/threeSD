@@ -16,8 +16,8 @@ function(copy_Qt5_deps target_dir)
         Qt5Gui$<$<CONFIG:Debug>:d>.*
         Qt5Widgets$<$<CONFIG:Debug>:d>.*
     )
-    windows_copy_files(citra-qt ${Qt5_PLATFORMS_DIR} ${PLATFORMS} qwindows$<$<CONFIG:Debug>:d>.*)
-    windows_copy_files(citra-qt ${Qt5_STYLES_DIR} ${STYLES} qwindowsvistastyle$<$<CONFIG:Debug>:d>.*)
+    windows_copy_files(threeSD ${Qt5_PLATFORMS_DIR} ${PLATFORMS} qwindows$<$<CONFIG:Debug>:d>.*)
+    windows_copy_files(threeSD ${Qt5_STYLES_DIR} ${STYLES} qwindowsvistastyle$<$<CONFIG:Debug>:d>.*)
     # windows_copy_files(${target_dir} ${Qt5_IMAGEFORMATS_DIR} ${IMAGEFORMATS}
     #     qgif$<$<CONFIG:Debug>:d>.dll
     #     qicns$<$<CONFIG:Debug>:d>.dll
