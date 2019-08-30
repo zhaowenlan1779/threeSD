@@ -53,6 +53,7 @@ build_script:
 after_build:
   - ps: |
         mkdir release
+        mkdir release\dist
         
         if ($env:BUILD_TYPE -eq 'msvc') {
           Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
@@ -62,6 +63,7 @@ after_build:
 
         Copy-Item .\license.txt -Destination release
         Copy-Item .\README.md -Destination release
+        Copy-Item .\dist\threeSDumper.gm9 -Destination release
 
         7z a release.7z release
 
