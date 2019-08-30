@@ -34,7 +34,7 @@ before_build:
   - ps: |
         if ($env:BUILD_TYPE -eq 'msvc') {
           # redirect stderr and change the exit code to prevent powershell from cancelling the build if cmake prints a warning
-          cmd /C 'cmake -G "Visual Studio 15 2017 Win64" - .. 2>&1 && exit 0'
+          cmd /C 'cmake -G "Visual Studio 15 2017 Win64" -DWARNINGS_AS_ERRORS=OFF - .. 2>&1 && exit 0'
         } else {
           C:\msys64\usr\bin\bash.exe -lc "cmake -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Release -DMINGW_STATIC_BUILD=ON -DCOMPILE_WITH_DWARF=OFF .. 2>&1"
         }
