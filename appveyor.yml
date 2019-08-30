@@ -55,6 +55,7 @@ after_build:
         mkdir release\dist
         
         if ($env:BUILD_TYPE -eq 'msvc') {
+          Remove-Item .\msvc_build\bin\release\threeSD.pdb
           Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
         } else {
           Copy-Item .\mingw_build\bin\threeSD.exe -Destination release

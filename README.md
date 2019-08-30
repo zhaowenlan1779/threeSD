@@ -15,7 +15,7 @@ Compared with the previous method of using [GodMode9](https://github.com/d0k3/Go
 
 First of all, of course, you should download a [release](https://github.com/zhaowenlan1779/threeSD/releases) of threeSD and extract it somewhere.
 
-If you are wishing to use threeSD with a portable install of Citra (i.e. that has a `user` folder), you can just copy the `threeSD.exe` there and it will automatically detect. Alternatively, click `Customize...` in the main dialog and change the `Citra User Path` field.
+If you are wishing to use threeSD with a portable install of Citra (i.e. that has a `user` folder), click `Customize...` in the main dialog and change the `Citra User Path` field.
 
 ### What you'll need
 
