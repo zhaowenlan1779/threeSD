@@ -75,12 +75,10 @@ else()
         -Wall
         -Wno-attributes
         -pedantic
-        -pedantic-errors
-        -Wno-missing-braces
     )
 
     if (WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror -Wfatal-errors)
+        add_compile_options(-Werror -Wfatal-errors -pedantic-errors)
     endif()
 
     if (APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL Clang)
@@ -106,6 +104,10 @@ else()
             add_definitions(-DQT_STATICPLUGIN)
             add_compile_options("-static")
         endif()
+    endif()
+
+    if (NOT DEBUG)
+        add_compile_options("-flto")
     endif()
 endif()
 

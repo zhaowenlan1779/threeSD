@@ -18,6 +18,15 @@
 #include "common/common_paths.h"
 #endif
 
+#ifdef QT_STATICPLUGIN
+#include <QtPlugin>
+
+Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+Q_IMPORT_PLUGIN(QWindowsVistaStylePlugin)
+#endif
+#endif
+
 bool IsConfigGood(const Core::Config& config) {
     return !config.sdmc_path.empty() && !config.user_path.empty() &&
            !config.movable_sed_path.empty() && !config.bootrom_path.empty();

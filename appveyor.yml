@@ -1,0 +1,70 @@
+# shallow clone
+clone_depth: 5
+
+os: Visual Studio 2017
+
+environment:
+  MSYSTEM: MINGW64
+  # Tell msys2 to add mingw64 to the path
+  MSYSTEM: MINGW64
+  # Tell msys2 to inherit the current directory when starting the shell
+  CHERE_INVOKING: 1
+  matrix:
+    - BUILD_TYPE: mingw
+    - BUILD_TYPE: msvc
+
+platform:
+  - x64
+
+configuration:
+  - Release
+
+install:
+  - git submodule update --init --recursive
+  - ps: |
+        if ($env:BUILD_TYPE -eq 'mingw') {
+          $dependencies = "mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-qt5-static"
+          C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S $dependencies"
+          # (HACK) ignore errors
+          0
+        }
+
+before_build:
+  - mkdir %BUILD_TYPE%_build
+  - cd %BUILD_TYPE%_build
+  - ps: |
+        if ($env:BUILD_TYPE -eq 'msvc') {
+          # redirect stderr and change the exit code to prevent powershell from cancelling the build if cmake prints a warning
+          cmd /C 'cmake -G "Visual Studio 15 2017 Win64" - .. 2>&1 && exit 0'
+        } else {
+          C:\msys64\usr\bin\bash.exe -lc "cmake -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Release -DMINGW_STATIC_BUILD=ON .. 2>&1"
+        }
+  - cd ..
+
+build_script:
+  - ps: |
+        if ($env:BUILD_TYPE -eq 'msvc') {
+          # https://www.appveyor.com/docs/build-phase
+          msbuild msvc_build/threeSD.sln /maxcpucount /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+        } else {
+          C:\msys64\usr\bin\bash.exe -lc 'mingw32-make -j4 -C mingw_build/ 2>&1'
+        }
+
+after_build:
+  - ps: |
+        mkdir release
+        
+        if ($env:BUILD_TYPE -eq 'msvc') {
+          Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
+        } else {
+          Copy-Item .\mingw_build\bin\threeSD.exe -Destination release
+        }
+
+        Copy-Item .\license.txt -Destination release
+        Copy-Item .\README.md -Destination release
+
+        7z a release.7z release
+
+artifacts:
+  - path: release.7z
+    name: build

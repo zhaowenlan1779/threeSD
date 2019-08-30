@@ -27,7 +27,7 @@ If you are wishing to use threeSD with a portable install of Citra (i.e. that ha
     * You will need a graphics card compatible with OpenGL 3.3 and install the latest graphics drivers from your vendor's website.
     * Operating system requirements: **64-bit** Windows (7+), Linux (flatpak compatible) or macOS (10.13+). Note that Citra on macOS 10.13 is currently broken. It is recommended to update to 10.14.
 * SD / microSD card reader
-    * Make sure it can be well connected to your PC
+    * Make sure it can be well connected to your PC (i.e. do not use a 10-year-old dusty one)
 
 ### On Your 3DS
 
