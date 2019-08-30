@@ -4,6 +4,7 @@
 
 #include <string>
 #include <QApplication>
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QStorageInfo>
 #include <qdevicewatcher.h>
@@ -45,6 +46,33 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
             LaunchImportDialog();
         }
     });
+
+    // Field 3: Is file
+    const std::array<std::tuple<QLineEdit*, QToolButton*, int>, 7> fields{{
+        {ui->sdmcPath, ui->sdmcPathExplore, 0},
+        {ui->userPath, ui->userPathExplore, 0},
+        {ui->movableSedPath, ui->movableSedExplore, 1},
+        {ui->bootrom9Path, ui->bootrom9Explore, 1},
+        {ui->safeModeFirmPath, ui->safeModeFirmExplore, 0},
+        {ui->seeddbPath, ui->seeddbExplore, 1},
+        {ui->secretSectorPath, ui->secretSectorExplore, 1},
+    }};
+
+    // TODO: better handling (filter)
+    for (auto [field, button, isFile] : fields) {
+        connect(button, &QToolButton::clicked, [this, field, isFile] {
+            QString path;
+            if (isFile) {
+                path = QFileDialog::getOpenFileName(this, tr("Select File"));
+            } else {
+                path = QFileDialog::getExistingDirectory(this, tr("Select Directory"));
+            }
+
+            if (!path.isEmpty()) {
+                field->setText(path);
+            }
+        });
+    }
 
     // Set up device watcher
     auto* device_watcher = new QDeviceWatcher(this);
