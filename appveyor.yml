@@ -4,7 +4,6 @@ clone_depth: 5
 os: Visual Studio 2017
 
 environment:
-  MSYSTEM: MINGW64
   # Tell msys2 to add mingw64 to the path
   MSYSTEM: MINGW64
   # Tell msys2 to inherit the current directory when starting the shell
