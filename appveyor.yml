@@ -56,6 +56,8 @@ after_build:
         
         if ($env:BUILD_TYPE -eq 'msvc') {
           Remove-Item -Force .\msvc_build\bin\release\*.pdb
+          Remove-Item -Force .\msvc_build\bin\release\platforms\*.pdb
+          Remove-Item -Force .\msvc_build\bin\release\styles\*.pdb
           Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
         } else {
           Copy-Item .\mingw_build\bin\threeSD.exe -Destination release
