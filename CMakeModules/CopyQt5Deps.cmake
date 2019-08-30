@@ -29,4 +29,4 @@ function(copy_Qt5_deps target_dir)
     #     qwbmp$<$<CONFIG:Debug>:d>.dll
     #     qwebp$<$<CONFIG:Debug>:d>.dll
     # )
-endfunction(copy_citra_Qt5_deps)
+endfunction(copy_Qt5_deps)
