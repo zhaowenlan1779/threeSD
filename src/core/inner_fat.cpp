@@ -74,11 +74,17 @@ bool InnerFAT::WriteMetadata(const std::string& path) const {
     return true;
 }
 
-SDSavegame::SDSavegame(std::vector<u8> data_) : duplicate_data(true), data(std::move(data_)) {}
-
-SDSavegame::SDSavegame(std::vector<u8> partitionA_, std::vector<u8> partitionB_)
-    : duplicate_data(false), partitionA(std::move(partitionA_)),
-      partitionB(std::move(partitionB_)) {
+SDSavegame::SDSavegame(std::vector<std::vector<u8>> partitions) {
+    if (partitions.size() == 1) {
+        duplicate_data = true;
+        data = std::move(partitions[0]);
+    } else if (partitions.size() == 2) {
+        duplicate_data = false;
+        partitionA = std::move(partitions[0]);
+        partitionB = std::move(partitions[1]);
+    } else {
+        UNREACHABLE();
+    }
     is_good = Init();
 }
 
@@ -151,9 +157,9 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
     std::array<char, 17> name_data = {}; // Append a null terminator
     std::memcpy(name_data.data(), entry.name.data(), entry.name.size());
 
-    std::string name{name_data.data()};
+    std::string name = name_data.data();
     FileUtil::IOFile file(path + name, "wb");
-    if (!file.IsOpen()) {
+    if (!file) {
         LOG_ERROR(Core, "Could not open file {}", path + name);
         return false;
     }
@@ -163,6 +169,7 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
         return true;
     }
 
+    u64 file_size = entry.file_size;
     while (true) {
         // Entry index is block index + 1
         auto block_data = fat[block + 1];
@@ -172,14 +179,16 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
             last_block = fat[block + 2].v.index - 1;
         }
 
-        std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
-        if (file.WriteBytes(data_region.data() + fs_info.data_region_block_size * block, size) !=
-            size) {
+        const std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
+        const std::size_t to_write = std::min(file_size, size);
+        if (file.WriteBytes(data_region.data() + fs_info.data_region_block_size * block,
+                            to_write) != to_write) {
             LOG_ERROR(Core, "Write data failed (file: {})", path + name);
             return false;
         }
+        file_size -= to_write;
 
-        if (block_data.v.index == 0) // last node
+        if (block_data.v.index == 0 || file_size == 0) // last node
             break;
 
         block = block_data.v.index - 1;
@@ -209,7 +218,7 @@ ArchiveFormatInfo SDSavegame::GetFormatInfo() const {
     // Tests on a physical 3DS shows that the `total_size` field seems to always be 0
     // when requested with the UserSaveData archive, and 134328448 when requested with
     // the SaveData archive. More investigation is required to tell whether this is a fixed value.
-    ArchiveFormatInfo format_info = {/* total_size */ 134328448,
+    ArchiveFormatInfo format_info = {/* total_size */ 0x40000,
                                      /* number_directories */ fs_info.maximum_directory_count,
                                      /* number_files */ fs_info.maximum_file_count,
                                      /* duplicate_data */ duplicate_data};
@@ -236,7 +245,10 @@ bool SDExtdata::Init() {
         LOG_ERROR(Core, "Failed to load or decrypt VSXE");
         return false;
     }
-    DataContainer vsxe_container(vsxe_raw);
+    DataContainer vsxe_container(std::move(vsxe_raw));
+    if (!vsxe_container.IsGood()) {
+        return false;
+    }
     auto vsxe = vsxe_container.GetIVFCLevel4Data()[0];
 
     // Read header
@@ -298,7 +310,7 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
     std::array<char, 17> name_data = {}; // Append a null terminator
     std::memcpy(name_data.data(), entry.name.data(), entry.name.size());
 
-    std::string name{name_data.data()};
+    std::string name = name_data.data();
     FileUtil::IOFile file(path + name, "wb");
     if (!file) {
         LOG_ERROR(Core, "Could not open file {}", path + name);
@@ -317,7 +329,11 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
         return true;
     }
 
-    DataContainer container(container_data);
+    DataContainer container(std::move(container_data));
+    if (!container.IsGood()) {
+        return false;
+    }
+
     auto data = container.GetIVFCLevel4Data()[0];
     if (file.WriteBytes(data.data(), data.size()) != data.size()) {
         LOG_ERROR(Core, "Write data failed (file: {})", path + name);

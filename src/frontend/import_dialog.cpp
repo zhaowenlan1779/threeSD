@@ -4,12 +4,16 @@
 
 #include <cmath>
 #include <QCheckBox>
+#include <QFutureWatcher>
 #include <QMessageBox>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QStorageInfo>
+#include <QtConcurrent/QtConcurrentRun>
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
 #include "frontend/import_dialog.h"
+#include "frontend/import_job.h"
 #include "ui_import_dialog.h"
 
 QString ReadableByteSize(qulonglong size) {
@@ -25,9 +29,29 @@ QString ReadableByteSize(qulonglong size) {
         .arg(QObject::tr(units[digit_groups], "ImportDialog"));
 }
 
+static const std::map<Core::ContentType, const char*> ContentTypeMap{
+    {Core::ContentType::Application, QT_TR_NOOP("Application")},
+    {Core::ContentType::Update, QT_TR_NOOP("Update")},
+    {Core::ContentType::DLC, QT_TR_NOOP("DLC")},
+    {Core::ContentType::Savegame, QT_TR_NOOP("Save Data")},
+    {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data")},
+    {Core::ContentType::Sysdata, QT_TR_NOOP("System Data")},
+};
+
+QString GetContentName(const Core::ContentSpecifier& specifier) {
+    return specifier.name.empty()
+               ? QStringLiteral("0x%1 (%2)")
+                     .arg(specifier.id, 16, 16, QLatin1Char('0'))
+                     .arg(QObject::tr(ContentTypeMap.at(specifier.type), "ImportDialog"))
+               : QString::fromStdString(specifier.name);
+}
+
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), user_path(config.user_path),
       importer(config) {
+
+    qRegisterMetaType<u64>("u64");
+    qRegisterMetaType<Core::ContentSpecifier>();
 
     ui->setupUi(this);
     if (!importer.IsGood()) {
@@ -37,29 +61,57 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
         reject();
     }
 
-    PopulateContent();
+    ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));
+    connect(ui->buttonBox, &QDialogButtonBox::clicked, [this](QAbstractButton* button) {
+        if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)) {
+            StartImporting();
+        } else if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Cancel)) {
+            reject();
+        } else {
+            RelistContent();
+        }
+    });
+
+    RelistContent();
     UpdateSizeDisplay();
+
+    // Set up column widths
+    ui->main->setColumnWidth(0, width() / 8);
+    ui->main->setColumnWidth(1, width() / 2);
+    ui->main->setColumnWidth(2, width() / 6);
+    ui->main->setColumnWidth(3, width() / 10);
 }
 
 ImportDialog::~ImportDialog() = default;
 
-void ImportDialog::PopulateContent() {
+void ImportDialog::RelistContent() {
+    auto* dialog = new QProgressDialog(tr("Loading Contents..."), tr("Cancel"), 0, 0, this);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->setCancelButton(nullptr);
+    dialog->setMinimumDuration(0);
+    dialog->setValue(0);
+
+    using FutureWatcher = QFutureWatcher<std::vector<Core::ContentSpecifier>>;
+    auto* future_watcher = new FutureWatcher(this);
+    connect(future_watcher, &FutureWatcher::finished, this, [this, dialog] {
+        dialog->hide();
+        RepopulateContent();
+    });
+
+    auto future =
+        QtConcurrent::run([& importer = this->importer] { return importer.ListContent(); });
+    future_watcher->setFuture(future);
+}
+
+void ImportDialog::RepopulateContent() {
+    total_size = 0;
     contents = importer.ListContent();
     ui->main->clear();
     ui->main->setSortingEnabled(false);
 
-    const std::map<Core::ContentType, QString> content_type_map{
-        {Core::ContentType::Application, QStringLiteral("Application")},
-        {Core::ContentType::Update, QStringLiteral("Update")},
-        {Core::ContentType::DLC, QStringLiteral("DLC (Add-on Content)")},
-        {Core::ContentType::Savegame, QStringLiteral("Save Data")},
-        {Core::ContentType::Extdata, QStringLiteral("Extra Data")},
-        {Core::ContentType::Sysdata, QStringLiteral("System Data")},
-    };
-
-    for (const auto& [type, name] : content_type_map) {
+    for (const auto& [type, name] : ContentTypeMap) {
         auto* checkBox = new QCheckBox();
-        checkBox->setText(name);
+        checkBox->setText(tr(name));
         checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
         checkBox->setTristate(true);
         checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
@@ -96,15 +148,16 @@ void ImportDialog::PopulateContent() {
         ui->main->setItemWidget(item, 0, checkBox);
     }
 
-    for (const auto& content : contents) {
+    for (std::size_t i = 0; i < contents.size(); ++i) {
+        const auto& content = contents[i];
+
         auto* checkBox = new QCheckBox();
         checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
+        // HACK: The checkbox is used to record ID. Is there a better way?
+        checkBox->setProperty("id", i);
 
         auto* item = new QTreeWidgetItem{
-            {QString{},
-             content.name.empty() ? QStringLiteral("0x%1").arg(content.id, 16, 16, QLatin1Char('0'))
-                                  : QString::fromStdString(content.name),
-             ReadableByteSize(content.maximum_size),
+            {QString{}, GetContentName(content), ReadableByteSize(content.maximum_size),
              content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
 
         ui->main->invisibleRootItem()->child(static_cast<int>(content.type))->addChild(item);
@@ -123,6 +176,10 @@ void ImportDialog::PopulateContent() {
                         UpdateItemCheckState(item->parent());
                     }
                 });
+
+        if (!content.already_exists) {
+            checkBox->setChecked(true);
+        }
     }
 
     ui->main->setSortingEnabled(true);
@@ -171,4 +228,77 @@ void ImportDialog::UpdateItemCheckState(QTreeWidgetItem* item) {
         item_checkBox->setCheckState(Qt::Unchecked);
     }
     program_trigger = false;
+}
+
+std::vector<Core::ContentSpecifier> ImportDialog::GetSelectedContentList() {
+    std::vector<Core::ContentSpecifier> to_import;
+    for (int i = 0; i < ui->main->invisibleRootItem()->childCount(); ++i) {
+        const auto* item = ui->main->invisibleRootItem()->child(i);
+        for (int j = 0; j < item->childCount(); ++j) {
+            const auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item->child(j), 0));
+            if (checkBox->isChecked()) {
+                to_import.emplace_back(contents[checkBox->property("id").toInt()]);
+            }
+        }
+    }
+
+    return to_import;
+}
+
+void ImportDialog::StartImporting() {
+    UpdateSizeDisplay();
+    if (!ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->isEnabled()) {
+        // Space is no longer enough
+        QMessageBox::warning(this, tr("Not Enough Space"),
+                             tr("Your disk does not have enough space to hold imported data."));
+        return;
+    }
+
+    const auto& to_import = GetSelectedContentList();
+    const std::size_t total_count = to_import.size();
+
+    // Try to map total_size to int range
+    // This is equal to ceil(total_size / INT_MAX)
+    const u64 multiplier =
+        (total_size + std::numeric_limits<int>::max() - 1) / std::numeric_limits<int>::max();
+
+    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
+                                       static_cast<int>(total_size / multiplier), this);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->setValue(0);
+
+    auto* job = new ImportJob(this, importer, std::move(to_import));
+
+    connect(job, &ImportJob::ProgressUpdated, this,
+            [dialog, multiplier, total_count](u64 size_imported, u64 count,
+                                              Core::ContentSpecifier next_content) {
+                dialog->setValue(static_cast<int>(size_imported / multiplier));
+                dialog->setLabelText(tr("Importing %1 (%2/%3)...")
+                                         .arg(GetContentName(next_content))
+                                         .arg(count)
+                                         .arg(total_count));
+            });
+    connect(job, &ImportJob::ErrorOccured, this,
+            [this, dialog](Core::ContentSpecifier current_content) {
+                QMessageBox::critical(
+                    this, tr("Error"),
+                    tr("Failed to import content %1!").arg(GetContentName(current_content)));
+                dialog->hide();
+            });
+    connect(job, &ImportJob::Completed, this, [this, dialog] {
+        dialog->setValue(dialog->maximum());
+        RepopulateContent();
+    });
+    connect(dialog, &QProgressDialog::canceled, this, [this, dialog, job] {
+        // Add yet-another-ProgressDialog to indicate cancel progress
+        auto* cancel_dialog = new QProgressDialog(tr("Canceling..."), tr("Cancel"), 0, 0, this);
+        cancel_dialog->setWindowModality(Qt::WindowModal);
+        cancel_dialog->setCancelButton(nullptr);
+        cancel_dialog->setMinimumDuration(0);
+        cancel_dialog->setValue(0);
+        connect(job, &ImportJob::Completed, cancel_dialog, &QProgressDialog::hide);
+        job->Cancel();
+    });
+
+    job->start();
 }

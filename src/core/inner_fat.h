@@ -156,8 +156,7 @@ protected:
 
 class SDSavegame : public InnerFAT {
 public:
-    explicit SDSavegame(std::vector<u8> data);
-    explicit SDSavegame(std::vector<u8> partitionA, std::vector<u8> partitionB);
+    explicit SDSavegame(std::vector<std::vector<u8>> partitions);
     ~SDSavegame() override;
 
     bool Extract(std::string path) const override;

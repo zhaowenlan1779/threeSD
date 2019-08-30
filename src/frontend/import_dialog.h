@@ -17,16 +17,19 @@ class ImportDialog;
 }
 
 class ImportDialog : public QDialog {
-    Q_OBJECT;
+    Q_OBJECT
 
 public:
     explicit ImportDialog(QWidget* parent, const Core::Config& config);
     ~ImportDialog() override;
 
 private:
-    void PopulateContent();
+    void RelistContent();
+    void RepopulateContent();
     void UpdateSizeDisplay();
     void UpdateItemCheckState(QTreeWidgetItem* item);
+    std::vector<Core::ContentSpecifier> GetSelectedContentList();
+    void StartImporting();
 
     std::unique_ptr<Ui::ImportDialog> ui;
 

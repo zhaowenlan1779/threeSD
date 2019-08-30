@@ -56,6 +56,8 @@ constexpr std::size_t AES_BLOCK_SIZE = 16;
 
 using AESKey = std::array<u8, AES_BLOCK_SIZE>;
 
+std::string KeyToString(const AESKey& key);
+
 void LoadBootromKeys(const std::string& path);
 void LoadMovableSedKeys(const std::string& path);
 void ClearKeys();
@@ -66,6 +68,9 @@ void SetNormalKey(std::size_t slot_id, const AESKey& key);
 
 bool IsNormalKeyAvailable(std::size_t slot_id);
 AESKey GetNormalKey(std::size_t slot_id);
+
+// For importing aes_keys.txt
+AESKey GetKeyX(std::size_t slot_id);
 
 void SelectCommonKeyIndex(u8 index);
 

@@ -82,14 +82,15 @@ struct KeySlot {
 std::array<KeySlot, KeySlotID::MaxKeySlotID> key_slots;
 std::array<std::optional<AESKey>, 6> common_key_y_slots;
 
-std::string KeyToString(AESKey& key) {
+} // namespace
+
+std::string KeyToString(const AESKey& key) {
     std::string s;
     for (auto pos : key) {
         s += fmt::format("{:02X}", pos);
     }
     return s;
 }
-} // namespace
 
 void LoadBootromKeys(const std::string& path) {
     constexpr std::array<KeyDesc, 80> keys = {
@@ -160,6 +161,18 @@ void LoadBootromKeys(const std::string& path) {
             break;
         }
     }
+
+    // HACK: "Dump" 0x25 KeyX
+    // TODO: Is this legal?
+    constexpr std::array<u64, 16> offsets{{0x138A, 0xCAB, 0xD07, 0x3004, 0x2C, 0x49, 0xE6, 0x146E,
+                                           0x1126, 0xD0, 0x85C, 0x47, 0x70A, 0x112C, 0x808, 0x89}};
+
+    for (std::size_t i = 0; i < offsets.size(); ++i) {
+        file.Seek(offsets[i], SEEK_SET);
+        file.ReadBytes(&new_key[i], 1);
+    }
+    LOG_DEBUG(Key, "Loaded Slot0x25 KeyX: {}", KeyToString(new_key));
+    SetKeyX(0x25, new_key);
 }
 
 void LoadMovableSedKeys(const std::string& path) {
@@ -174,7 +187,7 @@ void LoadMovableSedKeys(const std::string& path) {
         return;
     }
 
-    constexpr std::size_t KEY_SECTION_START = 0x118;
+    constexpr std::size_t KEY_SECTION_START = 0x110;
     file.Seek(KEY_SECTION_START, SEEK_SET); // Jump to the key section
 
     AESKey key;
@@ -184,7 +197,8 @@ void LoadMovableSedKeys(const std::string& path) {
         return;
     }
 
-    SetKeyY(0x26, key);
+    LOG_DEBUG(Key, "Loaded Slot0x34KeyY: {}", KeyToString(key));
+    SetKeyY(0x34, key);
 }
 
 void ClearKeys() {
@@ -210,6 +224,10 @@ bool IsNormalKeyAvailable(std::size_t slot_id) {
 
 AESKey GetNormalKey(std::size_t slot_id) {
     return key_slots.at(slot_id).normal.value_or(AESKey{});
+}
+
+AESKey GetKeyX(std::size_t slot_id) {
+    return key_slots.at(slot_id).x.value_or(AESKey{});
 }
 
 void SelectCommonKeyIndex(u8 index) {

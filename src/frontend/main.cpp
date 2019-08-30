@@ -4,6 +4,7 @@
 
 #include <string>
 #include <QApplication>
+#include <QMessageBox>
 #include <QStorageInfo>
 #include <qdevicewatcher.h>
 #include "common/file_util.h"
@@ -15,6 +16,11 @@
 #include <unistd.h>
 #include "common/common_paths.h"
 #endif
+
+bool IsConfigGood(const Core::Config& config) {
+    return !config.sdmc_path.empty() && !config.user_path.empty() &&
+           !config.movable_sed_path.empty() && !config.bootrom_path.empty();
+}
 
 MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
     ui->setupUi(this);
@@ -36,8 +42,7 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)) {
             LoadPresetConfig();
         } else if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)) {
-            ImportDialog dialog(this, GetCurrentConfig());
-            dialog.exec();
+            LaunchImportDialog();
         }
     });
 
@@ -143,6 +148,18 @@ Core::Config MainDialog::GetCurrentConfig() {
     } else {
         return preset_config_list[ui->configSelect->currentIndex()];
     }
+}
+
+void MainDialog::LaunchImportDialog() {
+    const auto& config = GetCurrentConfig();
+    if (!IsConfigGood(config)) {
+        QMessageBox::critical(this, tr("Incomplete Config"),
+                              tr("Your config is missing some of the required fields."));
+        return;
+    }
+
+    ImportDialog dialog(this, config);
+    dialog.exec();
 }
 
 int main(int argc, char* argv[]) {

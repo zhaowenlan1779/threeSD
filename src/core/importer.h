@@ -55,6 +55,8 @@ struct Config {
     std::string safe_mode_firm_path; ///< Path to safe mode firm (A folder) (Sysdata 1)
     std::string seed_db_path;        ///< Path to seeddb.bin (Sysdata 2)
     std::string secret_sector_path;  ///< Path to secret sector (New3DS only) (Sysdata 3)
+
+    // Sysdata 4 is aes_keys.db (slot0x25KeyX)
 };
 
 class SDMCImporter {

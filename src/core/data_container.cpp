@@ -25,7 +25,7 @@ u8 DPFSContainer::GetBit(u8 level, u8 selector, u64 index) const {
     return (data[(descriptor.levels[level].offset + selector * descriptor.levels[level].size) / 4 +
                  index / 32] >>
             (31 - (index % 32))) &
-           1;
+           static_cast<u32_le>(1);
 }
 
 u8 DPFSContainer::GetByte(u8 level, u8 selector, u64 index) const {
@@ -38,9 +38,9 @@ u8 DPFSContainer::GetByte(u8 level, u8 selector, u64 index) const {
 std::vector<u8> DPFSContainer::GetLevel3Data() const {
     std::vector<u8> level3_data(descriptor.levels[2].size);
     for (std::size_t i = 0; i < level3_data.size(); i++) {
-        auto level2_bit_index = i / std::pow(2, descriptor.levels[1].block_size);
+        auto level2_bit_index = i / std::pow(2, descriptor.levels[2].block_size);
         auto level1_bit_index =
-            (level2_bit_index / 8) / std::pow(2, descriptor.levels[0].block_size);
+            (level2_bit_index / 8) / std::pow(2, descriptor.levels[1].block_size);
         auto level2_selector = GetBit(0, level1_selector, level1_bit_index);
         auto level3_selector = GetBit(1, level2_selector, level2_bit_index);
         level3_data[i] = GetByte(2, level3_selector, i);
@@ -49,27 +49,38 @@ std::vector<u8> DPFSContainer::GetLevel3Data() const {
 }
 
 DataContainer::DataContainer(std::vector<u8> data_) : data(std::move(data_)) {
-    ASSERT_MSG(data.size() >= 0x200, "Data size is too small");
+    if (data.size() < 0x200) {
+        LOG_ERROR(Core, "Data size {:X} is too small", data.size());
+        is_good = false;
+        return;
+    }
 
     u32_le magic;
     std::memcpy(&magic, data.data() + 0x100, sizeof(u32_le));
     if (magic == MakeMagic('D', 'I', 'S', 'A')) {
-        InitAsDISA();
+        is_good = InitAsDISA();
     } else if (magic == MakeMagic('D', 'I', 'F', 'F')) {
-        InitAsDIFF();
+        is_good = InitAsDIFF();
     } else {
-        // TODO: Add error handling
-        UNREACHABLE_MSG("Unknown magic");
+        LOG_ERROR(Core, "Unknown magic 0x{:08x}", magic);
+        is_good = false;
     }
 }
 
 DataContainer::~DataContainer() = default;
 
-void DataContainer::InitAsDISA() {
+bool DataContainer::IsGood() const {
+    return is_good;
+}
+
+bool DataContainer::InitAsDISA() {
     DISAHeader header;
     std::memcpy(&header, data.data() + 0x100, sizeof(header));
 
-    ASSERT_MSG(header.version == 0x40000, "DISA Version is not correct");
+    if (header.version != 0x40000) {
+        LOG_ERROR(Core, "DISA Version {:x} is not correct", header.version);
+        return false;
+    }
 
     if (header.active_partition_table == 0) { // primary
         partition_table_offset = header.primary_partition_table_offset;
@@ -86,13 +97,18 @@ void DataContainer::InitAsDISA() {
         partition_descriptors = {header.partition_descriptors[0]};
         partitions = {header.partitions[0]};
     }
+
+    return true;
 }
 
-void DataContainer::InitAsDIFF() {
+bool DataContainer::InitAsDIFF() {
     DIFFHeader header;
     std::memcpy(&header, data.data() + 0x100, sizeof(header));
 
-    ASSERT_MSG(header.version == 0x30000, "DIFF Version is not correct");
+    if (header.version != 0x30000) {
+        LOG_ERROR(Core, "DIFF Version {:x} is not correct", header.version);
+        return false;
+    }
 
     if (header.active_partition_table == 0) { // primary
         partition_table_offset = header.primary_partition_table_offset;
@@ -103,6 +119,8 @@ void DataContainer::InitAsDIFF() {
     partition_count = 1;
     partition_descriptors = {{/* offset */ 0, /* size */ header.partition_table_size}};
     partitions = {header.partition_A};
+
+    return true;
 }
 
 std::vector<u8> DataContainer::GetPartitionData(u8 index) const {
@@ -132,11 +150,12 @@ std::vector<u8> DataContainer::GetPartitionData(u8 index) const {
     std::memcpy(&dpfs_descriptor, data.data() + partition_descriptor_offset + difi.dpfs.offset,
                 sizeof(dpfs_descriptor));
 
-    std::vector<u32> partition_data(partitions[index].size / 4);
+    std::vector<u32_le> partition_data(partitions[index].size / 4);
     std::memcpy(partition_data.data(), data.data() + partitions[index].offset,
                 partitions[index].size);
 
-    DPFSContainer dpfs_container(dpfs_descriptor, difi.dpfs_level1_selector, partition_data);
+    DPFSContainer dpfs_container(dpfs_descriptor, difi.dpfs_level1_selector,
+                                 std::move(partition_data));
     auto ivfc_data = dpfs_container.GetLevel3Data();
 
     std::vector<u8> result(ivfc_data.data() + ivfc_descriptor.levels[3].offset,

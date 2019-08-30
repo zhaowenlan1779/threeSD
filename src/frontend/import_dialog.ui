@@ -33,7 +33,7 @@
      </column>
      <column>
       <property name="text">
-       <string>Imported</string>
+       <string>Exists</string>
       </property>
      </column>
     </widget>
@@ -66,7 +66,7 @@
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">
-      <set>QDialogButtonBox::Ok|QDialogButtonBox::Cancel</set>
+      <set>QDialogButtonBox::Ok|QDialogButtonBox::Cancel|QDialogButtonBox::Reset</set>
      </property>
     </widget>
    </item>

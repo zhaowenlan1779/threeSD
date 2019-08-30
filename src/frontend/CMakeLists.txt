@@ -10,6 +10,8 @@ add_executable(threeSD
   import_dialog.cpp
   import_dialog.h
   import_dialog.ui
+  import_job.cpp
+  import_job.h
   main.cpp
   main.h
   main.ui

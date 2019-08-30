@@ -31,4 +31,43 @@ You will need to run a GodMode9 script. If you are unsure about the script's saf
 
 Make sure the SD card is properly recognized and shows up as a disk.
 
-1. 
+<!-- TODO: Finish this up -->
+
+... to do ...
+
+## Contributing
+
+This project has a lot of code in common with Citra (most of the `common` module are copy-pasta from there), and follows the same styles and practices. Please refer to [this](https://github.com/citra-emu/citra/wiki/Contributing) for a detailed code style guide.
+
+Note that this project enables quite a lot of warnings, and all warnings are treated as fatal errors by default.
+
+Some Qt features are disabled to avoid mistakes, these includes:
+
+```cmake
+# Use QStringBuilder for string concatenation to reduce
+# the overall number of temporary strings created.
+-DQT_USE_QSTRINGBUILDER
+
+# Disable implicit type narrowing in signal/slot connec() calls.
+-DQT_NO_NARROWING_CONVERSIONS_IN_CONNECT
+
+# Disable unsafe overloads of QProcess' start() function.
+-DQT_NO_PROCESS_COMBINED_ARGUMENT_START
+
+# Disable implicit QString->QUrl conversions to enforce use of proper resolving functions.
+-DQT_NO_URL_CAST_FROM_STRING
+
+# Disable automatic conversions from 8-bit strings (char *) to unicode QStrings
+-DQT_NO_CAST_FROM_ASCII
+```
+
+## TODO
+
+1. Clear all the `TODO`s in the code
+1. Wireless transfer (probably FTP?)
+1. System archives
+1. UI improvements
+    * Better error messages
+    * Beautiful icons
+    * Better progress indicator
+1. Bug fixes

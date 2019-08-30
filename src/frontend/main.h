@@ -13,7 +13,7 @@ class MainDialog;
 }
 
 class MainDialog : public QDialog {
-    Q_OBJECT;
+    Q_OBJECT
 
 public:
     explicit MainDialog(QWidget* parent = nullptr);
@@ -24,6 +24,7 @@ private:
     void ShowAdvanced();
     void HideAdvanced();
     Core::Config GetCurrentConfig();
+    void LaunchImportDialog();
 
     std::vector<Core::Config> preset_config_list;
     std::unique_ptr<Ui::MainDialog> ui;

@@ -54,6 +54,10 @@ bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source,
     CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
     aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
 
+    if (!FileUtil::CreateFullPath(destination)) {
+        return false;
+    }
+
     std::string absolute_source = root_folder + source;
     try {
         CryptoPP::FileSource(absolute_source.c_str(), true,

@@ -116,13 +116,16 @@ public:
     /// Unwraps the whole container, returning the data in IVFC Level 4 of all partitions.
     std::vector<std::vector<u8>> GetIVFCLevel4Data() const;
 
+    bool IsGood() const;
+
 private:
-    void InitAsDISA();
-    void InitAsDIFF();
+    bool InitAsDISA();
+    bool InitAsDIFF();
 
     /// Unwraps the whole container, returning the data in IVFC Level 4 of a partition.
     std::vector<u8> GetPartitionData(u8 index) const;
 
+    bool is_good = false;
     std::vector<u8> data;
     u32 partition_count;
     u64_le partition_table_offset;

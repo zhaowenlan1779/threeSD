@@ -6,6 +6,7 @@
 #include "common/assert.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
+#include "core/data_container.h"
 #include "core/decryptor.h"
 #include "core/importer.h"
 #include "core/inner_fat.h"
@@ -89,7 +90,13 @@ bool SDMCImporter::ImportTitle(u64 id) {
 
 bool SDMCImporter::ImportSavegame(u64 id) {
     const auto path = fmt::format("title/{:08x}/{:08x}/data/", (id >> 32), (id & 0xFFFFFFFF));
-    SDSavegame save(decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
+
+    DataContainer container(decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
+    if (!container.IsGood()) {
+        return false;
+    }
+
+    SDSavegame save(std::move(container.GetIVFCLevel4Data()));
     if (!save.IsGood()) {
         return false;
     }
@@ -116,6 +123,9 @@ bool SDMCImporter::ImportSysdata(u64 id) {
     case 0: { // boot9.bin
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9;
         LOG_INFO(Core, "Copying {} from {} to {}", BOOTROM9, config.bootrom_path, target_path);
+        if (!FileUtil::CreateFullPath(target_path)) {
+            return false;
+        }
         return FileUtil::Copy(config.bootrom_path, target_path);
     }
     case 1: { // safe mode firm
@@ -129,22 +139,31 @@ bool SDMCImporter::ImportSysdata(u64 id) {
             real_path = config.safe_mode_firm_path + "old/";
         }
         return FileUtil::ForeachDirectoryEntry(
-            nullptr, config.safe_mode_firm_path,
+            nullptr, real_path,
             [is_new_3ds](u64* /*num_entries_out*/, const std::string& directory,
                          const std::string& virtual_name) {
                 if (FileUtil::IsDirectory(directory + virtual_name)) {
                     return true;
                 }
-                return FileUtil::Copy(
-                    directory + virtual_name,
+
+                const auto target_path =
                     fmt::format("{}00000000000000000000000000000000/title/00040138/{}/content/{}",
                                 FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
-                                (is_new_3ds ? "20000003" : "00000003"), virtual_name));
+                                (is_new_3ds ? "20000003" : "00000003"), virtual_name);
+
+                if (!FileUtil::CreateFullPath(target_path)) {
+                    return false;
+                }
+
+                return FileUtil::Copy(directory + virtual_name, target_path);
             });
     }
     case 2: { // seed db
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
         LOG_INFO(Core, "Copying {} from {} to {}", SEED_DB, config.seed_db_path, target_path);
+        if (!FileUtil::CreateFullPath(target_path)) {
+            return false;
+        }
         return FileUtil::Copy(config.seed_db_path, target_path);
     }
     case 3: { // secret sector
@@ -152,7 +171,22 @@ bool SDMCImporter::ImportSysdata(u64 id) {
             FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SECRET_SECTOR;
         LOG_INFO(Core, "Copying {} from {} to {}", SECRET_SECTOR, config.secret_sector_path,
                  target_path);
+        if (!FileUtil::CreateFullPath(target_path)) {
+            return false;
+        }
         return FileUtil::Copy(config.secret_sector_path, target_path);
+    }
+    case 4: { // aes_keys.txt
+        const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + AES_KEYS;
+        if (!FileUtil::CreateFullPath(target_path)) {
+            return false;
+        }
+        FileUtil::IOFile file(target_path, "w");
+        if (!file) {
+            return false;
+        }
+        file.WriteString("slot0x25KeyX=" + Key::KeyToString(Key::GetKeyX(0x25)) + "\n");
+        return true;
     }
     default:
         UNREACHABLE_MSG("Unexpected sysdata id {}", id);
@@ -167,14 +201,22 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
     return content_list;
 }
 
+// Regex for half Title IDs
+static const std::regex title_regex{"[0-9a-f]{8}"};
+
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [&out, &sdmc_path = config.sdmc_path](ContentType type,
-                                                                        u64 high_id) {
+    const auto ProcessDirectory = [& decryptor = this->decryptor, &out,
+                                   &sdmc_path = config.sdmc_path](ContentType type, u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, fmt::format("{}title/{:08x}/", sdmc_path, high_id),
-            [type, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
-                                  const std::string& virtual_name) {
+            [&decryptor, type, high_id, &out](u64* /*num_entries_out*/,
+                                              const std::string& directory,
+                                              const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                    return true;
+                }
+
+                if (!std::regex_match(virtual_name, title_regex)) {
                     return true;
                 }
 
@@ -194,6 +236,15 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                     return true;
                 }
                 if (FileUtil::Exists(directory + virtual_name + "/data/")) {
+                    // Savegames can be uninitialized.
+                    // TODO: Is there a better way of checking this other than performing the
+                    // decryption? (Very costy)
+                    DataContainer container(decryptor->DecryptFile(
+                        fmt::format("/title/{:08x}/{}/data/00000001.sav", high_id, virtual_name)));
+                    if (!container.IsGood()) {
+                        return true;
+                    }
+
                     out.push_back(
                         {ContentType::Savegame, id, FileUtil::Exists(citra_path + "data/"),
                          FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/data/")});
@@ -213,6 +264,10 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
         [&out](u64* /*num_entries_out*/, const std::string& directory,
                const std::string& virtual_name) {
             if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                return true;
+            }
+
+            if (!std::regex_match(virtual_name, title_regex)) {
                 return true;
             }
 
@@ -240,6 +295,12 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
         CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
         CHECK_CONTENT(2, config.seed_db_path, sysdata_path + SEED_DB, SEED_DB);
         CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
+        if (!config.bootrom_path.empty()) {
+            // 47 bytes = "slot0x26KeyX=<32>\r\n" is only for Windows,
+            // but it's maximum_size so probably okay
+            out.push_back(
+                {ContentType::Sysdata, 4, FileUtil::Exists(sysdata_path + AES_KEYS), 47, AES_KEYS});
+        }
     }
 
 #undef CHECK_CONTENT

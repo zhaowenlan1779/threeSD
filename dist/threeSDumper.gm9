@@ -28,12 +28,16 @@ if chk $[ONTYPE] "N3DS"
     end
     cp -w -n "1:/title/00040138/20000003/content" $[OUT]/firm/new
     rm $[OUT]/firm/new/cmd
+    find $[OUT]/firm/new/*.app APP
+    decrypt $[APP]
 else
     if not find $[OUT]/firm/old NULL
         mkdir $[OUT]/firm/old
     end
     cp -w -n "1:/title/00040138/00000003/content" $[OUT]/firm/old
     rm $[OUT]/firm/old/cmd
+    find $[OUT]/firm/old/*.app APP
+    decrypt $[APP]
 end
 
 if chk $[ONTYPE] "N3DS"

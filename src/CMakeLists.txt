@@ -5,6 +5,9 @@ include_directories(.)
 set_property(DIRECTORY APPEND PROPERTY
     COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_DEBUG> $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 
+# Ensure that projects build with Unicode support.
+add_definitions(-DUNICODE -D_UNICODE)
+
 # Set compilation flags
 if (MSVC)
     set(CMAKE_CONFIGURATION_TYPES Debug Release CACHE STRING "" FORCE)
@@ -18,10 +21,15 @@ if (MSVC)
     # Avoid windows.h from including some usually unused libs like winsocks.h, since this might cause some redefinition errors.
     add_definitions(-DWIN32_LEAN_AND_MEAN)
 
-    # Ensure that projects build with Unicode support.
-    add_definitions(-DUNICODE -D_UNICODE)
-
-    # /W3                 - Level 3 warnings
+    # /W4                 - Level 4 warnings
+    # /w34263             - Non-virtual member function hides base class virtual function
+    # /w44265             - Class has virtual functions, but destructor is not virtual
+    # /w34456             - Declaration of 'var' hides previous local declaration
+    # /w34457             - Declaration of 'var' hides function parameter
+    # /w34458             - Declaration of 'var' hides class member
+    # /w34459             - Declaration of 'var' hides global definition
+    # /w34946             - Reinterpret-cast between related types
+    # /wd4592             - Symbol will be dynamically initialized (implementation limitation)
     # /MP                 - Multi-threaded compilation
     # /Zi                 - Output debugging information
     # /Zo                 - Enhanced debug info for optimized builds
@@ -32,7 +40,15 @@ if (MSVC)
     # /Zc:inline          - Let codegen omit inline functions in object files
     # /Zc:throwingNew     - Let codegen assume `operator new` (without std::nothrow) will never return null
     add_compile_options(
-        /W3
+        /W4
+        /w34263
+        /w44265
+        /w34456
+        /w34457
+        /w34458
+        /w34459
+        /w34946
+        /wd4592
         /MP
         /Zi
         /Zo
@@ -58,6 +74,9 @@ else()
     add_compile_options(
         -Wall
         -Wno-attributes
+        -pedantic
+        -pedantic-errors
+        -Wno-missing-braces
     )
 
     if (WARNINGS_AS_ERRORS)

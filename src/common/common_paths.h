@@ -38,3 +38,4 @@
 #define SECRET_SECTOR "sector0x96.bin"
 #define MOVABLE_SED "movable.sed"
 #define SEED_DB "seeddb.bin"
+#define AES_KEYS "aes_keys.txt"

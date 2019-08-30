@@ -36,7 +36,8 @@ void PrintLog(std::FILE* f, const std::string& log_class, const std::string& lev
 
 #ifdef _DEBUG
 #define LOG_TRACE(log_class, ...)                                                                  \
-    PrintLog(stderr, #log_class, "Trace", "[1;30m", __FILE__, __LINE__, __func__, __VA_ARGS__)
+    (void(0)) // PrintLog(stderr, #log_class, "Trace", "[1;30m", __FILE__, __LINE__, __func__,
+              // __VA_ARGS__)
 #else
 #define LOG_TRACE(log_class, fmt, ...) (void(0))
 #endif
