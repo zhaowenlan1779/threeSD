@@ -62,7 +62,7 @@ after_build:
 
         Copy-Item .\license.txt -Destination release
         Copy-Item .\README.md -Destination release
-        Copy-Item .\dist\threeSDumper.gm9 -Destination release
+        Copy-Item .\dist\threeSDumper.gm9 -Destination release\dist
 
         7z a release.7z release
 
