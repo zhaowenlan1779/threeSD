@@ -9,7 +9,7 @@ environment:
   # Tell msys2 to inherit the current directory when starting the shell
   CHERE_INVOKING: 1
   matrix:
-    # - BUILD_TYPE: mingw
+    - BUILD_TYPE: mingw
     - BUILD_TYPE: msvc
 
 platform:
