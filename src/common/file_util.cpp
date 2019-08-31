@@ -21,18 +21,6 @@
 #include <shlobj.h> // for SHGetFolderPath
 #include <tchar.h>
 #include "common/string_util.h"
-
-#ifdef _MSC_VER
-// 64 bit offsets for MSVC
-#define fseeko _fseeki64
-#define ftello _ftelli64
-#define fileno _fileno
-#endif
-
-// 64 bit offsets for MSVC and MinGW. MinGW also needs this for using _wstat64
-#define stat _stat64
-#define fstat _fstat64
-
 #else
 #ifdef __APPLE__
 #include <sys/param.h>
@@ -65,6 +53,19 @@
 
 #include <algorithm>
 #include <sys/stat.h>
+
+#ifdef _WIN32
+#ifdef _MSC_VER
+// 64 bit offsets for MSVC
+#define fseeko _fseeki64
+#define ftello _ftelli64
+#define fileno _fileno
+#endif
+
+// 64 bit offsets for MSVC and MinGW. MinGW also needs this for using _wstat64
+#define stat _stat64
+#define fstat _fstat64
+#endif
 
 #ifndef S_ISDIR
 #define S_ISDIR(m) (((m)&S_IFMT) == S_IFDIR)
