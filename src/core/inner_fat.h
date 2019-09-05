@@ -4,8 +4,6 @@
 
 #pragma once
 
-namespace Core {
-
 #include <array>
 #include <type_traits>
 #include <vector>
@@ -13,6 +11,8 @@ namespace Core {
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/swap.h"
+
+namespace Core {
 
 class SDMCDecryptor;
 

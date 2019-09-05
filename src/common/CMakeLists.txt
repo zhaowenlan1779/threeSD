@@ -6,6 +6,7 @@ add_library(common STATIC
   common_types.h
   file_util.cpp
   file_util.h
+  logging/log.cpp
   logging/log.h
   misc.cpp
   scope_exit.h
