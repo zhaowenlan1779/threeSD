@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "common/common_types.h"
+#include "core/quick_decryptor.h"
 
 namespace Core {
 
@@ -22,11 +23,17 @@ public:
 
     /**
      * Decrypts a file from the SD card and writes it into another file.
+     * This function blocks, but can be aborted with the Abort() function (would return false)
+     *
      * @param source Path to the file relative to the root folder, starting with "/".
      * @param destination Path to the destination file.
      * @return true on success, false otherwise
      */
-    bool DecryptAndWriteFile(const std::string& source, const std::string& destination) const;
+    bool DecryptAndWriteFile(const std::string& source, const std::string& destination,
+                             const QuickDecryptor::ProgressCallback& callback = [](std::size_t,
+                                                                                   std::size_t) {});
+
+    void Abort();
 
     /**
      * Decrypts a file and reads it into a vector.
@@ -36,6 +43,7 @@ public:
 
 private:
     std::string root_folder;
+    QuickDecryptor quick_decryptor;
 };
 
 } // namespace Core

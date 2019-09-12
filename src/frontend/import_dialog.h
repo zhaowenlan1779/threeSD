@@ -41,4 +41,8 @@ private:
     // HACK: To tell whether the checkbox state change is a programmatic trigger
     // TODO: Is there a more elegant way of doing the same?
     bool program_trigger = false;
+
+    // TODO: Why this won't work as locals?
+    Core::ContentSpecifier current_content = {};
+    u64 current_count = 0;
 };

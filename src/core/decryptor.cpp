@@ -17,7 +17,9 @@
 
 namespace Core {
 
-SDMCDecryptor::SDMCDecryptor(const std::string& root_folder_) : root_folder(root_folder_) {
+SDMCDecryptor::SDMCDecryptor(const std::string& root_folder_)
+    : root_folder(root_folder_), quick_decryptor(root_folder) {
+
     ASSERT_MSG(Key::IsNormalKeyAvailable(Key::SDKey),
                "SD Key must be available in order to decrypt");
 
@@ -47,28 +49,13 @@ std::array<u8, 16> GetFileCTR(const std::string& path) {
 }
 } // namespace
 
-bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source,
-                                        const std::string& destination) const {
-    auto ctr = GetFileCTR(source);
-    auto key = Key::GetNormalKey(Key::SDKey);
-    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
-    aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
+bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
+                                        const QuickDecryptor::ProgressCallback& callback) {
+    return quick_decryptor.DecryptAndWriteFile(source, destination, callback);
+}
 
-    if (!FileUtil::CreateFullPath(destination)) {
-        return false;
-    }
-
-    std::string absolute_source = root_folder + source;
-    try {
-        CryptoPP::FileSource(absolute_source.c_str(), true,
-                             new CryptoPP::StreamTransformationFilter(
-                                 aes, new CryptoPP::FileSink(destination.c_str(), true)),
-                             true);
-    } catch (CryptoPP::Exception& e) {
-        LOG_ERROR(Core, "Error decrypting and writing file: {}", e.what());
-        return false;
-    }
-    return true;
+void SDMCDecryptor::Abort() {
+    quick_decryptor.Abort();
 }
 
 std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {

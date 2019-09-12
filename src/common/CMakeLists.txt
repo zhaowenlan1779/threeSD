@@ -13,6 +13,7 @@ add_library(common STATIC
   string_util.cpp
   string_util.h
   swap.h
+  thread.h
 )
 
 target_link_libraries(common PUBLIC fmt)

@@ -53,29 +53,34 @@ bool SDMCImporter::IsGood() const {
     return is_good;
 }
 
-bool SDMCImporter::ImportContent(const ContentSpecifier& specifier) {
+void SDMCImporter::Abort() {
+    decryptor->Abort();
+}
+
+bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
+                                 const ProgressCallback& callback) {
     switch (specifier.type) {
     case ContentType::Application:
     case ContentType::Update:
     case ContentType::DLC:
-        return ImportTitle(specifier.id);
+        return ImportTitle(specifier.id, callback);
     case ContentType::Savegame:
-        return ImportSavegame(specifier.id);
+        return ImportSavegame(specifier.id, callback);
     case ContentType::Extdata:
-        return ImportExtdata(specifier.id);
+        return ImportExtdata(specifier.id, callback);
     case ContentType::Sysdata:
-        return ImportSysdata(specifier.id);
+        return ImportSysdata(specifier.id, callback);
     default:
         UNREACHABLE();
     }
 }
 
-bool SDMCImporter::ImportTitle(u64 id) {
+bool SDMCImporter::ImportTitle(u64 id, const ProgressCallback& callback) {
     const auto path = fmt::format("title/{:08x}/{:08x}/content/", (id >> 32), (id & 0xFFFFFFFF));
     return FileUtil::ForeachDirectoryEntry(
         nullptr, config.sdmc_path + path,
-        [this, &path](u64* /*num_entries_out*/, const std::string& directory,
-                      const std::string& virtual_name) {
+        [this, &path, callback](u64* /*num_entries_out*/, const std::string& directory,
+                                const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name)) {
                 return true;
             }
@@ -84,11 +89,12 @@ bool SDMCImporter::ImportTitle(u64 id) {
                 FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
                     "Nintendo "
                     "3DS/00000000000000000000000000000000/00000000000000000000000000000000/" +
-                    path + virtual_name);
+                    path + virtual_name,
+                callback);
         });
 }
 
-bool SDMCImporter::ImportSavegame(u64 id) {
+bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
     const auto path = fmt::format("title/{:08x}/{:08x}/data/", (id >> 32), (id & 0xFFFFFFFF));
 
     DataContainer container(decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
@@ -106,7 +112,7 @@ bool SDMCImporter::ImportSavegame(u64 id) {
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportExtdata(u64 id) {
+bool SDMCImporter::ImportExtdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
     SDExtdata extdata("/" + path, *decryptor);
     if (!extdata.IsGood()) {
@@ -118,7 +124,7 @@ bool SDMCImporter::ImportExtdata(u64 id) {
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportSysdata(u64 id) {
+bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
     switch (id) {
     case 0: { // boot9.bin
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9;
@@ -328,6 +334,74 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
                            "Safe mode firm"});
         }
     } while (0);
+}
+
+void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) {
+    switch (specifier.type) {
+    case ContentType::Application:
+    case ContentType::Update:
+    case ContentType::DLC:
+        return DeleteTitle(specifier.id);
+    case ContentType::Savegame:
+        return DeleteSavegame(specifier.id);
+    case ContentType::Extdata:
+        return DeleteExtdata(specifier.id);
+    case ContentType::Sysdata:
+        return DeleteSysdata(specifier.id);
+    default:
+        UNREACHABLE();
+    }
+}
+
+void SDMCImporter::DeleteTitle(u64 id) const {
+    FileUtil::DeleteDirRecursively(fmt::format(
+        "{}Nintendo "
+        "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{:08x}/{:08x}/"
+        "content/",
+        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+}
+
+void SDMCImporter::DeleteSavegame(u64 id) const {
+    FileUtil::DeleteDirRecursively(fmt::format(
+        "{}Nintendo "
+        "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{:08x}/{:08x}/"
+        "data/",
+        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+}
+
+void SDMCImporter::DeleteExtdata(u64 id) const {
+    FileUtil::DeleteDirRecursively(fmt::format(
+        "{}Nintendo "
+        "3DS/00000000000000000000000000000000/00000000000000000000000000000000/extdata/{:08x}/"
+        "{:08x}/",
+        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+}
+
+void SDMCImporter::DeleteSysdata(u64 id) const {
+    switch (id) {
+    case 0: { // boot9.bin
+        FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9);
+    }
+    case 1: { // safe mode firm
+        const bool is_new_3ds = FileUtil::Exists(config.safe_mode_firm_path + "new/");
+        const auto target_path =
+            fmt::format("{}00000000000000000000000000000000/title/00040138/{}/",
+                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
+                        (is_new_3ds ? "20000003" : "00000003"));
+        FileUtil::DeleteDirRecursively(target_path);
+    }
+    case 2: { // seed db
+        FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB);
+    }
+    case 3: { // secret sector
+        FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SECRET_SECTOR);
+    }
+    case 4: { // aes_keys.txt
+        FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + AES_KEYS);
+    }
+    default:
+        UNREACHABLE_MSG("Unexpected sysdata id {}", id);
+    }
 }
 
 std::vector<Config> LoadPresetConfig(std::string mount_point) {

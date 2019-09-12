@@ -11,6 +11,8 @@ add_library(core STATIC
   key/arithmetic128.h
   key/key.cpp
   key/key.h
+  quick_decryptor.cpp
+  quick_decryptor.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

@@ -266,18 +266,32 @@ void ImportDialog::StartImporting() {
     auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
                                        static_cast<int>(total_size / multiplier), this);
     dialog->setWindowModality(Qt::WindowModal);
+    dialog->setMinimumDuration(0);
     dialog->setValue(0);
 
     auto* job = new ImportJob(this, importer, std::move(to_import));
 
-    connect(job, &ImportJob::ProgressUpdated, this,
-            [dialog, multiplier, total_count](u64 size_imported, u64 count,
-                                              Core::ContentSpecifier next_content) {
+    connect(job, &ImportJob::NextContent, this,
+            [this, dialog, multiplier, total_count](u64 size_imported, u64 count,
+                                                    Core::ContentSpecifier next_content) {
                 dialog->setValue(static_cast<int>(size_imported / multiplier));
-                dialog->setLabelText(tr("Importing %1 (%2/%3)...")
-                                         .arg(GetContentName(next_content))
+                dialog->setLabelText(tr("(%1/%2) Importing %3...")
                                          .arg(count)
-                                         .arg(total_count));
+                                         .arg(total_count)
+                                         .arg(GetContentName(next_content)));
+                current_content = next_content;
+                current_count = count;
+            });
+    connect(job, &ImportJob::ProgressUpdated, this,
+            [this, dialog, multiplier, total_count](u64 total_size_imported,
+                                                    u64 current_size_imported) {
+                dialog->setValue(static_cast<int>(total_size_imported / multiplier));
+                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4/%5)...")
+                                         .arg(current_count)
+                                         .arg(total_count)
+                                         .arg(GetContentName(current_content))
+                                         .arg(ReadableByteSize(current_size_imported))
+                                         .arg(ReadableByteSize(current_content.maximum_size)));
             });
     connect(job, &ImportJob::ErrorOccured, this,
             [this, dialog](Core::ContentSpecifier current_content) {

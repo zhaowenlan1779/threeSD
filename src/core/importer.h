@@ -61,6 +61,9 @@ struct Config {
 
 class SDMCImporter {
 public:
+    /// (current_size, total_size)
+    using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
+
     /**
      * Initializes the importer.
      * @param root_folder Path to the "Nintendo 3DS/<ID0>/<ID1>" folder.
@@ -70,10 +73,23 @@ public:
     ~SDMCImporter();
 
     /**
-     * Dumps a specific content by its specifier.
+     * Aborts a specific content by its specifier.
+     * Blocks, but can be aborted on another thread if needed.
      * @return true on success, false otherwise
      */
-    bool ImportContent(const ContentSpecifier& specifier);
+    bool ImportContent(const ContentSpecifier& specifier,
+                       const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+
+    /**
+     * Deletes/Cleans up a content. Used for deleting contents that have
+     * not been fully imported.
+     */
+    void DeleteContent(const ContentSpecifier& specifier);
+
+    /**
+     * Aborts current importing.
+     */
+    void Abort();
 
     /**
      * Gets a list of dumpable content specifiers.
@@ -87,13 +103,17 @@ public:
 
 private:
     bool Init();
-    bool ImportTitle(u64 id);
-    bool ImportSavegame(u64 id);
-    bool ImportExtdata(u64 id);
-    bool ImportSysdata(u64 id);
+    bool ImportTitle(u64 id, const ProgressCallback& callback);
+    bool ImportSavegame(u64 id, const ProgressCallback& callback);
+    bool ImportExtdata(u64 id, const ProgressCallback& callback);
+    bool ImportSysdata(u64 id, const ProgressCallback& callback);
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
+    void DeleteTitle(u64 id) const;
+    void DeleteSavegame(u64 id) const;
+    void DeleteExtdata(u64 id) const;
+    void DeleteSysdata(u64 id) const;
 
     bool is_good{};
     Config config;

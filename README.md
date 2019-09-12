@@ -49,7 +49,6 @@ Make sure the SD card is properly recognized and shows up as a disk.
     * The `System Data` group contains important data that is necessary for your imported games to run. You should definitely import the contents there, if they do not exist yet.
 1. After you've finished your selection, click `OK`. You should now see a progress dialog; wait a while until your contents are imported.
     * The time will depend on how big your contents are, as well as your CPU processing power and (mainly) disk I/O speeds.
-    * The progress is only updated every time a content has been *fully* imported. If you see it stall for a long time, it just means that a very large content is being processed. Just be more patient and do not worry. You can also check the disk usage in `Task Manager`.
 
 ### What to do next
 
@@ -66,7 +65,6 @@ If you have any game cartidges, and would like to dump them as well, visit [this
 * UI improvements
     * Better error messages
     * Beautiful icons
-    * Better progress indicator
 * Bug fixes
 * Clear all the `TODO`s in the code
 * Wireless transfer (probably FTP?)
