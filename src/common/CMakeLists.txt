@@ -1,4 +1,5 @@
 add_library(common STATIC
+  alignment.h
   assert.h
   bit_field.h
   common_funcs.h

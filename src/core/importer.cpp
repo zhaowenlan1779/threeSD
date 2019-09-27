@@ -6,11 +6,15 @@
 #include "common/assert.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
+#include "common/string_util.h"
 #include "core/data_container.h"
 #include "core/decryptor.h"
 #include "core/importer.h"
 #include "core/inner_fat.h"
 #include "core/key/key.h"
+#include "core/ncch/ncch_container.h"
+#include "core/ncch/smdh.h"
+#include "core/ncch/title_metadata.h"
 
 namespace Core {
 
@@ -210,14 +214,73 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
+std::string SDMCImporter::LoadTitleName(const std::string& path) const {
+    // Remove trailing '/'
+    const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
+
+    std::string title_metadata;
+    const bool ret = FileUtil::ForeachDirectoryEntry(
+        nullptr, sdmc_path + path,
+        [&title_metadata](u64* /*num_entries_out*/, const std::string& directory,
+                          const std::string& virtual_name) {
+            if (FileUtil::IsDirectory(directory + virtual_name)) {
+                return true;
+            }
+
+            if (virtual_name.substr(virtual_name.size() - 3) == "tmd" &&
+                std::regex_match(virtual_name.substr(0, 8), title_regex)) {
+
+                title_metadata = virtual_name;
+                return false;
+            }
+
+            return true;
+        });
+
+    if (ret) { // TMD not found
+        return {};
+    }
+
+    if (!FileUtil::Exists(sdmc_path + path + title_metadata)) {
+        // Probably TMD is not directly inside, aborting.
+        return {};
+    }
+
+    TitleMetadata tmd;
+    tmd.Load(decryptor->DecryptFile(path + title_metadata));
+
+    const auto boot_content_path = fmt::format("{}{:08x}.app", path, tmd.GetBootContentID());
+
+    NCCHContainer ncch(config.sdmc_path, boot_content_path);
+    auto ret2 = ncch.Load();
+    if (ret2 != ResultStatus::Success) {
+        LOG_CRITICAL(Core, "failed to load ncch: {}", ret2);
+        return {};
+    }
+
+    std::vector<u8> smdh_buffer;
+    if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success) {
+        LOG_WARNING(Core, "Failed to load icon in ExeFS");
+        return {};
+    }
+
+    if (smdh_buffer.size() != sizeof(SMDH)) {
+        LOG_ERROR(Core, "ExeFS icon section size is not correct");
+        return {};
+    }
+
+    SMDH smdh;
+    std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
+    return Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+}
+
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [& decryptor = this->decryptor, &out,
-                                   &sdmc_path = config.sdmc_path](ContentType type, u64 high_id) {
+    const auto ProcessDirectory = [this, &out, &sdmc_path = config.sdmc_path](ContentType type,
+                                                                              u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, fmt::format("{}title/{:08x}/", sdmc_path, high_id),
-            [&decryptor, type, high_id, &out](u64* /*num_entries_out*/,
-                                              const std::string& directory,
-                                              const std::string& virtual_name) {
+            [this, type, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
+                                        const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
@@ -232,10 +295,14 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                     "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/"
                     "{:08x}/{}/",
                     FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), high_id, virtual_name);
+
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
+                    const auto content_path =
+                        fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
                     out.push_back(
                         {type, id, FileUtil::Exists(citra_path + "content/"),
-                         FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/")});
+                         FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
+                         LoadTitleName(content_path)});
                 }
 
                 if (type != ContentType::Application) {

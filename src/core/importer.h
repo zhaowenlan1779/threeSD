@@ -103,17 +103,27 @@ public:
 
 private:
     bool Init();
+
     bool ImportTitle(u64 id, const ProgressCallback& callback);
     bool ImportSavegame(u64 id, const ProgressCallback& callback);
     bool ImportExtdata(u64 id, const ProgressCallback& callback);
     bool ImportSysdata(u64 id, const ProgressCallback& callback);
+
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
+
     void DeleteTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;
     void DeleteExtdata(u64 id) const;
     void DeleteSysdata(u64 id) const;
+
+    /**
+     * Loads the English short title name of a title.
+     * @param path Path of the 'content' folder relative to the SDMC root folder.
+     * Required to end with '/'.
+     */
+    std::string LoadTitleName(const std::string& path) const;
 
     bool is_good{};
     Config config;

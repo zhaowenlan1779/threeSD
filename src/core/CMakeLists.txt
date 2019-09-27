@@ -11,8 +11,15 @@ add_library(core STATIC
   key/arithmetic128.h
   key/key.cpp
   key/key.h
+  ncch/ncch_container.cpp
+  ncch/ncch_container.h
+  ncch/smdh.cpp
+  ncch/smdh.h
+  ncch/title_metadata.cpp
+  ncch/title_metadata.h
   quick_decryptor.cpp
   quick_decryptor.h
+  result_status.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

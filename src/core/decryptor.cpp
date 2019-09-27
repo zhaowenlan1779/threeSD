@@ -83,4 +83,66 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
     return data;
 }
 
+SDMCFile::SDMCFile() {}
+
+SDMCFile::SDMCFile(std::string root_folder, const std::string& filename, const char openmode[],
+                   int flags) {
+    if (root_folder.back() == '/' || root_folder.back() == '\\') {
+        // Remove '/' or '\' character at the end as we will add them back when combining path
+        root_folder.erase(root_folder.size() - 1);
+    }
+
+    original_ctr = GetFileCTR(filename);
+    key = Key::GetNormalKey(Key::SDKey);
+    // aes.SetKeyWithIV(key.data(), key.size(), original_ctr.data());
+
+    Open(root_folder + filename, openmode, flags);
+}
+
+SDMCFile::~SDMCFile() {
+    Close();
+}
+
+SDMCFile::SDMCFile(SDMCFile&& other) {
+    Swap(other);
+}
+
+SDMCFile& SDMCFile::operator=(SDMCFile&& other) {
+    Swap(other);
+    return *this;
+}
+
+void SDMCFile::Swap(SDMCFile& other) {
+    file.Swap(other.file);
+    std::swap(original_ctr, other.original_ctr);
+    std::swap(key, other.key);
+}
+
+bool SDMCFile::Open(const std::string& filename, const char openmode[], int flags) {
+    return file.Open(filename, openmode, flags);
+}
+
+bool SDMCFile::Close() {
+    return file.Close();
+}
+
+u64 SDMCFile::GetSize() const {
+    return file.GetSize();
+}
+
+bool SDMCFile::Seek(s64 off, int origin) {
+    return file.Seek(off, origin);
+}
+
+u64 SDMCFile::Tell() const {
+    return file.Tell();
+}
+
+void SDMCFile::DecryptData(u8* data, std::size_t size) {
+    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
+    aes.SetKeyWithIV(key.data(), key.size(), original_ctr.data());
+    aes.Seek(Tell() - size);
+    aes.ProcessData(data, data, size);
+}
+
 } // namespace Core

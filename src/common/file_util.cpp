@@ -870,6 +870,7 @@ u64 IOFile::Tell() const {
     if (IsOpen())
         return ftello(m_file);
 
+    LOG_ERROR(Core, "File is not open");
     return -1;
 }
 
