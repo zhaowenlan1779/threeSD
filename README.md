@@ -46,7 +46,7 @@ Make sure the SD card is properly recognized and shows up as a disk.
 1. Launch threeSD. You should see a small dialog, which has your SD card as an auto-detected configuration. 
     * If it does not show up and the combo box says `None`, you should check if you can really find your SD card in the explorer (aka. `My Computer`), whether the drive for your SD card is accessible, and whether it contains the `Nintendo 3DS` and `threeSD` folders.
 1. Click `OK`. After a few seconds of loading, you should see the `Select Contents` dialog. Select the contents you would like to import. By default, contents that do not currently exist is selected. Make sure the total size of your selected contents do not exceed the available space on your disk.
-    * The `System Data` group contains important data that is necessary for your imported games to run. You should definitely import the contents there, if they do not exist yet.
+    * `System Data` (which resides in `Ungrouped`) contains important data that is necessary for your imported games to run. You should definitely import the contents there, if they do not exist yet.
 1. After you've finished your selection, click `OK`. You should now see a progress dialog; wait a while until your contents are imported.
     * The time will depend on how big your contents are, as well as your CPU processing power and (mainly) disk I/O speeds.
 

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cmath>
+#include <unordered_map>
 #include <QCheckBox>
 #include <QFutureWatcher>
 #include <QMessageBox>
@@ -41,9 +42,7 @@ static const std::map<Core::ContentType, const char*> ContentTypeMap{
 
 QString GetContentName(const Core::ContentSpecifier& specifier) {
     return specifier.name.empty()
-               ? QStringLiteral("0x%1 (%2)")
-                     .arg(specifier.id, 16, 16, QLatin1Char('0'))
-                     .arg(QObject::tr(ContentTypeMap.at(specifier.type), "ImportDialog"))
+               ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
                : QString::fromStdString(specifier.name);
 }
 
@@ -110,9 +109,20 @@ void ImportDialog::RepopulateContent() {
     ui->main->clear();
     ui->main->setSortingEnabled(false);
 
-    for (const auto& [type, name] : ContentTypeMap) {
+    std::map<u64, QString> title_name_map;       // title ID -> title name
+    std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
+    for (const auto& content : contents) {
+        if (content.type == Core::ContentType::Application) {
+            title_name_map.emplace(content.id, GetContentName(content));
+            extdata_id_map.emplace(content.extdata_id, content.id);
+        }
+    }
+    title_name_map.insert_or_assign(0, tr("Ungrouped"));
+
+    std::unordered_map<u64, u64> title_row_map;
+    for (const auto& [id, name] : title_name_map) {
         auto* checkBox = new QCheckBox();
-        checkBox->setText(tr(name));
+        checkBox->setText(name);
         checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
         checkBox->setTristate(true);
         checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
@@ -120,6 +130,7 @@ void ImportDialog::RepopulateContent() {
         auto* item = new QTreeWidgetItem;
         item->setFirstColumnSpanned(true);
         ui->main->invisibleRootItem()->addChild(item);
+        title_row_map[id] = ui->main->invisibleRootItem()->childCount() - 1;
 
         connect(checkBox, &QCheckBox::stateChanged, [this, checkBox, item](int state) {
             SCOPE_EXIT({ checkBox->setProperty("previousState", state); });
@@ -157,11 +168,39 @@ void ImportDialog::RepopulateContent() {
         // HACK: The checkbox is used to record ID. Is there a better way?
         checkBox->setProperty("id", i);
 
+        std::size_t row = title_row_map.at(0);
+        switch (content.type) {
+        case Core::ContentType::Application:
+        case Core::ContentType::Update:
+        case Core::ContentType::DLC:
+        case Core::ContentType::Savegame: {
+            // Fix the id
+            const auto real_id = content.id & 0xffffff00ffffffff;
+            row = title_row_map.count(real_id) ? title_row_map.at(real_id) : title_row_map.at(0);
+            break;
+        }
+        case Core::ContentType::Extdata: {
+            const auto real_id =
+                extdata_id_map.count(content.id) ? extdata_id_map.at(content.id) : 0;
+            row = title_row_map.at(real_id);
+            break;
+        }
+        case Core::ContentType::Sysdata: {
+            row = title_row_map.at(0);
+            break;
+        }
+        }
+
+        const QString name = (row == 0 ? QStringLiteral("%1 (%2)")
+                                             .arg(GetContentName(content))
+                                             .arg(tr(ContentTypeMap.at(content.type)))
+                                       : tr(ContentTypeMap.at(content.type)));
+
         auto* item = new QTreeWidgetItem{
-            {QString{}, GetContentName(content), ReadableByteSize(content.maximum_size),
+            {QString{}, name, ReadableByteSize(content.maximum_size),
              content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
 
-        ui->main->invisibleRootItem()->child(static_cast<int>(content.type))->addChild(item);
+        ui->main->invisibleRootItem()->child(row)->addChild(item);
         ui->main->setItemWidget(item, 0, checkBox);
 
         connect(checkBox, &QCheckBox::stateChanged,
@@ -275,10 +314,11 @@ void ImportDialog::StartImporting() {
             [this, dialog, multiplier, total_count](u64 size_imported, u64 count,
                                                     Core::ContentSpecifier next_content) {
                 dialog->setValue(static_cast<int>(size_imported / multiplier));
-                dialog->setLabelText(tr("(%1/%2) Importing %3...")
+                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4)...")
                                          .arg(count)
                                          .arg(total_count)
-                                         .arg(GetContentName(next_content)));
+                                         .arg(GetContentName(next_content))
+                                         .arg(tr(ContentTypeMap.at(next_content.type))));
                 current_content = next_content;
                 current_count = count;
             });
@@ -286,18 +326,20 @@ void ImportDialog::StartImporting() {
             [this, dialog, multiplier, total_count](u64 total_size_imported,
                                                     u64 current_size_imported) {
                 dialog->setValue(static_cast<int>(total_size_imported / multiplier));
-                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4/%5)...")
+                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4) (%5/%6)...")
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
+                                         .arg(tr(ContentTypeMap.at(current_content.type)))
                                          .arg(ReadableByteSize(current_size_imported))
                                          .arg(ReadableByteSize(current_content.maximum_size)));
             });
     connect(job, &ImportJob::ErrorOccured, this,
             [this, dialog](Core::ContentSpecifier current_content) {
-                QMessageBox::critical(
-                    this, tr("Error"),
-                    tr("Failed to import content %1!").arg(GetContentName(current_content)));
+                QMessageBox::critical(this, tr("Error"),
+                                      tr("Failed to import content %1 (%2)!")
+                                          .arg(GetContentName(current_content))
+                                          .arg(tr(ContentTypeMap.at(current_content.type))));
                 dialog->hide();
             });
     connect(job, &ImportJob::Completed, this, [this, dialog] {

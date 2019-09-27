@@ -35,6 +35,7 @@ struct ContentSpecifier {
     bool already_exists; ///< Tells whether a file already exists in target path.
     u64 maximum_size; ///< The maximum size of the content. May be slightly bigger than real size.
     std::string name; ///< Optional. The content's preferred display name.
+    u64 extdata_id;   ///< Extdata ID for Applications.
 };
 
 /**
@@ -119,11 +120,11 @@ private:
     void DeleteSysdata(u64 id) const;
 
     /**
-     * Loads the English short title name of a title.
+     * Loads the English short title name and extdata id of a title.
      * @param path Path of the 'content' folder relative to the SDMC root folder.
      * Required to end with '/'.
      */
-    std::string LoadTitleName(const std::string& path) const;
+    std::pair<std::string, u64> LoadTitleData(const std::string& path) const;
 
     bool is_good{};
     Config config;

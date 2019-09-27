@@ -214,7 +214,7 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
-std::string SDMCImporter::LoadTitleName(const std::string& path) const {
+std::pair<std::string, u64> SDMCImporter::LoadTitleData(const std::string& path) const {
     // Remove trailing '/'
     const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
 
@@ -271,7 +271,11 @@ std::string SDMCImporter::LoadTitleName(const std::string& path) const {
 
     SMDH smdh;
     std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
-    return Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+
+    u64 extdata_id{};
+    ncch.ReadExtdataId(extdata_id);
+    return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)),
+            extdata_id};
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
@@ -299,10 +303,11 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
                     const auto content_path =
                         fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
+                    const auto& [name, extdata_id] = LoadTitleData(content_path);
                     out.push_back(
                         {type, id, FileUtil::Exists(citra_path + "content/"),
                          FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                         LoadTitleName(content_path)});
+                         name, extdata_id});
                 }
 
                 if (type != ContentType::Application) {
