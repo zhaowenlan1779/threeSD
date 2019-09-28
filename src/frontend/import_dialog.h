@@ -31,6 +31,10 @@ private:
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
     void StartImporting();
 
+    void InsertTopLevelItem(const QString& text);
+    void InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
+                               std::size_t id);
+
     std::unique_ptr<Ui::ImportDialog> ui;
 
     std::string user_path;

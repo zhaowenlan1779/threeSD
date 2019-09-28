@@ -31,19 +31,23 @@ QString ReadableByteSize(qulonglong size) {
         .arg(QObject::tr(units[digit_groups], "ImportDialog"));
 }
 
-static const std::map<Core::ContentType, const char*> ContentTypeMap{
+static constexpr std::array<std::pair<Core::ContentType, const char*>, 6> ContentTypeMap{{
     {Core::ContentType::Application, QT_TR_NOOP("Application")},
     {Core::ContentType::Update, QT_TR_NOOP("Update")},
     {Core::ContentType::DLC, QT_TR_NOOP("DLC")},
     {Core::ContentType::Savegame, QT_TR_NOOP("Save Data")},
     {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data")},
     {Core::ContentType::Sysdata, QT_TR_NOOP("System Data")},
-};
+}};
 
 QString GetContentName(const Core::ContentSpecifier& specifier) {
     return specifier.name.empty()
                ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
                : QString::fromStdString(specifier.name);
+}
+
+QString GetContentTypeName(Core::ContentType type) {
+    return QObject::tr(ContentTypeMap.at(static_cast<std::size_t>(type)).second, "ImportDialog");
 }
 
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
@@ -61,6 +65,8 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
         reject();
     }
 
+    ui->title_view_button->setChecked(true);
+
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));
     connect(ui->buttonBox, &QDialogButtonBox::clicked, [this](QAbstractButton* button) {
         if (button == ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)) {
@@ -71,6 +77,8 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
             RelistContent();
         }
     });
+
+    connect(ui->title_view_button, &QRadioButton::toggled, this, &ImportDialog::RepopulateContent);
 
     RelistContent();
     UpdateSizeDisplay();
@@ -91,134 +99,156 @@ void ImportDialog::RelistContent() {
     dialog->setMinimumDuration(0);
     dialog->setValue(0);
 
-    using FutureWatcher = QFutureWatcher<std::vector<Core::ContentSpecifier>>;
+    using FutureWatcher = QFutureWatcher<void>;
     auto* future_watcher = new FutureWatcher(this);
     connect(future_watcher, &FutureWatcher::finished, this, [this, dialog] {
         dialog->hide();
         RepopulateContent();
     });
 
-    auto future =
-        QtConcurrent::run([& importer = this->importer] { return importer.ListContent(); });
+    auto future = QtConcurrent::run([& contents = this->contents, &importer = this->importer] {
+        contents = importer.ListContent();
+    });
     future_watcher->setFuture(future);
+}
+
+void ImportDialog::InsertTopLevelItem(const QString& text) {
+    auto* checkBox = new QCheckBox();
+    checkBox->setText(text);
+    checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
+    checkBox->setTristate(true);
+    checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
+
+    auto* item = new QTreeWidgetItem;
+    item->setFirstColumnSpanned(true);
+    ui->main->invisibleRootItem()->addChild(item);
+
+    connect(checkBox, &QCheckBox::stateChanged, [this, checkBox, item](int state) {
+        SCOPE_EXIT({ checkBox->setProperty("previousState", state); });
+
+        if (program_trigger) {
+            program_trigger = false;
+            return;
+        }
+
+        if (state == Qt::PartiallyChecked) {
+            if (checkBox->property("previousState").toInt() == Qt::Unchecked) {
+                checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Checked));
+            } else {
+                checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Unchecked));
+            }
+            return;
+        }
+
+        program_trigger = true;
+        for (int i = 0; i < item->childCount(); ++i) {
+            static_cast<QCheckBox*>(ui->main->itemWidget(item->child(i), 0))
+                ->setCheckState(static_cast<Qt::CheckState>(state));
+        }
+        program_trigger = false;
+    });
+
+    ui->main->setItemWidget(item, 0, checkBox);
+}
+
+void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
+                                         std::size_t id) {
+    auto* checkBox = new QCheckBox();
+    checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
+    // HACK: The checkbox is used to record ID. Is there a better way?
+    checkBox->setProperty("id", id);
+
+    const QString name = (row == 0 ? QStringLiteral("%1 (%2)")
+                                         .arg(GetContentName(content))
+                                         .arg(GetContentTypeName(content.type))
+                                   : GetContentTypeName(content.type));
+
+    auto* item = new QTreeWidgetItem{
+        {QString{}, name, ReadableByteSize(content.maximum_size),
+         content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
+
+    ui->main->invisibleRootItem()->child(row)->addChild(item);
+    ui->main->setItemWidget(item, 0, checkBox);
+
+    connect(checkBox, &QCheckBox::stateChanged,
+            [this, item, size = content.maximum_size](int state) {
+                if (state == Qt::Checked) {
+                    total_size += size;
+                } else {
+                    total_size -= size;
+                }
+                UpdateSizeDisplay();
+
+                if (!program_trigger) {
+                    UpdateItemCheckState(item->parent());
+                }
+            });
+
+    if (!content.already_exists) {
+        checkBox->setChecked(true);
+    }
 }
 
 void ImportDialog::RepopulateContent() {
     total_size = 0;
-    contents = importer.ListContent();
     ui->main->clear();
     ui->main->setSortingEnabled(false);
 
-    std::map<u64, QString> title_name_map;       // title ID -> title name
-    std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
-    for (const auto& content : contents) {
-        if (content.type == Core::ContentType::Application) {
-            title_name_map.emplace(content.id, GetContentName(content));
-            extdata_id_map.emplace(content.extdata_id, content.id);
+    const bool use_title_view = ui->title_view_button->isChecked();
+    if (use_title_view) {
+        std::map<u64, QString> title_name_map;       // title ID -> title name
+        std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
+        for (const auto& content : contents) {
+            if (content.type == Core::ContentType::Application) {
+                title_name_map.emplace(content.id, GetContentName(content));
+                extdata_id_map.emplace(content.extdata_id, content.id);
+            }
         }
-    }
-    title_name_map.insert_or_assign(0, tr("Ungrouped"));
+        title_name_map.insert_or_assign(0, tr("Ungrouped"));
 
-    std::unordered_map<u64, u64> title_row_map;
-    for (const auto& [id, name] : title_name_map) {
-        auto* checkBox = new QCheckBox();
-        checkBox->setText(name);
-        checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
-        checkBox->setTristate(true);
-        checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
+        std::unordered_map<u64, u64> title_row_map;
+        for (const auto& [id, name] : title_name_map) {
+            InsertTopLevelItem(name);
+            title_row_map[id] = ui->main->invisibleRootItem()->childCount() - 1;
+        }
 
-        auto* item = new QTreeWidgetItem;
-        item->setFirstColumnSpanned(true);
-        ui->main->invisibleRootItem()->addChild(item);
-        title_row_map[id] = ui->main->invisibleRootItem()->childCount() - 1;
+        for (std::size_t i = 0; i < contents.size(); ++i) {
+            const auto& content = contents[i];
 
-        connect(checkBox, &QCheckBox::stateChanged, [this, checkBox, item](int state) {
-            SCOPE_EXIT({ checkBox->setProperty("previousState", state); });
-
-            if (program_trigger) {
-                program_trigger = false;
-                return;
+            std::size_t row = title_row_map.at(0);
+            switch (content.type) {
+            case Core::ContentType::Application:
+            case Core::ContentType::Update:
+            case Core::ContentType::DLC:
+            case Core::ContentType::Savegame: {
+                // Fix the id
+                const auto real_id = content.id & 0xffffff00ffffffff;
+                row =
+                    title_row_map.count(real_id) ? title_row_map.at(real_id) : title_row_map.at(0);
+                break;
+            }
+            case Core::ContentType::Extdata: {
+                const auto real_id =
+                    extdata_id_map.count(content.id) ? extdata_id_map.at(content.id) : 0;
+                row = title_row_map.at(real_id);
+                break;
+            }
+            case Core::ContentType::Sysdata: {
+                row = title_row_map.at(0);
+                break;
+            }
             }
 
-            if (state == Qt::PartiallyChecked) {
-                if (checkBox->property("previousState").toInt() == Qt::Unchecked) {
-                    checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Checked));
-                } else {
-                    checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Unchecked));
-                }
-                return;
-            }
-
-            program_trigger = true;
-            for (int i = 0; i < item->childCount(); ++i) {
-                static_cast<QCheckBox*>(ui->main->itemWidget(item->child(i), 0))
-                    ->setCheckState(static_cast<Qt::CheckState>(state));
-            }
-            program_trigger = false;
-        });
-
-        ui->main->setItemWidget(item, 0, checkBox);
-    }
-
-    for (std::size_t i = 0; i < contents.size(); ++i) {
-        const auto& content = contents[i];
-
-        auto* checkBox = new QCheckBox();
-        checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
-        // HACK: The checkbox is used to record ID. Is there a better way?
-        checkBox->setProperty("id", i);
-
-        std::size_t row = title_row_map.at(0);
-        switch (content.type) {
-        case Core::ContentType::Application:
-        case Core::ContentType::Update:
-        case Core::ContentType::DLC:
-        case Core::ContentType::Savegame: {
-            // Fix the id
-            const auto real_id = content.id & 0xffffff00ffffffff;
-            row = title_row_map.count(real_id) ? title_row_map.at(real_id) : title_row_map.at(0);
-            break;
+            InsertSecondLevelItem(row, content, i);
         }
-        case Core::ContentType::Extdata: {
-            const auto real_id =
-                extdata_id_map.count(content.id) ? extdata_id_map.at(content.id) : 0;
-            row = title_row_map.at(real_id);
-            break;
-        }
-        case Core::ContentType::Sysdata: {
-            row = title_row_map.at(0);
-            break;
-        }
+    } else {
+        for (const auto& [type, name] : ContentTypeMap) {
+            InsertTopLevelItem(tr(name));
         }
 
-        const QString name = (row == 0 ? QStringLiteral("%1 (%2)")
-                                             .arg(GetContentName(content))
-                                             .arg(tr(ContentTypeMap.at(content.type)))
-                                       : tr(ContentTypeMap.at(content.type)));
-
-        auto* item = new QTreeWidgetItem{
-            {QString{}, name, ReadableByteSize(content.maximum_size),
-             content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
-
-        ui->main->invisibleRootItem()->child(row)->addChild(item);
-        ui->main->setItemWidget(item, 0, checkBox);
-
-        connect(checkBox, &QCheckBox::stateChanged,
-                [this, item, size = content.maximum_size](int state) {
-                    if (state == Qt::Checked) {
-                        total_size += size;
-                    } else {
-                        total_size -= size;
-                    }
-                    UpdateSizeDisplay();
-
-                    if (!program_trigger) {
-                        UpdateItemCheckState(item->parent());
-                    }
-                });
-
-        if (!content.already_exists) {
-            checkBox->setChecked(true);
+        for (std::size_t i = 0; i < contents.size(); ++i) {
+            const auto& content = contents[i];
+            InsertSecondLevelItem(static_cast<std::size_t>(content.type), content, i);
         }
     }
 
@@ -318,7 +348,7 @@ void ImportDialog::StartImporting() {
                                          .arg(count)
                                          .arg(total_count)
                                          .arg(GetContentName(next_content))
-                                         .arg(tr(ContentTypeMap.at(next_content.type))));
+                                         .arg(GetContentTypeName(next_content.type)));
                 current_content = next_content;
                 current_count = count;
             });
@@ -330,7 +360,7 @@ void ImportDialog::StartImporting() {
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
-                                         .arg(tr(ContentTypeMap.at(current_content.type)))
+                                         .arg(GetContentTypeName(current_content.type))
                                          .arg(ReadableByteSize(current_size_imported))
                                          .arg(ReadableByteSize(current_content.maximum_size)));
             });
@@ -339,7 +369,7 @@ void ImportDialog::StartImporting() {
                 QMessageBox::critical(this, tr("Error"),
                                       tr("Failed to import content %1 (%2)!")
                                           .arg(GetContentName(current_content))
-                                          .arg(tr(ContentTypeMap.at(current_content.type))));
+                                          .arg(GetContentTypeName(current_content.type)));
                 dialog->hide();
             });
     connect(job, &ImportJob::Completed, this, [this, dialog] {
