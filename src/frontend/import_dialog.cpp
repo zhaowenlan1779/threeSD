@@ -31,12 +31,13 @@ QString ReadableByteSize(qulonglong size) {
         .arg(QObject::tr(units[digit_groups], "ImportDialog"));
 }
 
-static constexpr std::array<std::pair<Core::ContentType, const char*>, 6> ContentTypeMap{{
+static constexpr std::array<std::pair<Core::ContentType, const char*>, 7> ContentTypeMap{{
     {Core::ContentType::Application, QT_TR_NOOP("Application")},
     {Core::ContentType::Update, QT_TR_NOOP("Update")},
     {Core::ContentType::DLC, QT_TR_NOOP("DLC")},
     {Core::ContentType::Savegame, QT_TR_NOOP("Save Data")},
     {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data")},
+    {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive")},
     {Core::ContentType::Sysdata, QT_TR_NOOP("System Data")},
 }};
 
@@ -158,10 +159,20 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     // HACK: The checkbox is used to record ID. Is there a better way?
     checkBox->setProperty("id", id);
 
-    const QString name = (row == 0 ? QStringLiteral("%1 (%2)")
-                                         .arg(GetContentName(content))
-                                         .arg(GetContentTypeName(content.type))
-                                   : GetContentTypeName(content.type));
+    QString name;
+    if (ui->title_view_button->isChecked()) {
+        if (row == 0) {
+            name = QStringLiteral("%1 (%2)")
+                       .arg(GetContentName(content))
+                       .arg(GetContentTypeName(content.type));
+        } else if (row <= 2) {
+            name = GetContentName(content);
+        } else {
+            name = GetContentTypeName(content.type);
+        }
+    } else {
+        name = GetContentName(content);
+    }
 
     auto* item = new QTreeWidgetItem{
         {QString{}, name, ReadableByteSize(content.maximum_size),
@@ -205,6 +216,8 @@ void ImportDialog::RepopulateContent() {
             }
         }
         title_name_map.insert_or_assign(0, tr("Ungrouped"));
+        title_name_map.insert_or_assign(1, tr("System Archive"));
+        title_name_map.insert_or_assign(2, tr("System Data"));
 
         std::unordered_map<u64, u64> title_row_map;
         for (const auto& [id, name] : title_name_map) {
@@ -233,8 +246,12 @@ void ImportDialog::RepopulateContent() {
                 row = title_row_map.at(real_id);
                 break;
             }
+            case Core::ContentType::SystemArchive: {
+                row = title_row_map.at(1); // System archive
+                break;
+            }
             case Core::ContentType::Sysdata: {
-                row = title_row_map.at(0);
+                row = title_row_map.at(2); // System data
                 break;
             }
             }

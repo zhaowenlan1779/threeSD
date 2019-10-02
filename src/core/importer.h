@@ -23,6 +23,7 @@ enum class ContentType {
     DLC,
     Savegame,
     Extdata,
+    SystemArchive,
     Sysdata,
 };
 
@@ -53,9 +54,10 @@ struct Config {
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
 
-    std::string safe_mode_firm_path; ///< Path to safe mode firm (A folder) (Sysdata 1)
-    std::string seed_db_path;        ///< Path to seeddb.bin (Sysdata 2)
-    std::string secret_sector_path;  ///< Path to secret sector (New3DS only) (Sysdata 3)
+    std::string safe_mode_firm_path;  ///< Path to safe mode firm (A folder) (Sysdata 1)
+    std::string seed_db_path;         ///< Path to seeddb.bin (Sysdata 2)
+    std::string secret_sector_path;   ///< Path to secret sector (New3DS only) (Sysdata 3)
+    std::string system_archives_path; ///< Path to system archives.
 
     // Sysdata 4 is aes_keys.db (slot0x25KeyX)
 };
@@ -108,15 +110,18 @@ private:
     bool ImportTitle(u64 id, const ProgressCallback& callback);
     bool ImportSavegame(u64 id, const ProgressCallback& callback);
     bool ImportExtdata(u64 id, const ProgressCallback& callback);
+    bool ImportSystemArchive(u64 id, const ProgressCallback& callback);
     bool ImportSysdata(u64 id, const ProgressCallback& callback);
 
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
+    void ListSystemArchive(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
 
     void DeleteTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;
     void DeleteExtdata(u64 id) const;
+    void DeleteSystemArchive(u64 id) const;
     void DeleteSysdata(u64 id) const;
 
     /**

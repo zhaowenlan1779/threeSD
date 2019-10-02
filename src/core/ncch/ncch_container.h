@@ -277,4 +277,10 @@ private:
     SDMCFile exefs_file;
 };
 
+/**
+ * Extracts the shared RomFS from a NCCH image.
+ * Used for handling system archives.
+ */
+std::vector<u8> LoadSharedRomFS(const std::vector<u8>& data);
+
 } // namespace Core

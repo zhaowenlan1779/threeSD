@@ -48,6 +48,53 @@ sdump -w seeddb.bin
 cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
 rm "0:/gm9/out/seeddb.bin"
 
+if not find $[OUT]/sysarchives NULL
+    mkdir $[OUT]/sysarchives
+end
+
+if not find $[OUT]/sysarchives/0004009b NULL
+    mkdir $[OUT]/sysarchives/0004009b
+end
+
+# Mii Data
+find 1:/title/0004009b/00010202/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00010202.app
+decrypt $[OUT]/sysarchives/0004009b/00010202.app
+
+# Region Manifest
+find 1:/title/0004009b/00010402/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00010402.app
+decrypt $[OUT]/sysarchives/0004009b/00010402.app
+
+# Shared Font (JPN/EUR/USA)
+find 1:/title/0004009b/00014002/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00014002.app
+decrypt $[OUT]/sysarchives/0004009b/00014002.app
+
+# Shared Font (CHN)
+find 1:/title/0004009b/00014102/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00014102.app
+decrypt $[OUT]/sysarchives/0004009b/00014102.app
+
+# Shared Font (KOR)
+find 1:/title/0004009b/00014202/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00014202.app
+decrypt $[OUT]/sysarchives/0004009b/00014202.app
+
+# Shared Font (TWN)
+find 1:/title/0004009b/00014302/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/0004009b/00014302.app
+decrypt $[OUT]/sysarchives/0004009b/00014302.app
+
+if not find $[OUT]/sysarchives/000400db NULL
+    mkdir $[OUT]/sysarchives/000400db
+end
+
+# NG Bad word list
+find 1:/title/000400db/00010302/content/*.app APP
+cp -w -n $[APP] $[OUT]/sysarchives/000400db/00010302.app
+decrypt $[OUT]/sysarchives/000400db/00010302.app
+
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."
 

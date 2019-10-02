@@ -3,13 +3,18 @@
 // Refer to the license.txt file included.
 
 #include <cinttypes>
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <cryptopp/aes.h>
 #include <cryptopp/modes.h>
 #include <cryptopp/sha.h>
+#include "common/alignment.h"
+#include "common/assert.h"
+#include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/logging/log.h"
+#include "core/data_container.h"
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
 
@@ -302,6 +307,42 @@ bool NCCHContainer::HasExHeader() {
         return false;
 
     return has_exheader;
+}
+
+#pragma pack(push, 1)
+struct RomFSIVFCHeader {
+    u32_le magic;
+    u32_le version;
+    u32_le master_hash_size;
+    std::array<LevelDescriptor, 3> levels;
+    INSERT_PADDING_BYTES(0xC);
+};
+static_assert(sizeof(RomFSIVFCHeader) == 0x60, "Size of RomFSIVFCHeader is incorrect");
+#pragma pack(pop)
+
+std::vector<u8> LoadSharedRomFS(const std::vector<u8>& data) {
+    NCCH_Header header;
+    ASSERT_MSG(data.size() >= sizeof(header), "NCCH size is too small");
+    std::memcpy(&header, data.data(), sizeof(header));
+
+    const std::size_t offset = header.romfs_offset * 0x200; // 0x200: Media unit
+    RomFSIVFCHeader ivfc;
+    ASSERT_MSG(data.size() >= offset + sizeof(ivfc), "NCCH size is too small");
+    std::memcpy(&ivfc, data.data() + offset, sizeof(ivfc));
+
+    ASSERT_MSG(ivfc.magic == MakeMagic('I', 'V', 'F', 'C'), "IVFC magic is incorrect");
+    ASSERT_MSG(ivfc.version == 0x10000, "IVFC version is incorrect");
+
+    std::vector<u8> result(ivfc.levels[2].size);
+
+    // Calculation from ctrtool
+    const std::size_t data_offset =
+        offset + Common::AlignUp(sizeof(ivfc) + ivfc.master_hash_size,
+                                 std::pow(2, ivfc.levels[2].block_size));
+    ASSERT_MSG(data.size() >= data_offset + ivfc.levels[2].size);
+    std::memcpy(result.data(), data.data() + data_offset, ivfc.levels[2].size);
+
+    return result;
 }
 
 } // namespace Core
