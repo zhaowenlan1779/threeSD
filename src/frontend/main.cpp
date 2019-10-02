@@ -57,7 +57,7 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
     });
 
     // Field 3: Is file
-    const std::array<std::tuple<QLineEdit*, QToolButton*, int>, 7> fields{{
+    const std::array<std::tuple<QLineEdit*, QToolButton*, int>, 9> fields{{
         {ui->sdmcPath, ui->sdmcPathExplore, 0},
         {ui->userPath, ui->userPathExplore, 0},
         {ui->movableSedPath, ui->movableSedExplore, 1},
@@ -65,6 +65,8 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         {ui->safeModeFirmPath, ui->safeModeFirmExplore, 0},
         {ui->seeddbPath, ui->seeddbExplore, 1},
         {ui->secretSectorPath, ui->secretSectorExplore, 1},
+        {ui->configSavegamePath, ui->configSavegameExplore, 1},
+        {ui->systemArchivesPath, ui->systemArchivesExplore, 0},
     }};
 
     // TODO: better handling (filter)
@@ -119,6 +121,8 @@ void MainDialog::LoadPresetConfig() {
         ui->safeModeFirmPath->setText(QString{});
         ui->seeddbPath->setText(QString{});
         ui->secretSectorPath->setText(QString{});
+        ui->configSavegamePath->setText(QString{});
+        ui->systemArchivesPath->setText(QString{});
 
         ui->advancedButton->setVisible(false);
         ShowAdvanced();
@@ -157,6 +161,8 @@ void MainDialog::ShowAdvanced() {
     ui->safeModeFirmPath->setText(QString::fromStdString(config.safe_mode_firm_path));
     ui->seeddbPath->setText(QString::fromStdString(config.seed_db_path));
     ui->secretSectorPath->setText(QString::fromStdString(config.secret_sector_path));
+    ui->configSavegamePath->setText(QString::fromStdString(config.config_savegame_path));
+    ui->systemArchivesPath->setText(QString::fromStdString(config.system_archives_path));
 }
 
 void MainDialog::HideAdvanced() {
@@ -180,6 +186,8 @@ Core::Config MainDialog::GetCurrentConfig() {
             /*safe_mode_firm_path*/ ui->safeModeFirmPath->text().toStdString(),
             /*seed_db_path*/ ui->seeddbPath->text().toStdString(),
             /*secret_sector_path*/ ui->secretSectorPath->text().toStdString(),
+            /*config_savegame_path*/ ui->configSavegamePath->text().toStdString(),
+            /*system_archives_path*/ ui->systemArchivesPath->text().toStdString(),
         };
         return config;
     } else {

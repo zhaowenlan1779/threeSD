@@ -208,6 +208,40 @@
         </property>
        </widget>
       </item>
+      <item row="7" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Config savegame</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="QLineEdit" name="configSavegamePath"/>
+      </item>
+      <item row="7" column="2">
+       <widget class="QToolButton" name="configSavegameExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>System archives</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="1">
+       <widget class="QLineEdit" name="systemArchivesPath"/>
+      </item>
+      <item row="8" column="2">
+       <widget class="QToolButton" name="systemArchivesExplore">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
