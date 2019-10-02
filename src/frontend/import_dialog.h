@@ -46,6 +46,9 @@ private:
     // TODO: Is there a more elegant way of doing the same?
     bool program_trigger = false;
 
+    // Whether the System Archive / System Data warning has been shown
+    bool warning_shown = false;
+
     // TODO: Why this won't work as locals?
     Core::ContentSpecifier current_content = {};
     u64 current_count = 0;

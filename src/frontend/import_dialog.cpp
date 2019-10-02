@@ -182,10 +182,22 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     ui->main->setItemWidget(item, 0, checkBox);
 
     connect(checkBox, &QCheckBox::stateChanged,
-            [this, item, size = content.maximum_size](int state) {
+            [this, item, size = content.maximum_size, type = content.type,
+             exists = content.already_exists](int state) {
                 if (state == Qt::Checked) {
                     total_size += size;
                 } else {
+                    if (!warning_shown && !exists &&
+                        (type == Core::ContentType::SystemArchive ||
+                         type == Core::ContentType::Sysdata)) {
+
+                        QMessageBox::warning(
+                            this, tr("Warning"),
+                            tr("System Archive and System Data are important files that may "
+                               "be necessary for your imported games to run.\nIt is highly "
+                               "recommended to import these contents if they do not exist yet."));
+                        warning_shown = true;
+                    }
                     total_size -= size;
                 }
                 UpdateSizeDisplay();
@@ -278,8 +290,7 @@ void ImportDialog::UpdateSizeDisplay() {
         LOG_ERROR(Frontend, "Storage {} is not good", user_path);
         QMessageBox::critical(
             this, tr("Bad Storage"),
-            tr("An error occured while trying to get available space for the storage.\nPlease "
-               "ensure that your SD card is well connected and try again."));
+            tr("An error occured while trying to get available space for the storage."));
         reject();
     }
 
@@ -288,7 +299,7 @@ void ImportDialog::UpdateSizeDisplay() {
     ui->totalSize->setText(tr("Total Size: %1").arg(ReadableByteSize(total_size)));
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)
-        ->setEnabled(total_size <= static_cast<u64>(storage.bytesAvailable()));
+        ->setEnabled(total_size > 0 && total_size <= static_cast<u64>(storage.bytesAvailable()));
 }
 
 void ImportDialog::UpdateItemCheckState(QTreeWidgetItem* item) {
