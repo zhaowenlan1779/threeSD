@@ -10,7 +10,6 @@ environment:
   CHERE_INVOKING: 1
   matrix:
     - BUILD_TYPE: mingw
-    - BUILD_TYPE: msvc
 
 platform:
   - x64

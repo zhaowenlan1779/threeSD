@@ -69,3 +69,4 @@ If you have any game cartidges, and would like to dump them as well, visit [this
 * Clear all the `TODO`s in the code
 * Wireless transfer (probably FTP?)
     * but: slow, complex
+* MSVC build doesn't work for its crappy preprocessor, but this shouldn't really matter
