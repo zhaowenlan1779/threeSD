@@ -121,12 +121,6 @@ public:
      */
     virtual bool Extract(std::string path) const = 0;
 
-protected:
-    /**
-     * Gets the ArchiveFormatInfo of this archive, used for writing the archive metadata.
-     */
-    virtual ArchiveFormatInfo GetFormatInfo() const = 0;
-
     /**
      * Extracts the index-th file in the file entry table to a certain path. (The path does not
      * contain the file name).
@@ -145,6 +139,12 @@ protected:
      * @return true on success, false otherwise
      */
     bool WriteMetadata(const std::string& path) const;
+
+protected:
+    /**
+     * Gets the ArchiveFormatInfo of this archive, used for writing the archive metadata.
+     */
+    virtual ArchiveFormatInfo GetFormatInfo() const = 0;
 
     bool is_good = false;
     FATHeader header;

@@ -239,6 +239,35 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
         file.WriteString("slot0x25KeyX=" + Key::KeyToString(Key::GetKeyX(0x25)) + "\n");
         return true;
     }
+    case 5: { // Config savegame
+        FileUtil::IOFile file(config.config_savegame_path, "rb");
+        if (!file) {
+            return false;
+        }
+
+        std::vector<u8> data(file.GetSize());
+        if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+            return false;
+        }
+
+        DataContainer container(data);
+        if (!container.IsGood()) {
+            return false;
+        }
+
+        SDSavegame save(std::move(container.GetIVFCLevel4Data()));
+        if (!save.IsGood()) {
+            return false;
+        }
+
+        const auto target_path =
+            fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/00000000/",
+                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir));
+        if (!FileUtil::CreateFullPath(target_path)) {
+            return false;
+        }
+        return save.ExtractDirectory(target_path, 1); // 1 = root
+    }
     default:
         UNREACHABLE_MSG("Unexpected sysdata id {}", id);
     }
@@ -445,6 +474,10 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
             out.push_back(
                 {ContentType::Sysdata, 4, FileUtil::Exists(sysdata_path + AES_KEYS), 47, AES_KEYS});
         }
+        CHECK_CONTENT(5, config.config_savegame_path,
+                      fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
+                                  FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)),
+                      "Config savegame");
     }
 
 #undef CHECK_CONTENT
@@ -545,6 +578,11 @@ void SDMCImporter::DeleteSysdata(u64 id) const {
     case 4: { // aes_keys.txt
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + AES_KEYS);
     }
+    case 5: { // Config savegame
+        FileUtil::DeleteDirRecursively(
+            fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
+                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)));
+    }
     default:
         UNREACHABLE_MSG("Unexpected sysdata id {}", id);
     }
@@ -575,6 +613,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(safe_mode_firm_path, "firm/");
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);
+        LOAD_DATA(config_savegame_path, "config.sav");
         LOAD_DATA(system_archives_path, "sysarchives/");
 #undef LOAD_DATA
     }

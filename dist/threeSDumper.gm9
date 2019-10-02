@@ -95,6 +95,9 @@ find 1:/title/000400db/00010302/content/*.app APP
 cp -w -n $[APP] $[OUT]/sysarchives/000400db/00010302.app
 decrypt $[OUT]/sysarchives/000400db/00010302.app
 
+# Config savegame
+cp -w -n 1:/data/$[SYSID0]/sysdata/00010017/00000000 $[OUT]/config.sav
+
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."
 
