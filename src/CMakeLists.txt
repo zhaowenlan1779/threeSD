@@ -21,24 +21,25 @@ if (MSVC)
     # Avoid windows.h from including some usually unused libs like winsocks.h, since this might cause some redefinition errors.
     add_definitions(-DWIN32_LEAN_AND_MEAN)
 
-    # /W4                 - Level 4 warnings
-    # /w34263             - Non-virtual member function hides base class virtual function
-    # /w44265             - Class has virtual functions, but destructor is not virtual
-    # /w34456             - Declaration of 'var' hides previous local declaration
-    # /w34457             - Declaration of 'var' hides function parameter
-    # /w34458             - Declaration of 'var' hides class member
-    # /w34459             - Declaration of 'var' hides global definition
-    # /w34946             - Reinterpret-cast between related types
-    # /wd4592             - Symbol will be dynamically initialized (implementation limitation)
-    # /MP                 - Multi-threaded compilation
-    # /Zi                 - Output debugging information
-    # /Zo                 - Enhanced debug info for optimized builds
-    # /permissive-        - Enables stricter C++ standards conformance checks
-    # /EHsc               - C++-only exception handling semantics
-    # /volatile:iso       - Use strict standards-compliant volatile semantics.
-    # /Zc:externConstexpr - Allow extern constexpr variables to have external linkage, like the standard mandates
-    # /Zc:inline          - Let codegen omit inline functions in object files
-    # /Zc:throwingNew     - Let codegen assume `operator new` (without std::nothrow) will never return null
+    # /W4                        - Level 4 warnings
+    # /w34263                    - Non-virtual member function hides base class virtual function
+    # /w44265                    - Class has virtual functions, but destructor is not virtual
+    # /w34456                    - Declaration of 'var' hides previous local declaration
+    # /w34457                    - Declaration of 'var' hides function parameter
+    # /w34458                    - Declaration of 'var' hides class member
+    # /w34459                    - Declaration of 'var' hides global definition
+    # /w34946                    - Reinterpret-cast between related types
+    # /wd4592                    - Symbol will be dynamically initialized (implementation limitation)
+    # /MP                        - Multi-threaded compilation
+    # /Zi                        - Output debugging information
+    # /Zo                        - Enhanced debug info for optimized builds
+    # /permissive-               - Enables stricter C++ standards conformance checks
+    # /EHsc                      - C++-only exception handling semantics
+    # /volatile:iso              - Use strict standards-compliant volatile semantics.
+    # /Zc:externConstexpr        - Allow extern constexpr variables to have external linkage, like the standard mandates
+    # /Zc:inline                 - Let codegen omit inline functions in object files
+    # /Zc:throwingNew            - Let codegen assume `operator new` (without std::nothrow) will never return null
+    # /experimental:preprocessor - Work around bugs within MSVC's crappy preprocessor
     add_compile_options(
         /W4
         /w34263
@@ -59,6 +60,7 @@ if (MSVC)
         /Zc:externConstexpr
         /Zc:inline
         /Zc:throwingNew
+        /experimental:preprocessor
     )
 
     # /GS- - No stack buffer overflow checks
