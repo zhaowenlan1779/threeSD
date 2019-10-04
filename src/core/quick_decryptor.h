@@ -35,13 +35,22 @@ public:
 
     void Abort();
 
+    /// Reset the imported_size counter for this content and set a new total_size.
+    void Reset(std::size_t total_size);
+
 private:
     static constexpr std::size_t BufferSize = 16 * 1024; // 16 KB
 
     std::string root_folder;
     std::string source;
     std::string destination;
+
+    // Total size of this content, may consist of multiple files
     std::size_t total_size{};
+    // Total size of the current file to process
+    std::size_t current_total_size{};
+    // Total imported size for this content
+    std::size_t imported_size{};
 
     std::array<std::array<u8, BufferSize>, 3> buffers;
     std::array<Common::Event, 3> data_read_event;

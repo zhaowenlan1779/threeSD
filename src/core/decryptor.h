@@ -41,6 +41,14 @@ public:
      */
     std::vector<u8> DecryptFile(const std::string& source) const;
 
+    /**
+     * Marks the beginning of a new content, resetting imported_size counter, and setting an new
+     * total_size for the next content.
+     * This doesn't affect at all how the contents will be imported, but will make sure the callback
+     * is properly invoked.
+     */
+    void Reset(std::size_t total_size);
+
 private:
     std::string root_folder;
     QuickDecryptor quick_decryptor;

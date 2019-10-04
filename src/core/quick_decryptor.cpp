@@ -74,8 +74,8 @@ bool QuickDecryptor::DecryptAndWriteFile(const std::string& source_,
     destination = destination_;
     callback = callback_;
 
-    total_size = FileUtil::GetSize(root_folder + source);
-    if (total_size == 0) {
+    current_total_size = FileUtil::GetSize(root_folder + source);
+    if (current_total_size == 0) {
         LOG_ERROR(Core, "Could not open file {}", root_folder + source);
         return false;
     }
@@ -109,7 +109,7 @@ void QuickDecryptor::DataReadLoop() {
         return;
     }
 
-    std::size_t file_size = total_size;
+    std::size_t file_size = current_total_size;
 
     while (is_running && file_size > 0) {
         if (is_first_run) {
@@ -140,7 +140,7 @@ void QuickDecryptor::DataDecryptLoop() {
     aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
 
     std::size_t current_buffer = 0;
-    std::size_t file_size = total_size;
+    std::size_t file_size = current_total_size;
 
     while (is_running && file_size > 0) {
         data_read_event[current_buffer].Wait();
@@ -166,16 +166,17 @@ void QuickDecryptor::DataWriteLoop() {
         return;
     }
 
-    std::size_t file_size = total_size;
+    std::size_t file_size = current_total_size;
     std::size_t iteration = 0;
     /// The number of iterations each progress report covers. 32 * 16K = 512K
     constexpr std::size_t ProgressReportFreq = 32;
 
     while (is_running && file_size > 0) {
-        iteration++;
         if (iteration % ProgressReportFreq == 0) {
-            callback(iteration * BufferSize, total_size);
+            callback(imported_size, total_size);
         }
+
+        iteration++;
 
         data_decrypted_event[current_buffer].Wait();
 
@@ -186,6 +187,7 @@ void QuickDecryptor::DataWriteLoop() {
             return;
         }
         file_size -= bytes_to_write;
+        imported_size += bytes_to_write;
 
         data_written_event[current_buffer].Set();
         current_buffer = (current_buffer + 1) % buffers.size();
@@ -199,6 +201,11 @@ void QuickDecryptor::Abort() {
         is_good = false;
         completion_event.Set();
     }
+}
+
+void QuickDecryptor::Reset(std::size_t total_size_) {
+    total_size = total_size_;
+    imported_size = 0;
 }
 
 } // namespace Core

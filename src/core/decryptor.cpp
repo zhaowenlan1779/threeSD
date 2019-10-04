@@ -49,6 +49,10 @@ std::array<u8, 16> GetFileCTR(const std::string& path) {
 }
 } // namespace
 
+void SDMCDecryptor::Reset(std::size_t total_size) {
+    quick_decryptor.Reset(total_size);
+}
+
 bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
                                         const QuickDecryptor::ProgressCallback& callback) {
     return quick_decryptor.DecryptAndWriteFile(source, destination, callback);
@@ -83,7 +87,7 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
     return data;
 }
 
-SDMCFile::SDMCFile() {}
+SDMCFile::SDMCFile() = default;
 
 SDMCFile::SDMCFile(std::string root_folder, const std::string& filename, const char openmode[],
                    int flags) {

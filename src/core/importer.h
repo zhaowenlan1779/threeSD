@@ -108,7 +108,7 @@ public:
 private:
     bool Init();
 
-    bool ImportTitle(u64 id, const ProgressCallback& callback);
+    bool ImportTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
     bool ImportSavegame(u64 id, const ProgressCallback& callback);
     bool ImportExtdata(u64 id, const ProgressCallback& callback);
     bool ImportSystemArchive(u64 id, const ProgressCallback& callback);

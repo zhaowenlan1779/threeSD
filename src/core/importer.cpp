@@ -67,7 +67,7 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
     case ContentType::Application:
     case ContentType::Update:
     case ContentType::DLC:
-        return ImportTitle(specifier.id, callback);
+        return ImportTitle(specifier, callback);
     case ContentType::Savegame:
         return ImportSavegame(specifier.id, callback);
     case ContentType::Extdata:
@@ -81,23 +81,34 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
     }
 }
 
-bool SDMCImporter::ImportTitle(u64 id, const ProgressCallback& callback) {
-    const auto path = fmt::format("title/{:08x}/{:08x}/content/", (id >> 32), (id & 0xFFFFFFFF));
-    return FileUtil::ForeachDirectoryEntry(
-        nullptr, config.sdmc_path + path,
-        [this, &path, callback](u64* /*num_entries_out*/, const std::string& directory,
-                                const std::string& virtual_name) {
-            if (FileUtil::IsDirectory(directory + virtual_name)) {
-                return true;
+bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
+                               const ProgressCallback& callback) {
+    decryptor->Reset(specifier.maximum_size);
+    const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
+        [this, size = config.sdmc_path.size(), callback,
+         &DirectoryEntryCallback](u64* /*num_entries_out*/, const std::string& directory,
+                                  const std::string& virtual_name) {
+            if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                if (virtual_name == "cmd") {
+                    return true; // Skip cmd (not used in Citra)
+                }
+                // Recursive call (necessary for DLCs)
+                return FileUtil::ForeachDirectoryEntry(nullptr, directory + virtual_name + "/",
+                                                       DirectoryEntryCallback);
             }
+            const auto filepath = (directory + virtual_name).substr(size - 1);
             return decryptor->DecryptAndWriteFile(
-                "/" + path + virtual_name,
+                filepath,
                 FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
                     "Nintendo "
-                    "3DS/00000000000000000000000000000000/00000000000000000000000000000000/" +
-                    path + virtual_name,
+                    "3DS/00000000000000000000000000000000/00000000000000000000000000000000" +
+                    filepath,
                 callback);
-        });
+        };
+    const auto path = fmt::format("title/{:08x}/{:08x}/content/", (specifier.id >> 32),
+                                  (specifier.id & 0xFFFFFFFF));
+    return FileUtil::ForeachDirectoryEntry(nullptr, config.sdmc_path + path,
+                                           DirectoryEntryCallback);
 }
 
 bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
