@@ -44,10 +44,6 @@ if chk $[ONTYPE] "N3DS"
     cp -w -n "S:/sector0x96.bin" $[OUT]/sector0x96.bin
 end
 
-sdump -w seeddb.bin
-cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
-rm "0:/gm9/out/seeddb.bin"
-
 if not find $[OUT]/sysarchives NULL
     mkdir $[OUT]/sysarchives
 end
@@ -97,6 +93,15 @@ decrypt $[OUT]/sysarchives/000400db/00010302.app
 
 # Config savegame
 cp -w -n 1:/data/$[SYSID0]/sysdata/00010017/00000000 $[OUT]/config.sav
+
+# seeddb.bin
+sdump -o -s -w seeddb.bin
+if not find 0:/gm9/out/seeddb.bin NULL
+    echo "WARNING: \nseeddb.bin couldn't be built. \nThis may be because your system \ndoes not have any seeds. \nOtherwise, imported games may fail \nto run if they use seed encryption."
+else
+    cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
+    rm "0:/gm9/out/seeddb.bin"
+end
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."
