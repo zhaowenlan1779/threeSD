@@ -60,6 +60,11 @@ QString GetContentTypeName(Core::ContentType type) {
     return QObject::tr(ContentTypeMap.at(static_cast<std::size_t>(type)).second, "ImportDialog");
 }
 
+QPixmap GetContentIcon(const Core::ContentSpecifier& specifier) {
+    return QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(specifier.icon.data()), 24, 24,
+                                     QImage::Format::Format_RGB16));
+}
+
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), user_path(config.user_path),
       importer(config) {
@@ -124,10 +129,13 @@ void ImportDialog::RelistContent() {
     future_watcher->setFuture(future);
 }
 
-void ImportDialog::InsertTopLevelItem(const QString& text) {
+void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
     auto* checkBox = new QCheckBox();
     checkBox->setText(text);
-    checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
+    if (!icon.isNull()) {
+        checkBox->setIcon(QIcon(icon));
+    }
+    checkBox->setStyleSheet(QStringLiteral("margin-left: 7px; icon-size: 24px"));
     checkBox->setTristate(true);
     checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
 
@@ -164,7 +172,8 @@ void ImportDialog::InsertTopLevelItem(const QString& text) {
 }
 
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
-                                         std::size_t id) {
+                                         std::size_t id, QString replace_name,
+                                         QPixmap replace_icon) {
     auto* checkBox = new QCheckBox();
     checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
     // HACK: The checkbox is used to record ID. Is there a better way?
@@ -185,6 +194,10 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         name = GetContentName(content);
     }
 
+    if (!replace_name.isEmpty()) {
+        name = replace_name;
+    }
+
     QString encryption = tr(EncryptionTypeMap.at(content.encryption));
     if (content.seed_crypto) {
         encryption.append(tr(" (Seed)"));
@@ -200,6 +213,12 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     auto* item = new QTreeWidgetItem{
         {QString{}, name, ReadableByteSize(content.maximum_size), encryption,
          content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
+
+    if (!ui->title_view_button->isChecked()) {
+        // Display icon when present
+        item->setData(1, Qt::DecorationRole,
+                      replace_icon.isNull() ? GetContentIcon(content) : replace_icon);
+    }
 
     ui->main->invisibleRootItem()->child(row)->addChild(item);
     ui->main->setItemWidget(item, 0, checkBox);
@@ -240,23 +259,26 @@ void ImportDialog::RepopulateContent() {
     ui->main->clear();
     ui->main->setSortingEnabled(false);
 
+    std::map<u64, QString> title_name_map;       // title ID -> title name
+    std::map<u64, QPixmap> title_icon_map;       // title ID -> title icon
+    std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
+    for (const auto& content : contents) {
+        if (content.type == Core::ContentType::Application) {
+            title_name_map.emplace(content.id, GetContentName(content));
+            title_icon_map.emplace(content.id, GetContentIcon(content));
+            extdata_id_map.emplace(content.extdata_id, content.id);
+        }
+    }
+
     const bool use_title_view = ui->title_view_button->isChecked();
     if (use_title_view) {
-        std::map<u64, QString> title_name_map;       // title ID -> title name
-        std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
-        for (const auto& content : contents) {
-            if (content.type == Core::ContentType::Application) {
-                title_name_map.emplace(content.id, GetContentName(content));
-                extdata_id_map.emplace(content.extdata_id, content.id);
-            }
-        }
         title_name_map.insert_or_assign(0, tr("Ungrouped"));
         title_name_map.insert_or_assign(1, tr("System Archive"));
         title_name_map.insert_or_assign(2, tr("System Data"));
 
         std::unordered_map<u64, u64> title_row_map;
         for (const auto& [id, name] : title_name_map) {
-            InsertTopLevelItem(name);
+            InsertTopLevelItem(name, title_icon_map.count(id) ? title_icon_map.at(id) : QPixmap{});
             title_row_map[id] = ui->main->invisibleRootItem()->childCount() - 1;
         }
 
@@ -300,7 +322,21 @@ void ImportDialog::RepopulateContent() {
 
         for (std::size_t i = 0; i < contents.size(); ++i) {
             const auto& content = contents[i];
-            InsertSecondLevelItem(static_cast<std::size_t>(content.type), content, i);
+
+            QString name;
+            QPixmap icon;
+            if (content.type == Core::ContentType::Savegame) {
+                name = title_name_map.count(content.id) ? title_name_map.at(content.id) : QString{};
+                icon = title_icon_map.count(content.id) ? title_icon_map.at(content.id) : QPixmap{};
+            } else if (content.type == Core::ContentType::Extdata) {
+                if (extdata_id_map.count(content.id)) {
+                    u64 title_id = extdata_id_map.at(content.id);
+                    name = title_name_map.count(title_id) ? title_name_map.at(title_id) : QString{};
+                    icon = title_icon_map.count(title_id) ? title_icon_map.at(title_id) : QPixmap{};
+                }
+            }
+
+            InsertSecondLevelItem(static_cast<std::size_t>(content.type), content, i, name, icon);
         }
     }
 

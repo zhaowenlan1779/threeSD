@@ -51,6 +51,7 @@ struct ContentSpecifier {
     u64 extdata_id;   ///< Extdata ID for Applications.
     EncryptionType encryption = EncryptionType::None; ///< Only for NCCHs. Encryption scheme.
     bool seed_crypto = false; ///< Only for NCCHs. Whether seed crypto is used.
+    std::vector<u16> icon; ///< Optional. The content's icon.
 };
 
 /**
@@ -140,12 +141,12 @@ private:
     void DeleteSysdata(u64 id) const;
 
     /**
-     * Loads the English short title name, extdata id and encryption of a title.
+     * Loads the English short title name, extdata id, encryption and icon of a title.
      * @param path Path of the 'content' folder relative to the SDMC root folder.
      * Required to end with '/'.
-     * @return {name, extdata_id, encryption, seed_crypto}
+     * @return {name, extdata_id, encryption, seed_crypto, icon}
      */
-    std::tuple<std::string, u64, EncryptionType, bool> LoadTitleData(const std::string& path) const;
+    std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(const std::string& path) const;
 
     bool is_good{};
     Config config;

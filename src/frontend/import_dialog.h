@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <QDialog>
+#include <QPixmap>
 #include "core/importer.h"
 
 class QTreeWidgetItem;
@@ -31,9 +32,11 @@ private:
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
     void StartImporting();
 
-    void InsertTopLevelItem(const QString& text);
+    void InsertTopLevelItem(const QString& text, QPixmap icon = {});
+    // When replace_name and replace_icon are present they are used instead of those in `content`.
     void InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
-                               std::size_t id);
+                               std::size_t id, QString replace_name = {},
+                               QPixmap replace_icon = {});
 
     std::unique_ptr<Ui::ImportDialog> ui;
 

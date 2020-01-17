@@ -296,7 +296,7 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
-std::tuple<std::string, u64, EncryptionType, bool> SDMCImporter::LoadTitleData(
+std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporter::LoadTitleData(
     const std::string& path) const {
     // Remove trailing '/'
     const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
@@ -364,7 +364,7 @@ std::tuple<std::string, u64, EncryptionType, bool> SDMCImporter::LoadTitleData(
     bool seed_crypto{};
     ncch.ReadSeedCrypto(seed_crypto);
     return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)), extdata_id,
-            encryption, seed_crypto};
+            encryption, seed_crypto, smdh.GetIcon(false)};
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
@@ -392,12 +392,12 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
                     const auto content_path =
                         fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
-                    const auto& [name, extdata_id, encryption, seed_crypto] =
+                    const auto& [name, extdata_id, encryption, seed_crypto, icon] =
                         LoadTitleData(content_path);
                     out.push_back(
                         {type, id, FileUtil::Exists(citra_path + "content/"),
                          FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                         name, extdata_id, encryption, seed_crypto});
+                         name, extdata_id, encryption, seed_crypto, icon});
                 }
 
                 if (type != ContentType::Application) {
