@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>600</width>
+    <width>700</width>
     <height>400</height>
    </rect>
   </property>
@@ -54,6 +54,11 @@
      <column>
       <property name="text">
        <string>Size</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Encryption</string>
       </property>
      </column>
      <column>

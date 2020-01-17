@@ -13,6 +13,7 @@
 #include "common/file_util.h"
 #include "common/swap.h"
 #include "core/decryptor.h"
+#include "core/importer.h"
 #include "core/result_status.h"
 
 namespace Core {
@@ -251,6 +252,18 @@ public:
      * @return bool check result
      */
     bool HasExHeader();
+
+    /**
+     * Gets encryption type (which key is used).
+     * @return ResultStatus result of function.
+     */
+    ResultStatus ReadEncryptionType(EncryptionType& encryption);
+
+    /**
+     * Gets whether seed crypto is used.
+     * @return ResultStatus result of function.
+     */
+    ResultStatus ReadSeedCrypto(bool& used);
 
     NCCH_Header ncch_header;
     ExHeader_Header exheader_header;

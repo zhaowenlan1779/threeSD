@@ -296,7 +296,8 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
-std::pair<std::string, u64> SDMCImporter::LoadTitleData(const std::string& path) const {
+std::tuple<std::string, u64, EncryptionType, bool> SDMCImporter::LoadTitleData(
+    const std::string& path) const {
     // Remove trailing '/'
     const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
 
@@ -356,8 +357,14 @@ std::pair<std::string, u64> SDMCImporter::LoadTitleData(const std::string& path)
 
     u64 extdata_id{};
     ncch.ReadExtdataId(extdata_id);
-    return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)),
-            extdata_id};
+
+    EncryptionType encryption = EncryptionType::None;
+    ncch.ReadEncryptionType(encryption);
+
+    bool seed_crypto{};
+    ncch.ReadSeedCrypto(seed_crypto);
+    return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)), extdata_id,
+            encryption, seed_crypto};
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
@@ -385,11 +392,12 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
                     const auto content_path =
                         fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
-                    const auto& [name, extdata_id] = LoadTitleData(content_path);
+                    const auto& [name, extdata_id, encryption, seed_crypto] =
+                        LoadTitleData(content_path);
                     out.push_back(
                         {type, id, FileUtil::Exists(citra_path + "content/"),
                          FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                         name, extdata_id});
+                         name, extdata_id, encryption, seed_crypto});
                 }
 
                 if (type != ContentType::Application) {

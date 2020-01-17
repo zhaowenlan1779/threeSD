@@ -28,6 +28,18 @@ enum class ContentType {
 };
 
 /**
+ * Encryption type of an importable content.
+ */
+enum class EncryptionType {
+    None,
+    FixedKey,
+    NCCHSecure1,
+    NCCHSecure2,
+    NCCHSecure3,
+    NCCHSecure4,
+};
+
+/**
  * Struct that specifies an importable content.
  */
 struct ContentSpecifier {
@@ -37,6 +49,8 @@ struct ContentSpecifier {
     u64 maximum_size; ///< The maximum size of the content. May be slightly bigger than real size.
     std::string name; ///< Optional. The content's preferred display name.
     u64 extdata_id;   ///< Extdata ID for Applications.
+    EncryptionType encryption = EncryptionType::None; ///< Only for NCCHs. Encryption scheme.
+    bool seed_crypto = false; ///< Only for NCCHs. Whether seed crypto is used.
 };
 
 /**
@@ -126,11 +140,12 @@ private:
     void DeleteSysdata(u64 id) const;
 
     /**
-     * Loads the English short title name and extdata id of a title.
+     * Loads the English short title name, extdata id and encryption of a title.
      * @param path Path of the 'content' folder relative to the SDMC root folder.
      * Required to end with '/'.
+     * @return {name, extdata_id, encryption, seed_crypto}
      */
-    std::pair<std::string, u64> LoadTitleData(const std::string& path) const;
+    std::tuple<std::string, u64, EncryptionType, bool> LoadTitleData(const std::string& path) const;
 
     bool is_good{};
     Config config;

@@ -41,6 +41,15 @@ static constexpr std::array<std::pair<Core::ContentType, const char*>, 7> Conten
     {Core::ContentType::Sysdata, QT_TR_NOOP("System Data")},
 }};
 
+static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
+    {Core::EncryptionType::None, QT_TR_NOOP("None")},
+    {Core::EncryptionType::FixedKey, QT_TR_NOOP("FixedKey")},
+    {Core::EncryptionType::NCCHSecure1, QT_TR_NOOP("Secure1")},
+    {Core::EncryptionType::NCCHSecure2, QT_TR_NOOP("Secure2")},
+    {Core::EncryptionType::NCCHSecure3, QT_TR_NOOP("Secure3")},
+    {Core::EncryptionType::NCCHSecure4, QT_TR_NOOP("Secure4")},
+}};
+
 QString GetContentName(const Core::ContentSpecifier& specifier) {
     return specifier.name.empty()
                ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
@@ -84,11 +93,13 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     RelistContent();
     UpdateSizeDisplay();
 
-    // Set up column widths
-    ui->main->setColumnWidth(0, width() / 8);
-    ui->main->setColumnWidth(1, width() / 2);
-    ui->main->setColumnWidth(2, width() / 6);
-    ui->main->setColumnWidth(3, width() / 10);
+    // Set up column widths.
+    // These values are tweaked with regard to the default dialog size.
+    ui->main->setColumnWidth(0, width() * 0.11);
+    ui->main->setColumnWidth(1, width() * 0.415);
+    ui->main->setColumnWidth(2, width() * 0.14);
+    ui->main->setColumnWidth(3, width() * 0.17);
+    ui->main->setColumnWidth(4, width() * 0.08);
 }
 
 ImportDialog::~ImportDialog() = default;
@@ -174,8 +185,20 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         name = GetContentName(content);
     }
 
+    QString encryption = tr(EncryptionTypeMap.at(content.encryption));
+    if (content.seed_crypto) {
+        encryption.append(tr(" (Seed)"));
+    }
+
+    if (content.type != Core::ContentType::Application &&
+        content.type != Core::ContentType::Update && content.type != Core::ContentType::DLC) {
+
+        // Do not display encryption in this case
+        encryption.clear();
+    }
+
     auto* item = new QTreeWidgetItem{
-        {QString{}, name, ReadableByteSize(content.maximum_size),
+        {QString{}, name, ReadableByteSize(content.maximum_size), encryption,
          content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
 
     ui->main->invisibleRootItem()->child(row)->addChild(item);

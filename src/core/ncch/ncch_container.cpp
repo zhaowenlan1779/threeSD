@@ -309,6 +309,53 @@ bool NCCHContainer::HasExHeader() {
     return has_exheader;
 }
 
+ResultStatus NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
+    ResultStatus result = Load();
+    if (result != ResultStatus::Success)
+        return result;
+
+    if (!has_header)
+        return ResultStatus::ErrorNotUsed;
+
+    if (!is_encrypted) {
+        encryption = EncryptionType::None;
+    } else if (ncch_header.fixed_key) {
+        encryption = EncryptionType::FixedKey;
+    } else {
+        switch (ncch_header.secondary_key_slot) {
+        case 0:
+            encryption = EncryptionType::NCCHSecure1;
+            break;
+        case 1:
+            encryption = EncryptionType::NCCHSecure2;
+            break;
+        case 10:
+            encryption = EncryptionType::NCCHSecure3;
+            break;
+        case 11:
+            encryption = EncryptionType::NCCHSecure4;
+            break;
+        default:
+            LOG_ERROR(Service_FS, "Unknown encryption type {:X}!", ncch_header.secondary_key_slot);
+            return ResultStatus::ErrorNotUsed;
+        }
+    }
+
+    return ResultStatus::Success;
+}
+
+ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
+    ResultStatus result = Load();
+    if (result != ResultStatus::Success)
+        return result;
+
+    if (!has_header)
+        return ResultStatus::ErrorNotUsed;
+
+    used = ncch_header.seed_crypto;
+    return ResultStatus::Success;
+}
+
 #pragma pack(push, 1)
 struct RomFSIVFCHeader {
     u32_le magic;
