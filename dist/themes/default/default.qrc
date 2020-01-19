@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="icons/default">
+        <file alias="index.theme">icons/index.theme</file>
+      
+        <file alias="24x24/app.png">icons/24x24/app.png</file>
+
+        <file alias="24x24/dlc.png">icons/24x24/dlc.png</file>
+        
+        <file alias="24x24/save_data.png">icons/24x24/save_data.png</file>
+        
+        <file alias="24x24/system_archive.png">icons/24x24/system_archive.png</file>
+        
+        <file alias="24x24/system_data.png">icons/24x24/system_data.png</file>
+        
+        <file alias="24x24/unknown.png">icons/24x24/unknown.png</file>
+        
+        <file alias="24x24/update.png">icons/24x24/update.png</file>
+    </qresource>
+</RCC>

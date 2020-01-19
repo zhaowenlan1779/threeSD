@@ -219,6 +219,9 @@ int main(int argc, char* argv[]) {
 
     QApplication app(argc, argv);
 
+    QIcon::setThemeSearchPaths(QStringList(QStringLiteral(":/icons/default")));
+    QIcon::setThemeName(QStringLiteral(":/icons/default"));
+
     MainDialog main_dialog;
     main_dialog.show();
 

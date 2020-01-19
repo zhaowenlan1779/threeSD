@@ -31,15 +31,17 @@ QString ReadableByteSize(qulonglong size) {
         .arg(QObject::tr(units[digit_groups], "ImportDialog"));
 }
 
-static constexpr std::array<std::pair<Core::ContentType, const char*>, 7> ContentTypeMap{{
-    {Core::ContentType::Application, QT_TR_NOOP("Application")},
-    {Core::ContentType::Update, QT_TR_NOOP("Update")},
-    {Core::ContentType::DLC, QT_TR_NOOP("DLC")},
-    {Core::ContentType::Savegame, QT_TR_NOOP("Save Data")},
-    {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data")},
-    {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive")},
-    {Core::ContentType::Sysdata, QT_TR_NOOP("System Data")},
-}};
+// content type, name, icon name
+static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*>, 7>
+    ContentTypeMap{{
+        {Core::ContentType::Application, QT_TR_NOOP("Application"), "app"},
+        {Core::ContentType::Update, QT_TR_NOOP("Update"), "update"},
+        {Core::ContentType::DLC, QT_TR_NOOP("DLC"), "dlc"},
+        {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), "save_data"},
+        {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), "save_data"},
+        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), "system_archive"},
+        {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), "system_data"},
+    }};
 
 static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
     {Core::EncryptionType::None, QT_TR_NOOP("None")},
@@ -57,10 +59,22 @@ QString GetContentName(const Core::ContentSpecifier& specifier) {
 }
 
 QString GetContentTypeName(Core::ContentType type) {
-    return QObject::tr(ContentTypeMap.at(static_cast<std::size_t>(type)).second, "ImportDialog");
+    return QObject::tr(std::get<1>(ContentTypeMap.at(static_cast<std::size_t>(type))),
+                       "ImportDialog");
 }
 
-QPixmap GetContentIcon(const Core::ContentSpecifier& specifier) {
+QPixmap GetContentTypeIcon(Core::ContentType type) {
+    return QIcon::fromTheme(
+               QString::fromUtf8(std::get<2>(ContentTypeMap.at(static_cast<std::size_t>(type)))))
+        .pixmap(24);
+}
+
+QPixmap GetContentIcon(const Core::ContentSpecifier& specifier, bool use_category_icon = false) {
+    if (specifier.icon.empty()) {
+        // Return a category icon, or a null icon
+        return use_category_icon ? GetContentTypeIcon(specifier.type)
+                                 : QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24);
+    }
     return QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(specifier.icon.data()), 24, 24,
                                      QImage::Format::Format_RGB16));
 }
@@ -179,8 +193,10 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     // HACK: The checkbox is used to record ID. Is there a better way?
     checkBox->setProperty("id", id);
 
+    const bool use_title_view = ui->title_view_button->isChecked();
+
     QString name;
-    if (ui->title_view_button->isChecked()) {
+    if (use_title_view) {
         if (row == 0) {
             name = QStringLiteral("%1 (%2)")
                        .arg(GetContentName(content))
@@ -214,11 +230,17 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         {QString{}, name, ReadableByteSize(content.maximum_size), encryption,
          content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
 
-    if (!ui->title_view_button->isChecked()) {
-        // Display icon when present
-        item->setData(1, Qt::DecorationRole,
-                      replace_icon.isNull() ? GetContentIcon(content) : replace_icon);
+    QPixmap icon;
+    if (replace_icon.isNull()) {
+        // When not in title view, only System Data and System Archive groups use category icons.
+        const bool use_category_icon = content.type == Core::ContentType::Sysdata ||
+                                       content.type == Core::ContentType::SystemArchive;
+        icon = use_title_view ? GetContentTypeIcon(content.type)
+                              : GetContentIcon(content, use_category_icon);
+    } else {
+        icon = replace_icon;
     }
+    item->setData(1, Qt::DecorationRole, icon);
 
     ui->main->invisibleRootItem()->child(row)->addChild(item);
     ui->main->setItemWidget(item, 0, checkBox);
@@ -276,6 +298,10 @@ void ImportDialog::RepopulateContent() {
         title_name_map.insert_or_assign(1, tr("System Archive"));
         title_name_map.insert_or_assign(2, tr("System Data"));
 
+        title_icon_map.insert_or_assign(0, QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24));
+        title_icon_map.insert_or_assign(1, GetContentTypeIcon(Core::ContentType::SystemArchive));
+        title_icon_map.insert_or_assign(2, GetContentTypeIcon(Core::ContentType::Sysdata));
+
         std::unordered_map<u64, u64> title_row_map;
         for (const auto& [id, name] : title_name_map) {
             InsertTopLevelItem(name, title_icon_map.count(id) ? title_icon_map.at(id) : QPixmap{});
@@ -316,8 +342,8 @@ void ImportDialog::RepopulateContent() {
             InsertSecondLevelItem(row, content, i);
         }
     } else {
-        for (const auto& [type, name] : ContentTypeMap) {
-            InsertTopLevelItem(tr(name));
+        for (const auto& [type, name, _] : ContentTypeMap) {
+            InsertTopLevelItem(tr(name), GetContentTypeIcon(type));
         }
 
         for (std::size_t i = 0; i < contents.size(); ++i) {

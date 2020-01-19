@@ -6,6 +6,8 @@ if (POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
+file(GLOB_RECURSE THEMES ${PROJECT_SOURCE_DIR}/dist/themes/*)
+
 add_executable(threeSD
   import_dialog.cpp
   import_dialog.h
@@ -15,6 +17,7 @@ add_executable(threeSD
   main.cpp
   main.h
   main.ui
+  ${THEMES}
 )
 
 target_link_libraries(threeSD PRIVATE common core)
