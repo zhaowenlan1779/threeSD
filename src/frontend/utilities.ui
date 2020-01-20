@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>UtilitiesDialog</class>
+ <widget class="QDialog" name="UtilitiesDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>threeSD Utilities</string>
+  </property>
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>Encryption</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item>
+       <widget class="QCheckBox" name="useSdDecryption">
+        <property name="text">
+         <string>Use SD Decryption (check this when your files are directly from SD Card)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QGridLayout">
+        <item row="0" column="0">
+         <widget class="QLabel">
+          <property name="text">
+           <string>boot9.bin</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLineEdit" name="boot9Path"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QToolButton" name="boot9PathExplore">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel">
+          <property name="text">
+           <string>movable.sed</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="movableSedPath"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QToolButton" name="movableSedPathExplore">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel">
+          <property name="text">
+           <string>SDMC Root</string>
+          </property>
+          <property name="toolTip">
+           <string>Path to "Nintendo 3DS/&lt;ID0>/&lt;ID1>" folder.</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="sdmcPath"/>
+        </item>
+        <item row="2" column="2">
+         <widget class="QToolButton" name="sdmcPathExplore">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>SD Decryption</string>
+     </property>
+     <layout class="QHBoxLayout">
+      <item>
+       <widget class="QLabel" name="sdDecryptionLabel">
+        <property name="text">
+         <string>Decrypt files from your SD Card.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="sdDecryptionDisabledLabel">
+        <property name="text">
+         <string>SD Decryption must be enabled to use this tool.</string>
+        </property>
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="sdDecryption">
+        <property name="text">
+         <string>Open...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>Save Data Extraction</string>
+     </property>
+     <layout class="QHBoxLayout">
+      <item>
+       <widget class="QLabel" name="savedataExtractionLabel">
+        <property name="text">
+         <string>Extract 3DS SD Savegames.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="savedataExtractionDisabledLabel">
+        <property name="text">
+         <string>SD Decryption must be enabled to use this tool.</string>
+        </property>
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="savedataExtraction">
+        <property name="text">
+         <string>Open...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>Extdata Extraction</string>
+     </property>
+     <layout class="QHBoxLayout">
+      <item>
+       <widget class="QLabel" name="extdataExtractionLabel">
+        <property name="text">
+         <string>Extract 3DS Extra Data.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="extdataExtractionDisabledLabel">
+        <property name="text">
+         <string>SD Decryption must be enabled to use this tool.</string>
+        </property>
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="extdataExtraction">
+        <property name="text">
+         <string>Open...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>RomFS Extraction</string>
+     </property>
+     <layout class="QHBoxLayout">
+      <item>
+       <widget class="QLabel" name="romfsExtractionLabel">
+        <property name="text">
+         <string>Extract shared RomFS from NCCH. Useful for System Archives.</string>
+        </property>
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="romfsExtractionDisabledLabel">
+        <property name="text">
+         <string>SD Decryption must be disabled to use this tool.</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="romfsExtraction">
+        <property name="text">
+         <string>Open...</string>
+        </property>
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>

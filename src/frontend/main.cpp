@@ -11,6 +11,7 @@
 #include "common/file_util.h"
 #include "frontend/import_dialog.h"
 #include "frontend/main.h"
+#include "frontend/utilities.h"
 #include "ui_main.h"
 
 #ifdef __APPLE__
@@ -46,6 +47,10 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         } else {
             ShowAdvanced();
         }
+    });
+    connect(ui->utilitiesButton, &QPushButton::clicked, [this] {
+        UtilitiesDialog dialog(this);
+        dialog.exec();
     });
 
     connect(ui->buttonBox, &QDialogButtonBox::clicked, [this](QAbstractButton* button) {

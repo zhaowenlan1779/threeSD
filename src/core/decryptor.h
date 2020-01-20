@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 #include "common/common_types.h"
+#include "common/file_util.h"
+#include "common/logging/log.h"
 #include "core/quick_decryptor.h"
 
 namespace Core {

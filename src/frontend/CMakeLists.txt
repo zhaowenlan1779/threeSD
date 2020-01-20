@@ -17,6 +17,12 @@ add_executable(threeSD
   main.cpp
   main.h
   main.ui
+  select_files_dialog.cpp
+  select_files_dialog.h
+  select_files_dialog.ui
+  utilities.cpp
+  utilities.h
+  utilities.ui
   ${THEMES}
 )
 
