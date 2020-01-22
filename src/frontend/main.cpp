@@ -2,11 +2,13 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <regex>
 #include <string>
 #include <QApplication>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QStorageInfo>
+#include <QTreeWidgetItem>
 #include <qdevicewatcher.h>
 #include "common/file_util.h"
 #include "frontend/import_dialog.h"
@@ -36,18 +38,11 @@ bool IsConfigGood(const Core::Config& config) {
 MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
     ui->setupUi(this);
 
-    setFixedWidth(width());
+    ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(false);
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));
 
     LoadPresetConfig();
 
-    connect(ui->advancedButton, &QPushButton::clicked, [this] {
-        if (ui->customGroupBox->isVisible()) {
-            HideAdvanced();
-        } else {
-            ShowAdvanced();
-        }
-    });
     connect(ui->utilitiesButton, &QPushButton::clicked, [this] {
         UtilitiesDialog dialog(this);
         dialog.exec();
@@ -61,34 +56,19 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         }
     });
 
-    // Field 3: Is file
-    const std::array<std::tuple<QLineEdit*, QToolButton*, int>, 9> fields{{
-        {ui->sdmcPath, ui->sdmcPathExplore, 0},
-        {ui->userPath, ui->userPathExplore, 0},
-        {ui->movableSedPath, ui->movableSedExplore, 1},
-        {ui->bootrom9Path, ui->bootrom9Explore, 1},
-        {ui->safeModeFirmPath, ui->safeModeFirmExplore, 0},
-        {ui->seeddbPath, ui->seeddbExplore, 1},
-        {ui->secretSectorPath, ui->secretSectorExplore, 1},
-        {ui->configSavegamePath, ui->configSavegameExplore, 1},
-        {ui->systemArchivesPath, ui->systemArchivesExplore, 0},
-    }};
+    connect(ui->main, &QTreeWidget::itemSelectionChanged, [this] {
+        ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)
+            ->setEnabled(!ui->main->selectedItems().empty());
+    });
+    connect(ui->main, &QTreeWidget::itemDoubleClicked, [this] {
+        if (!ui->main->selectedItems().empty())
+            LaunchImportDialog();
+    });
 
-    // TODO: better handling (filter)
-    for (auto [field, button, isFile] : fields) {
-        connect(button, &QToolButton::clicked, [this, field, isFile] {
-            QString path;
-            if (isFile) {
-                path = QFileDialog::getOpenFileName(this, tr("Select File"));
-            } else {
-                path = QFileDialog::getExistingDirectory(this, tr("Select Directory"));
-            }
-
-            if (!path.isEmpty()) {
-                field->setText(path);
-            }
-        });
-    }
+    ui->main->setIndentation(4);
+    ui->main->setColumnWidth(0, 0.3 * width());
+    ui->main->setColumnWidth(1, 0.4 * width());
+    ui->main->setColumnWidth(2, 0.2 * width());
 
     // Set up device watcher
     auto* device_watcher = new QDeviceWatcher(this);
@@ -100,8 +80,10 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
 
 MainDialog::~MainDialog() = default;
 
+static const std::regex sdmc_path_regex{"(.+)([/\\\\])Nintendo 3DS/([0-9a-f]{32})/([0-9a-f]{32})/"};
+
 void MainDialog::LoadPresetConfig() {
-    ui->configSelect->clear();
+    ui->main->clear();
     preset_config_list.clear();
 
     for (const auto& storage : QStorageInfo::mountedVolumes()) {
@@ -111,101 +93,93 @@ void MainDialog::LoadPresetConfig() {
 
         auto list = Core::LoadPresetConfig(storage.rootPath().toStdString());
         for (std::size_t i = 0; i < list.size(); ++i) {
+            if (!IsConfigGood(list[i])) {
+                return;
+            }
             preset_config_list.emplace_back(list[i]);
-            ui->configSelect->addItem(QString::fromStdString(list[i].sdmc_path));
+
+            QString path = storage.rootPath();
+            if (path.endsWith(QLatin1Char{'/'}) || path.endsWith(QLatin1Char{'\\'})) {
+                path.remove(path.size() - 1, 1);
+            }
+
+            // Get ID0
+            QString id0 = tr("Unknown");
+            std::smatch match;
+            if (std::regex_match(list[i].sdmc_path, match, sdmc_path_regex)) {
+                if (match.size() >= 5) {
+                    id0 = QString::fromStdString(match[3].str());
+                }
+            }
+
+            // Get status
+            QString status = tr("Good");
+            if (list[i].safe_mode_firm_path.empty() || list[i].config_savegame_path.empty() ||
+                list[i].system_archives_path.empty()) {
+
+                status = tr("Missing System Files");
+            } else if (list[i].seed_db_path.empty()) {
+                status = tr("Good, Missing Seeds");
+            }
+
+            auto* item = new QTreeWidgetItem{{path, id0, status}};
+            ui->main->invisibleRootItem()->addChild(item);
         }
     }
 
-    if (preset_config_list.empty()) {
-        // Clear the text
-        ui->sdmcPath->setText(QString{});
-        ui->userPath->setText(
-            QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)));
-        ui->movableSedPath->setText(QString{});
-        ui->bootrom9Path->setText(QString{});
-        ui->safeModeFirmPath->setText(QString{});
-        ui->seeddbPath->setText(QString{});
-        ui->secretSectorPath->setText(QString{});
-        ui->configSavegamePath->setText(QString{});
-        ui->systemArchivesPath->setText(QString{});
-
-        ui->advancedButton->setVisible(false);
-        ShowAdvanced();
-        ui->configSelect->addItem(tr("None"));
-        ui->configSelect->setCurrentText(tr("None"));
-    } else {
-        ui->advancedButton->setVisible(true);
-        if (ui->customGroupBox->isVisible()) {
-            HideAdvanced();
-        }
-    }
-}
-
-void MainDialog::ShowAdvanced() {
-    ui->configSelect->setEnabled(false);
-    ui->advancedButton->setText(tr("Hide Custom Config"));
-    ui->customGroupBox->setVisible(true);
-
-    setMaximumHeight(1000000);
-    adjustSize();
-
-    const int index = ui->configSelect->currentIndex();
-    ui->configSelect->addItem(tr("Custom"));
-    ui->configSelect->setCurrentText(tr("Custom"));
-
-    if (index == -1) {
-        return;
-    }
-
-    // Load preset data
-    const auto config = preset_config_list[static_cast<u32>(index)];
-    ui->sdmcPath->setText(QString::fromStdString(config.sdmc_path));
-    ui->userPath->setText(QString::fromStdString(config.user_path));
-    ui->movableSedPath->setText(QString::fromStdString(config.movable_sed_path));
-    ui->bootrom9Path->setText(QString::fromStdString(config.bootrom_path));
-    ui->safeModeFirmPath->setText(QString::fromStdString(config.safe_mode_firm_path));
-    ui->seeddbPath->setText(QString::fromStdString(config.seed_db_path));
-    ui->secretSectorPath->setText(QString::fromStdString(config.secret_sector_path));
-    ui->configSavegamePath->setText(QString::fromStdString(config.config_savegame_path));
-    ui->systemArchivesPath->setText(QString::fromStdString(config.system_archives_path));
-}
-
-void MainDialog::HideAdvanced() {
-    ui->configSelect->setEnabled(true);
-    ui->advancedButton->setText(tr("Customize..."));
-    ui->customGroupBox->setVisible(false);
-
-    LoadPresetConfig();
-
-    setMaximumHeight(130);
-    adjustSize();
-}
-
-Core::Config MainDialog::GetCurrentConfig() {
-    if (ui->customGroupBox->isVisible()) {
-        Core::Config config{
-            /*sdmc_path*/ ui->sdmcPath->text().toStdString(),
-            /*user_path*/ ui->userPath->text().toStdString(),
-            /*movable_sed_path*/ ui->movableSedPath->text().toStdString(),
-            /*bootrom_path*/ ui->bootrom9Path->text().toStdString(),
-            /*safe_mode_firm_path*/ ui->safeModeFirmPath->text().toStdString(),
-            /*seed_db_path*/ ui->seeddbPath->text().toStdString(),
-            /*secret_sector_path*/ ui->secretSectorPath->text().toStdString(),
-            /*config_savegame_path*/ ui->configSavegamePath->text().toStdString(),
-            /*system_archives_path*/ ui->systemArchivesPath->text().toStdString(),
-        };
-        return config;
-    } else {
-        return preset_config_list[ui->configSelect->currentIndex()];
-    }
+    auto* item = new QTreeWidgetItem{{tr("Browse SD Card Root...")}};
+    item->setFirstColumnSpanned(true);
+    ui->main->invisibleRootItem()->addChild(item);
 }
 
 void MainDialog::LaunchImportDialog() {
-    const auto& config = GetCurrentConfig();
-    if (!IsConfigGood(config)) {
-        QMessageBox::critical(this, tr("Incomplete Config"),
-                              tr("Your config is missing some of the required fields."));
+    auto* item = ui->main->currentItem();
+    if (!item) {
         return;
+    }
+
+    Core::Config config;
+    const auto index = ui->main->invisibleRootItem()->indexOfChild(item);
+    if (index == ui->main->invisibleRootItem()->childCount() - 1) {
+        const QString path = QFileDialog::getExistingDirectory(this, tr("Select SD Card Root"));
+        if (path.isEmpty()) {
+            return;
+        }
+
+        const auto& list = Core::LoadPresetConfig(path.toStdString());
+        if (list.size() > 1) {
+            QMessageBox::information(
+                this, tr("threeSD"),
+                tr("You have more than one 3DS data on your SD Card.\nthreeSD will "
+                   "select the first one for you."));
+        } else if (list.empty() || !IsConfigGood(list[0])) {
+            QMessageBox::critical(
+                this, tr("Error"),
+                tr("Could not load configuration.<br>Please check if you have followed the <a "
+                   "href='https://github.com/zhaowenlan1779/threeSD/wiki/Quickstart-Guide'>"
+                   "guide</a> correctly."));
+            return;
+        }
+
+        config = list[0];
+    } else {
+        config = preset_config_list.at(index);
+    }
+
+    // Check config integrity
+    if (config.safe_mode_firm_path.empty() || config.config_savegame_path.empty() ||
+        config.system_archives_path.empty()) {
+        QMessageBox::warning(
+            this, tr("Warning"),
+            tr("Certain system files are missing from your configuration.<br>Some contents "
+               "may not be importable, or may not run.<br>Please check if you have followed the <a "
+               "href='https://github.com/zhaowenlan1779/threeSD/wiki/Quickstart-Guide'>guide</a> "
+               "correctly."));
+    } else if (config.seed_db_path.empty()) {
+        QMessageBox::warning(this, tr("Warning"),
+                             tr("Seed database is missing from your configuration.<br>Your system "
+                                "likely does not have any seeds.<br>However, if it does have any, "
+                                "imported games using seed encryption may not work."));
     }
 
     ImportDialog dialog(this, config);

@@ -21,9 +21,6 @@ public:
 
 private:
     void LoadPresetConfig();
-    void ShowAdvanced();
-    void HideAdvanced();
-    Core::Config GetCurrentConfig();
     void LaunchImportDialog();
 
     std::vector<Core::Config> preset_config_list;
