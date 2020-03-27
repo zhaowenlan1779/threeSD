@@ -17,7 +17,14 @@ end
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nWorking..."
 
 cp -w -n "1:/private/movable.sed" $[OUT]/movable.sed
-cp -w -n "M:/boot9.bin" $[OUT]/boot9.bin
+if find "M:/boot9.bin" NULL
+    cp -w -n "M:/boot9.bin" $[OUT]/boot9.bin
+elif find "0:/3DS/boot9.bin" NULL
+    cp -w -n "0:/3DS/boot9.bin" $[OUT]/boot9.bin
+else
+    echo "ERROR: \nboot9.bin not found. \nIf you use fastboot3ds, hold HOME while booting, \nand go to Miscellaneous... > Dump bootroms & OTP. \nWhen finished, simply execute this script again."
+    goto Exit
+end
 
 if not find $[OUT]/firm NULL
     mkdir $[OUT]/firm
