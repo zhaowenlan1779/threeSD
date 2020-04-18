@@ -13,6 +13,8 @@ add_library(core STATIC
   key/key.h
   ncch/ncch_container.cpp
   ncch/ncch_container.h
+  ncch/seed_db.cpp
+  ncch/seed_db.h
   ncch/smdh.cpp
   ncch/smdh.h
   ncch/title_metadata.cpp

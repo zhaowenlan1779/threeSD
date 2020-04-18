@@ -13,6 +13,7 @@
 #include "core/inner_fat.h"
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
+#include "core/ncch/seed_db.h"
 #include "core/ncch/smdh.h"
 #include "core/ncch/title_metadata.h"
 
@@ -222,11 +223,27 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
     }
     case 2: { // seed db
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
-        LOG_INFO(Core, "Copying {} from {} to {}", SEED_DB, config.seed_db_path, target_path);
-        if (!FileUtil::CreateFullPath(target_path)) {
+        LOG_INFO(Core, "Dumping SeedDB from {} to {}", SEED_DB, config.seed_db_path, target_path);
+
+        SeedDB target;
+        if (!target.Load(target_path)) {
+            LOG_ERROR(Core, "Could not load seeddb from {}", target_path);
             return false;
         }
-        return FileUtil::Copy(config.seed_db_path, target_path);
+
+        SeedDB source;
+        if (!source.Load(config.seed_db_path)) {
+            LOG_ERROR(Core, "Could not load seeddb from {}", config.seed_db_path);
+            return false;
+        }
+
+        for (const auto& seed : source) {
+            if (!target.Get(seed.title_id)) {
+                LOG_INFO(Core, "Adding seed for {:16X}", seed.title_id);
+                target.Add(seed);
+            }
+        }
+        return target.Save(target_path);
     }
     case 3: { // secret sector
         const auto target_path =
@@ -485,7 +502,6 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
     {
         const auto sysdata_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir);
         CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
-        CHECK_CONTENT(2, config.seed_db_path, sysdata_path + SEED_DB, SEED_DB);
         CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
         if (!config.bootrom_path.empty()) {
             // 47 bytes = "slot0x26KeyX=<32>\r\n" is only for Windows,
@@ -524,6 +540,34 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
                            "Safe mode firm"});
         }
     } while (0);
+
+    // Check for seeddb
+    if (config.seed_db_path.empty()) {
+        return;
+    }
+
+    const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
+    SeedDB target;
+    if (!target.Load(target_path)) {
+        LOG_ERROR(Core, "Could not load seeddb from {}", target_path);
+        return;
+    }
+
+    SeedDB source;
+    if (!source.Load(config.seed_db_path)) {
+        LOG_ERROR(Core, "Could not load seeddb from {}", config.seed_db_path);
+        return;
+    }
+
+    bool exists = true; // Whether the DB already 'exists', i.e. no new seeds can be found
+    for (const auto& seed : source) {
+        if (!target.Get(seed.title_id)) {
+            exists = false;
+            break;
+        }
+    }
+    out.push_back(
+        {ContentType::Sysdata, 2, exists, FileUtil::GetSize(config.seed_db_path), SEED_DB});
 }
 
 void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) {
