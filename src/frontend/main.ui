@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>300</height>
+    <height>320</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -57,6 +57,34 @@
       </property>
      </column>
     </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout">
+     <item>
+      <widget class="QLabel">
+       <property name="text">
+        <string>Files will be imported to: </string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="importDestination"/>
+     </item>
+     <item>
+      <widget class="QPushButton" name="importDestinationButton">
+       <property name="text">
+        <string>Open</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </spacer>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
