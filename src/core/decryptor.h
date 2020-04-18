@@ -79,7 +79,6 @@ public:
         std::size_t items_read = file.ReadArray(data, length);
 
         if (IsGood()) {
-            LOG_CRITICAL(Core, "Decrypting data...");
             DecryptData(reinterpret_cast<u8*>(data), sizeof(T) * length);
         }
 

@@ -154,7 +154,6 @@ void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
     checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
 
     auto* item = new QTreeWidgetItem;
-    item->setFirstColumnSpanned(true);
     ui->main->invisibleRootItem()->addChild(item);
 
     connect(checkBox, &QCheckBox::stateChanged, [this, checkBox, item](int state) {
@@ -183,6 +182,7 @@ void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
     });
 
     ui->main->setItemWidget(item, 0, checkBox);
+    item->setFirstColumnSpanned(true);
 }
 
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
@@ -487,7 +487,7 @@ void ImportDialog::StartImporting() {
             });
     connect(job, &ImportJob::Completed, this, [this, dialog] {
         dialog->setValue(dialog->maximum());
-        RepopulateContent();
+        RelistContent();
     });
     connect(dialog, &QProgressDialog::canceled, this, [this, dialog, job] {
         // Add yet-another-ProgressDialog to indicate cancel progress
