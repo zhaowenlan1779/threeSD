@@ -1,0 +1,11 @@
+language: cpp
+matrix:
+  include:
+    - os: linux
+      env: NAME="linux build"
+      sudo: required
+      dist: trusty
+      services: docker
+      install: "./.travis/linux/deps.sh"
+      script: "./.travis/linux/build.sh"
+      cache: ccache
