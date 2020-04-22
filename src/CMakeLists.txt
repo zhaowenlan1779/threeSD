@@ -76,7 +76,7 @@ else()
     add_compile_options(
         -Wall
         -Wno-attributes
-        -Wno-unused-variables
+        -Wno-unused-variable
     )
 
     if (WARNINGS_AS_ERRORS)
