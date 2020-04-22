@@ -76,11 +76,10 @@ else()
     add_compile_options(
         -Wall
         -Wno-attributes
-        -pedantic
     )
 
     if (WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror -Wfatal-errors -pedantic-errors)
+        add_compile_options(-Werror -Wfatal-errors)
     endif()
 
     if (APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL Clang)
