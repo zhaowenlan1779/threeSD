@@ -191,7 +191,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     auto* checkBox = new QCheckBox();
     checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
     // HACK: The checkbox is used to record ID. Is there a better way?
-    checkBox->setProperty("id", id);
+    checkBox->setProperty("id", static_cast<unsigned long long>(id));
 
     const bool use_title_view = ui->title_view_button->isChecked();
 
