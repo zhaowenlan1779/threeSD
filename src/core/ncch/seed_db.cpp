@@ -114,4 +114,26 @@ std::optional<Seed::Data> SeedDB::Get(u64 title_id) const {
     return std::nullopt;
 }
 
+namespace Seeds {
+
+static SeedDB g_seeddb;
+static bool g_seeddb_loaded = false;
+
+void Init(bool force) {
+    if (force || !g_seeddb_loaded) {
+        g_seeddb.Load(
+            fmt::format("{}/seeddb.bin", FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir)));
+    }
+    g_seeddb_loaded = true;
+}
+
+std::optional<Seed::Data> GetSeed(u64 title_id) {
+    if (!g_seeddb_loaded) {
+        Init();
+    }
+    return g_seeddb.Get(title_id);
+}
+
+} // namespace Seeds
+
 } // namespace Core

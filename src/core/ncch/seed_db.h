@@ -51,4 +51,11 @@ private:
     std::vector<Seed> seeds;
 };
 
+namespace Seeds {
+
+void Init(bool force = false);
+std::optional<Seed::Data> GetSeed(u64 title_id);
+
+} // namespace Seeds
+
 } // namespace Core

@@ -273,14 +273,17 @@ private:
     bool has_header = false;
     bool has_exheader = false;
     bool has_exefs = false;
+    bool has_romfs = false;
 
     bool is_loaded = false;
 
     bool is_encrypted = false;
     // for decrypting exheader, exefs header and icon/banner section
     std::array<u8, 16> primary_key{};
+    std::array<u8, 16> secondary_key{}; // for decrypting romfs and .code section
     std::array<u8, 16> exheader_ctr{};
     std::array<u8, 16> exefs_ctr{};
+    std::array<u8, 16> romfs_ctr{};
 
     u32 exefs_offset = 0;
 

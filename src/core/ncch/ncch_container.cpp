@@ -17,6 +17,7 @@
 #include "core/data_container.h"
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
+#include "core/ncch/seed_db.h"
 
 namespace Core {
 
@@ -67,22 +68,77 @@ ResultStatus NCCHContainer::Load() {
         if (!ncch_header.no_crypto) {
             is_encrypted = true;
 
-            // Find primary key
+            // Find primary and secondary keys
             if (ncch_header.fixed_key) {
                 LOG_DEBUG(Service_FS, "Fixed-key crypto");
                 primary_key.fill(0);
+                secondary_key.fill(0);
             } else {
-                std::array<u8, 16> key_y_primary;
+                std::array<u8, 16> key_y_primary, key_y_secondary;
 
                 std::copy(ncch_header.signature, ncch_header.signature + key_y_primary.size(),
                           key_y_primary.begin());
 
-                Key::SetKeyY(Key::KeySlotID::NCCHSecure1, key_y_primary);
-                if (!Key::IsNormalKeyAvailable(Key::KeySlotID::NCCHSecure1)) {
+                if (!ncch_header.seed_crypto) {
+                    key_y_secondary = key_y_primary;
+                } else {
+                    auto opt{Seeds::GetSeed(ncch_header.program_id)};
+                    if (!opt.has_value()) {
+                        LOG_ERROR(Service_FS, "Seed for program {:016X} not found",
+                                  ncch_header.program_id);
+                        failed_to_decrypt = true;
+                    } else {
+                        auto seed{*opt};
+                        std::array<u8, 32> input;
+                        std::memcpy(input.data(), key_y_primary.data(), key_y_primary.size());
+                        std::memcpy(input.data() + key_y_primary.size(), seed.data(), seed.size());
+                        CryptoPP::SHA256 sha;
+                        std::array<u8, CryptoPP::SHA256::DIGESTSIZE> hash;
+                        sha.CalculateDigest(hash.data(), input.data(), input.size());
+                        std::memcpy(key_y_secondary.data(), hash.data(), key_y_secondary.size());
+                    }
+                }
+
+                Key::SetKeyY(Key::NCCHSecure1, key_y_primary);
+                if (!Key::IsNormalKeyAvailable(Key::NCCHSecure1)) {
                     LOG_ERROR(Service_FS, "Secure1 KeyX missing");
                     failed_to_decrypt = true;
                 }
-                primary_key = Key::GetNormalKey(Key::KeySlotID::NCCHSecure1);
+                primary_key = Key::GetNormalKey(Key::NCCHSecure1);
+
+                switch (ncch_header.secondary_key_slot) {
+                case 0:
+                    LOG_DEBUG(Service_FS, "Secure1 crypto");
+                    secondary_key = primary_key;
+                    break;
+                case 1:
+                    LOG_DEBUG(Service_FS, "Secure2 crypto");
+                    Key::SetKeyY(Key::NCCHSecure2, key_y_secondary);
+                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure2)) {
+                        LOG_ERROR(Service_FS, "Secure2 KeyX missing");
+                        failed_to_decrypt = true;
+                    }
+                    secondary_key = Key::GetNormalKey(Key::NCCHSecure2);
+                    break;
+                case 10:
+                    LOG_DEBUG(Service_FS, "Secure3 crypto");
+                    Key::SetKeyY(Key::NCCHSecure3, key_y_secondary);
+                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure3)) {
+                        LOG_ERROR(Service_FS, "Secure3 KeyX missing");
+                        failed_to_decrypt = true;
+                    }
+                    secondary_key = Key::GetNormalKey(Key::NCCHSecure3);
+                    break;
+                case 11:
+                    LOG_DEBUG(Service_FS, "Secure4 crypto");
+                    Key::SetKeyY(Key::NCCHSecure4, key_y_secondary);
+                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure4)) {
+                        LOG_ERROR(Service_FS, "Secure4 KeyX missing");
+                        failed_to_decrypt = true;
+                    }
+                    secondary_key = Key::GetNormalKey(Key::NCCHSecure4);
+                    break;
+                }
             }
 
             // Find CTR for each section
@@ -94,16 +150,17 @@ ResultStatus NCCHContainer::Load() {
                 // (reverse order)
                 std::reverse_copy(ncch_header.partition_id, ncch_header.partition_id + 8,
                                   exheader_ctr.begin());
-                exefs_ctr = exheader_ctr;
+                exefs_ctr = romfs_ctr = exheader_ctr;
                 exheader_ctr[8] = 1;
                 exefs_ctr[8] = 2;
+                romfs_ctr[8] = 3;
             } else if (ncch_header.version == 1) {
                 LOG_DEBUG(Loader, "NCCH version 1");
                 // In this version, CTR for each section is the section offset prefixed by partition
                 // ID, as if the entire NCCH image is encrypted using a single CTR stream.
                 std::copy(ncch_header.partition_id, ncch_header.partition_id + 8,
                           exheader_ctr.begin());
-                exefs_ctr = exheader_ctr;
+                exefs_ctr = romfs_ctr = exheader_ctr;
                 auto u32ToBEArray = [](u32 value) -> std::array<u8, 4> {
                     return std::array<u8, 4>{
                         static_cast<u8>(value >> 24),
@@ -114,9 +171,11 @@ ResultStatus NCCHContainer::Load() {
                 };
                 auto offset_exheader = u32ToBEArray(0x200); // exheader offset
                 auto offset_exefs = u32ToBEArray(ncch_header.exefs_offset * kBlockSize);
+                auto offset_romfs = u32ToBEArray(ncch_header.romfs_offset * kBlockSize);
                 std::copy(offset_exheader.begin(), offset_exheader.end(),
                           exheader_ctr.begin() + 12);
                 std::copy(offset_exefs.begin(), offset_exefs.end(), exefs_ctr.begin() + 12);
+                std::copy(offset_romfs.begin(), offset_romfs.end(), romfs_ctr.begin() + 12);
             } else {
                 LOG_ERROR(Service_FS, "Unknown NCCH version {}", ncch_header.version);
                 failed_to_decrypt = true;
@@ -203,6 +262,9 @@ ResultStatus NCCHContainer::Load() {
             exefs_file = SDMCFile(root_folder, filepath, "rb");
             has_exefs = true;
         }
+
+        if (ncch_header.romfs_offset != 0 && ncch_header.romfs_size != 0)
+            has_romfs = true;
     }
 
     is_loaded = true;
