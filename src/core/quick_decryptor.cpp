@@ -25,8 +25,8 @@ QuickDecryptor<In, Out>::~QuickDecryptor() = default;
 template <typename In, typename Out>
 bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::unique_ptr<In> source_, std::size_t size,
                                                   std::unique_ptr<Out> destination_,
-                                                  Core::Key::AESKey key_, Core::Key::AESKey ctr_,
-                                                  const ProgressCallback& callback_) {
+                                                  const ProgressCallback& callback_, bool decrypt_,
+                                                  Core::Key::AESKey key_, Core::Key::AESKey ctr_) {
     if (is_running) {
         LOG_ERROR(Core, "Decryptor is running");
         return false;
@@ -45,6 +45,7 @@ bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::unique_ptr<In> source_, s
 
     source = std::move(source_);
     destination = std::move(destination_);
+    decrypt = decrypt_;
     key = std::move(key_);
     ctr = std::move(ctr_);
     callback = callback_;
@@ -54,15 +55,19 @@ bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::unique_ptr<In> source_, s
     is_good = is_running = true;
 
     read_thread = std::make_unique<std::thread>(&QuickDecryptor::DataReadLoop, this);
-    decrypt_thread = std::make_unique<std::thread>(&QuickDecryptor::DataDecryptLoop, this);
     write_thread = std::make_unique<std::thread>(&QuickDecryptor::DataWriteLoop, this);
+    if (decrypt) {
+        decrypt_thread = std::make_unique<std::thread>(&QuickDecryptor::DataDecryptLoop, this);
+    }
 
     completion_event.Wait();
     is_running = false;
 
     read_thread->join();
-    decrypt_thread->join();
     write_thread->join();
+    if (decrypt) {
+        decrypt_thread->join();
+    }
 
     // Release the files
     source.reset();
@@ -152,7 +157,11 @@ void QuickDecryptor<In, Out>::DataWriteLoop() {
 
         iteration++;
 
-        data_decrypted_event[current_buffer].Wait();
+        if (decrypt) {
+            data_decrypted_event[current_buffer].Wait();
+        } else {
+            data_read_event[current_buffer].Wait();
+        }
 
         const auto bytes_to_write = std::min(BufferSize, file_size);
         if (destination->WriteBytes(buffers[current_buffer].data(), bytes_to_write) !=

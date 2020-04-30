@@ -65,8 +65,8 @@ bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::st
     auto key = Key::GetNormalKey(Key::SDKey);
     auto ctr = GetFileCTR(source);
     return quick_decryptor.DecryptAndWriteFile(std::move(source_file), size,
-                                               std::move(destination_file), std::move(key),
-                                               std::move(ctr), callback);
+                                               std::move(destination_file), callback, true,
+                                               std::move(key), std::move(ctr));
 }
 
 void SDMCDecryptor::Abort() {

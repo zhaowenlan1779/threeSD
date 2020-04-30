@@ -34,9 +34,10 @@ public:
     ~QuickDecryptor();
 
     bool DecryptAndWriteFile(std::unique_ptr<In> source, std::size_t size,
-                             std::unique_ptr<Out> destination, Core::Key::AESKey key,
-                             Core::Key::AESKey ctr,
-                             const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+                             std::unique_ptr<Out> destination,
+                             const ProgressCallback& callback = [](std::size_t, std::size_t) {},
+                             bool decrypt = false, Core::Key::AESKey key = {},
+                             Core::Key::AESKey ctr = {});
 
     void DataReadLoop();
     void DataDecryptLoop();
@@ -52,6 +53,7 @@ private:
 
     std::unique_ptr<In> source;
     std::unique_ptr<Out> destination;
+    bool decrypt{};
     Core::Key::AESKey key;
     Core::Key::AESKey ctr;
 
