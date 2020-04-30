@@ -10,23 +10,32 @@
 #include <string>
 #include "common/common_types.h"
 #include "common/thread.h"
+#include "core/key/key.h"
 
 namespace Core {
 
+/// (current_size, total_size)
+using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
+
+/**
+ * Helper that reads, decrypts and writes data. This uses three threads to process the data
+ * and call progress callbacks occasionally.
+ *
+ * While this is a template, it really should only be used with IOFile and SDMCFile.
+ */
+template <typename In = FileUtil::IOFile, typename Out = FileUtil::IOFile>
 class QuickDecryptor {
 public:
-    /// (current_size, total_size)
-    using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
-
     /**
      * Initializes the decryptor.
      * @param root_folder Path to the "Nintendo 3DS/<ID0>/<ID1>" folder.
      */
-    explicit QuickDecryptor(const std::string& root_folder);
-
+    explicit QuickDecryptor();
     ~QuickDecryptor();
 
-    bool DecryptAndWriteFile(const std::string& source, const std::string& destination,
+    bool DecryptAndWriteFile(std::unique_ptr<In> source, std::size_t size,
+                             std::unique_ptr<Out> destination, Core::Key::AESKey key,
+                             Core::Key::AESKey ctr,
                              const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     void DataReadLoop();
@@ -41,9 +50,10 @@ public:
 private:
     static constexpr std::size_t BufferSize = 16 * 1024; // 16 KB
 
-    std::string root_folder;
-    std::string source;
-    std::string destination;
+    std::unique_ptr<In> source;
+    std::unique_ptr<Out> destination;
+    Core::Key::AESKey key;
+    Core::Key::AESKey ctr;
 
     // Total size of this content, may consist of multiple files
     std::size_t total_size{};

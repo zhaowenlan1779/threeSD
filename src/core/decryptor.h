@@ -32,8 +32,7 @@ public:
      * @return true on success, false otherwise
      */
     bool DecryptAndWriteFile(const std::string& source, const std::string& destination,
-                             const QuickDecryptor::ProgressCallback& callback = [](std::size_t,
-                                                                                   std::size_t) {});
+                             const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     void Abort();
 
@@ -53,7 +52,7 @@ public:
 
 private:
     std::string root_folder;
-    QuickDecryptor quick_decryptor;
+    QuickDecryptor<> quick_decryptor;
 };
 
 /// Interface for reading an SDMC file like a normal IOFile. This is read-only.

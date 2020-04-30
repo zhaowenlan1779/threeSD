@@ -17,8 +17,7 @@
 
 namespace Core {
 
-SDMCDecryptor::SDMCDecryptor(const std::string& root_folder_)
-    : root_folder(root_folder_), quick_decryptor(root_folder) {
+SDMCDecryptor::SDMCDecryptor(const std::string& root_folder_) : root_folder(root_folder_) {
 
     ASSERT_MSG(Key::IsNormalKeyAvailable(Key::SDKey),
                "SD Key must be available in order to decrypt");
@@ -54,8 +53,20 @@ void SDMCDecryptor::Reset(std::size_t total_size) {
 }
 
 bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
-                                        const QuickDecryptor::ProgressCallback& callback) {
-    return quick_decryptor.DecryptAndWriteFile(source, destination, callback);
+                                        const ProgressCallback& callback) {
+    if (!FileUtil::CreateFullPath(destination)) {
+        LOG_ERROR(Core, "Could not create path {}", destination);
+        return false;
+    }
+
+    auto source_file = std::make_unique<FileUtil::IOFile>(root_folder + source, "rb");
+    auto size = source_file->GetSize();
+    auto destination_file = std::make_unique<FileUtil::IOFile>(destination, "wb");
+    auto key = Key::GetNormalKey(Key::SDKey);
+    auto ctr = GetFileCTR(source);
+    return quick_decryptor.DecryptAndWriteFile(std::move(source_file), size,
+                                               std::move(destination_file), std::move(key),
+                                               std::move(ctr), callback);
 }
 
 void SDMCDecryptor::Abort() {
