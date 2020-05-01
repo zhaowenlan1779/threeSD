@@ -62,7 +62,7 @@ bool SDMCImporter::IsGood() const {
     return is_good;
 }
 
-void SDMCImporter::Abort() {
+void SDMCImporter::AbortImporting() {
     decryptor->Abort();
 }
 
@@ -319,10 +319,8 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
-std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporter::LoadTitleData(
-    const std::string& path) const {
-    // Remove trailing '/'
-    const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
+static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCDecryptor& decryptor,
+                    TitleMetadata& out) {
 
     std::string title_metadata;
     const bool ret = FileUtil::ForeachDirectoryEntry(
@@ -344,16 +342,26 @@ std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporte
         });
 
     if (ret) { // TMD not found
-        return {};
+        return false;
     }
 
     if (!FileUtil::Exists(sdmc_path + path + title_metadata)) {
         // Probably TMD is not directly inside, aborting.
-        return {};
+        return false;
     }
 
+    return out.Load(decryptor.DecryptFile(path + title_metadata)) == ResultStatus::Success;
+}
+
+std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporter::LoadTitleData(
+    const std::string& path) const {
+    // Remove trailing '/'
+    const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
+
     TitleMetadata tmd;
-    tmd.Load(decryptor->DecryptFile(path + title_metadata));
+    if (!LoadTMD(sdmc_path, path, *decryptor, tmd)) {
+        return {};
+    }
 
     const auto boot_content_path = fmt::format("{}{:08x}.app", path, tmd.GetBootContentID());
 
@@ -388,6 +396,32 @@ std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporte
     ncch.ReadSeedCrypto(seed_crypto);
     return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)), extdata_id,
             encryption, seed_crypto, smdh.GetIcon(false)};
+}
+
+bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string& destination,
+                           const ProgressCallback& callback) {
+
+    if (specifier.type != ContentType::Application) {
+        LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
+        return false;
+    }
+
+    const auto content_path = fmt::format("/title/{:08x}/{:08x}/content/", specifier.id >> 32,
+                                          (specifier.id & 0xFFFFFFFF));
+    TitleMetadata tmd;
+    if (!LoadTMD(config.sdmc_path, content_path, *decryptor, tmd)) {
+        LOG_ERROR(Core, "Could not load tmd");
+        return false;
+    }
+
+    const auto boot_content_path =
+        fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
+    dump_cxi_ncch = std::make_unique<NCCHContainer>(config.sdmc_path, boot_content_path);
+    return dump_cxi_ncch->DecryptToFile(destination, callback) == ResultStatus::Success;
+}
+
+void SDMCImporter::AbortDumpCXI() {
+    dump_cxi_ncch->AbortDecryptToFile();
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {

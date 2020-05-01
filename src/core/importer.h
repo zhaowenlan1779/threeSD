@@ -52,7 +52,7 @@ struct ContentSpecifier {
     u64 extdata_id;   ///< Extdata ID for Applications.
     EncryptionType encryption = EncryptionType::None; ///< Only for NCCHs. Encryption scheme.
     bool seed_crypto = false; ///< Only for NCCHs. Whether seed crypto is used.
-    std::vector<u16> icon; ///< Optional. The content's icon.
+    std::vector<u16> icon;    ///< Optional. The content's icon.
 };
 
 /**
@@ -70,14 +70,16 @@ struct Config {
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
 
-    std::string safe_mode_firm_path;  ///< Path to safe mode firm (A folder) (Sysdata 1)
-    std::string seed_db_path;         ///< Path to seeddb.bin (Sysdata 2)
-    std::string secret_sector_path;   ///< Path to secret sector (New3DS only) (Sysdata 3)
+    std::string safe_mode_firm_path; ///< Path to safe mode firm (A folder) (Sysdata 1)
+    std::string seed_db_path;        ///< Path to seeddb.bin (Sysdata 2)
+    std::string secret_sector_path;  ///< Path to secret sector (New3DS only) (Sysdata 3)
     // Note: Sysdata 4 is aes_keys.txt (slot0x25KeyX)
     std::string config_savegame_path; ///< Path to config savegame (Sysdata 5)
 
     std::string system_archives_path; ///< Path to system archives.
 };
+
+class NCCHContainer;
 
 class SDMCImporter {
 public:
@@ -93,7 +95,7 @@ public:
     ~SDMCImporter();
 
     /**
-     * Aborts a specific content by its specifier.
+     * Imports a specific content by its specifier.
      * Blocks, but can be aborted on another thread if needed.
      * @return true on success, false otherwise
      */
@@ -101,15 +103,28 @@ public:
                        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
+     * Aborts current importing.
+     */
+    void AbortImporting();
+
+    /**
+     * Dumps a content to CXI.
+     * Blocks, but can be aborted on another thread.
+     * @return true on success, false otherwise
+     */
+    bool DumpCXI(const ContentSpecifier& specifier, const std::string& destination,
+                 const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+
+    /**
+     * Aborts current CXI dumping.
+     */
+    void AbortDumpCXI();
+
+    /**
      * Deletes/Cleans up a content. Used for deleting contents that have
      * not been fully imported.
      */
     void DeleteContent(const ContentSpecifier& specifier);
-
-    /**
-     * Aborts current importing.
-     */
-    void Abort();
 
     /**
      * Gets a list of dumpable content specifiers.
@@ -147,11 +162,15 @@ private:
      * Required to end with '/'.
      * @return {name, extdata_id, encryption, seed_crypto, icon}
      */
-    std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(const std::string& path) const;
+    std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(
+        const std::string& path) const;
 
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> decryptor;
+
+    // The NCCH used to dump CXIs.
+    std::unique_ptr<NCCHContainer> dump_cxi_ncch;
 };
 
 /**

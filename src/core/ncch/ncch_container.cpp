@@ -15,10 +15,10 @@
 #include "common/common_types.h"
 #include "common/logging/log.h"
 #include "core/data_container.h"
+#include "core/importer.h"
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/seed_db.h"
-#include "core/quick_decryptor.h"
 
 namespace Core {
 
@@ -440,10 +440,13 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
 
     if (!is_encrypted) {
         // Simply copy everything
-        QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
+        file->Seek(0, SEEK_SET);
+
         const auto size = file->GetSize();
         decryptor.Reset(size);
-        decryptor.DecryptAndWriteFile(file, size, dest_file, callback);
+
+        const bool ret = decryptor.DecryptAndWriteFile(file, size, dest_file, callback);
+        return ret ? ResultStatus::Success : ResultStatus::Error;
     }
 
     // Write NCCH header
@@ -463,7 +466,6 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
         return ResultStatus::Error;
     }
 
-    QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
     const auto total_size =
         file->GetSize() - sizeof(NCCH_Header) - sizeof(ExHeader_Header) - sizeof(ExeFs_Header);
     decryptor.Reset(total_size);
@@ -477,10 +479,17 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
             return true;
         }
 
+        if (aborted.exchange(false)) {
+            return false;
+        }
         file->Seek(written, SEEK_SET);
         ASSERT_MSG(written <= offset, "Offsets are not in increasing order");
         if (!decryptor.DecryptAndWriteFile(file, offset - written, dest_file, callback)) {
             LOG_ERROR(Core, "Could not write data before {} to {}", name, destination);
+            return false;
+        }
+
+        if (aborted.exchange(false)) {
             return false;
         }
         if (!decryptor.DecryptAndWriteFile(file, size, dest_file, callback, decrypt, key, ctr,
@@ -534,6 +543,11 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
 
     callback(total_size, total_size);
     return ResultStatus::Success;
+}
+
+void NCCHContainer::AbortDecryptToFile() {
+    aborted = true;
+    decryptor.Abort();
 }
 
 #pragma pack(push, 1)

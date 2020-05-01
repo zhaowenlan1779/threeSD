@@ -2,9 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
-#include "frontend/import_job.h"
-
-#include "common/assert.h"
+#include "frontend/helpers/import_job.h"
 
 ImportJob::ImportJob(QObject* parent, Core::SDMCImporter& importer_,
                      std::vector<Core::ContentSpecifier> contents_)
@@ -39,5 +37,5 @@ void ImportJob::run() {
 
 void ImportJob::Cancel() {
     cancelled.store(true);
-    importer.Abort();
+    importer.AbortImporting();
 }

@@ -41,6 +41,9 @@
    </item>
    <item>
     <widget class="QTreeWidget" name="main">
+     <property name="contextMenuPolicy">
+      <enum>Qt::CustomContextMenu</enum>
+     </property>
      <column>
       <property name="text">
        <string/>

@@ -6,7 +6,9 @@
 #include <cmath>
 #include <unordered_map>
 #include <QCheckBox>
+#include <QFileDialog>
 #include <QFutureWatcher>
+#include <QMenu>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QPushButton>
@@ -14,8 +16,9 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
+#include "frontend/helpers/import_job.h"
+#include "frontend/helpers/progressive_job.h"
 #include "frontend/import_dialog.h"
-#include "frontend/import_job.h"
 #include "ui_import_dialog.h"
 
 QString ReadableByteSize(qulonglong size) {
@@ -119,6 +122,8 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     ui->main->setColumnWidth(2, width() * 0.14);
     ui->main->setColumnWidth(3, width() * 0.17);
     ui->main->setColumnWidth(4, width() * 0.08);
+
+    connect(ui->main, &QTreeWidget::customContextMenuRequested, this, &ImportDialog::OnContextMenu);
 }
 
 ImportDialog::~ImportDialog() = default;
@@ -499,6 +504,95 @@ void ImportDialog::StartImporting() {
         connect(job, &ImportJob::Completed, cancel_dialog, &QProgressDialog::hide);
         job->Cancel();
     });
+
+    job->start();
+}
+
+Core::ContentSpecifier ImportDialog::SpecifierFromItem(QTreeWidgetItem* item) const {
+    const auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item, 0));
+    return contents[checkBox->property("id").toInt()];
+}
+
+void ImportDialog::OnContextMenu(const QPoint& point) {
+    QTreeWidgetItem* item = ui->main->itemAt(point.x(), point.y());
+    if (!item) {
+        return;
+    }
+
+    const bool title_view = ui->title_view_button->isChecked();
+
+    QMenu context_menu;
+    if (item->parent()) { // Second level
+        const auto& specifier = SpecifierFromItem(item);
+        if (specifier.type != Core::ContentType::Application) {
+            return;
+        }
+
+        QAction* dump_cxi = context_menu.addAction(tr("Dump CXI file"));
+        connect(dump_cxi, &QAction::triggered, [this, specifier] { StartDumpingCXI(specifier); });
+    } else { // Top level
+        if (!title_view) {
+            return;
+        }
+
+        for (int i = 0; i < item->childCount(); ++i) {
+            const auto& specifier = SpecifierFromItem(item->child(i));
+            if (specifier.type == Core::ContentType::Application) {
+                QAction* dump_base_cxi = context_menu.addAction(tr("Dump Base CXI file"));
+                connect(dump_base_cxi, &QAction::triggered,
+                        [this, specifier] { StartDumpingCXI(specifier); });
+                break;
+            }
+            // TODO: Add updates, etc
+        }
+    }
+    context_menu.exec(ui->main->viewport()->mapToGlobal(point));
+}
+
+void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
+    const QString path = QFileDialog::getSaveFileName(this, tr("Dump CXI file"), last_dump_cxi_path,
+                                                      tr("CTR Executable Image (*.CXI)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    last_dump_cxi_path = QFileInfo(path).path();
+
+    // Try to map total_size to int range
+    // This is equal to ceil(total_size / INT_MAX)
+    const u64 multiplier = (specifier.maximum_size + std::numeric_limits<int>::max() - 1) /
+                           std::numeric_limits<int>::max();
+
+    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
+                                       static_cast<int>(specifier.maximum_size / multiplier), this);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->setMinimumDuration(0);
+    dialog->setValue(0);
+
+    auto* job = new ProgressiveJob(
+        this,
+        [this, specifier, path](const ProgressiveJob::ProgressCallback& callback) {
+            if (!importer.DumpCXI(specifier, path.toStdString(), callback)) {
+                FileUtil::Delete(path.toStdString());
+                return false;
+            }
+            return true;
+        },
+        [this] { importer.AbortDumpCXI(); });
+
+    connect(job, &ProgressiveJob::ProgressUpdated, this,
+            [this, specifier, dialog, multiplier](u64 current, u64 total) {
+                dialog->setValue(static_cast<int>(current / multiplier));
+                dialog->setLabelText(tr("%1 / %2")
+                                         .arg(ReadableByteSize(current))
+                                         .arg(ReadableByteSize(specifier.maximum_size)));
+            });
+    connect(job, &ProgressiveJob::ErrorOccured, this, [this, dialog] {
+        QMessageBox::critical(this, tr("threeSD"), tr("Failed to dump CXI!"));
+        dialog->hide();
+    });
+    connect(job, &ProgressiveJob::Completed, this,
+            [this, dialog] { dialog->setValue(dialog->maximum()); });
+    connect(dialog, &QProgressDialog::canceled, this, [this, job] { job->Cancel(); });
 
     job->start();
 }

@@ -13,7 +13,6 @@
 #include "common/file_util.h"
 #include "common/swap.h"
 #include "core/decryptor.h"
-#include "core/importer.h"
 #include "core/result_status.h"
 
 namespace Core {
@@ -196,6 +195,8 @@ struct ExHeader_Header {
 
 static_assert(sizeof(ExHeader_Header) == 0x800, "ExHeader structure size is wrong");
 
+enum class EncryptionType;
+
 /**
  * Helper which implements an interface to deal with NCCH containers which can
  * contain ExeFS archives or RomFS archives for games or other applications.
@@ -272,6 +273,11 @@ public:
     ResultStatus DecryptToFile(const std::string& destination,
                                const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
+    /**
+     * Aborts DecryptToFile. Simply aborts the decryptor.
+     */
+    void AbortDecryptToFile();
+
     NCCH_Header ncch_header;
     ExHeader_Header exheader_header;
     ExeFs_Header exefs_header;
@@ -298,6 +304,10 @@ private:
     std::string filepath;
     std::shared_ptr<SDMCFile> file;
     std::shared_ptr<SDMCFile> exefs_file;
+
+    // Used for DecryptToFile
+    QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
+    std::atomic_bool aborted{false};
 };
 
 /**

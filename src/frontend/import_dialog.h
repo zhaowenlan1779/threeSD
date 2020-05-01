@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QPixmap>
 #include "core/importer.h"
+#include "core/ncch/ncch_container.h"
 
 class QTreeWidgetItem;
 
@@ -37,6 +38,12 @@ private:
     void InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                std::size_t id, QString replace_name = {},
                                QPixmap replace_icon = {});
+
+    Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
+    void OnContextMenu(const QPoint& point);
+    void StartDumpingCXI(const Core::ContentSpecifier& content);
+    Core::NCCHContainer dump_cxi_container; // NCCH container used for dumping CXI
+    QString last_dump_cxi_path;             // Used for recording last path in StartDumpingCXI
 
     std::unique_ptr<Ui::ImportDialog> ui;
 
