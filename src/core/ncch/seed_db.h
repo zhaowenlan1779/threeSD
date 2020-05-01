@@ -53,7 +53,7 @@ private:
 
 namespace Seeds {
 
-void Init(bool force = false);
+void Load(const std::string& path);
 std::optional<Seed::Data> GetSeed(u64 title_id);
 
 } // namespace Seeds

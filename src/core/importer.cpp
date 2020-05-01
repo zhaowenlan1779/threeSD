@@ -48,6 +48,10 @@ bool SDMCImporter::Init() {
         return false;
     }
 
+    if (!config.seed_db_path.empty()) {
+        Seeds::Load(config.seed_db_path);
+    }
+
     decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
 
     FileUtil::SetUserPath(config.user_path);
