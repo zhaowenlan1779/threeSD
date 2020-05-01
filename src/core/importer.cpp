@@ -265,6 +265,8 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
             return false;
         }
         file.WriteString("slot0x25KeyX=" + Key::KeyToString(Key::GetKeyX(0x25)) + "\n");
+        file.WriteString("slot0x18KeyX=" + Key::KeyToString(Key::GetKeyX(0x18)) + "\n");
+        file.WriteString("slot0x1BKeyX=" + Key::KeyToString(Key::GetKeyX(0x1B)) + "\n");
         return true;
     }
     case 5: { // Config savegame
@@ -504,10 +506,12 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
         CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
         CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
         if (!config.bootrom_path.empty()) {
-            // 47 bytes = "slot0x26KeyX=<32>\r\n" is only for Windows,
+            // Check in case there was an older version
+            const bool exists = FileUtil::Exists(sysdata_path + AES_KEYS) &&
+                                FileUtil::GetSize(sysdata_path + AES_KEYS) >= 46 * 3;
+            // 47 bytes = "slot0xIDKeyX=<32>\r\n" is only for Windows,
             // but it's maximum_size so probably okay
-            out.push_back(
-                {ContentType::Sysdata, 4, FileUtil::Exists(sysdata_path + AES_KEYS), 47, AES_KEYS});
+            out.push_back({ContentType::Sysdata, 4, exists, 47 * 3, AES_KEYS});
         }
         CHECK_CONTENT(5, config.config_savegame_path,
                       fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",

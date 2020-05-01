@@ -162,17 +162,25 @@ void LoadBootromKeys(const std::string& path) {
         }
     }
 
-    // HACK: "Dump" 0x25 KeyX
-    // TODO: Is this legal?
-    constexpr std::array<u64, 16> offsets{{0x138A, 0xCAB, 0xD07, 0x3004, 0x2C, 0x49, 0xE6, 0x146E,
-                                           0x1126, 0xD0, 0x85C, 0x47, 0x70A, 0x112C, 0x808, 0x89}};
+    constexpr std::array<std::pair<std::size_t, std::array<u64, 16>>, 3> hack_keyXs{
+        {{0x25,
+          {{0x138A, 0xCAB, 0xD07, 0x3004, 0x2C, 0x49, 0xE6, 0x146E, 0x1126, 0xD0, 0x85C, 0x47,
+            0x70A, 0x112C, 0x808, 0x89}}},
+         {0x18,
+          {{0x70A, 0xFF, 0xDB8, 0x2D70, 0x1084, 0x36B, 0x3EA, 0x36B, 0xDA7, 0x16F1, 0x49, 0x46,
+            0xE96, 0x1095, 0x963, 0xD97}}},
+         {0x1B,
+          {{0x1540, 0x1B40, 0x4C, 0xF8D, 0x940, 0x4E, 0x1C0B, 0x108A, 0x23A, 0xD71, 0x1179, 0x828,
+            0xE6C, 0x138A, 0xD14, 0x70A}}}}};
 
-    for (std::size_t i = 0; i < offsets.size(); ++i) {
-        file.Seek(offsets[i], SEEK_SET);
-        file.ReadBytes(&new_key[i], 1);
+    for (const auto& [slot, offsets] : hack_keyXs) {
+        for (std::size_t i = 0; i < offsets.size(); ++i) {
+            file.Seek(offsets[i], SEEK_SET);
+            file.ReadBytes(&new_key[i], 1);
+        }
+        LOG_DEBUG(Key, "Loaded Slot{:#04x} KeyX: {}", slot, KeyToString(new_key));
+        SetKeyX(slot, new_key);
     }
-    LOG_DEBUG(Key, "Loaded Slot0x25 KeyX: {}", KeyToString(new_key));
-    SetKeyX(0x25, new_key);
 }
 
 void LoadMovableSedKeys(const std::string& path) {
