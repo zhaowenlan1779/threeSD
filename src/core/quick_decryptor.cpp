@@ -23,13 +23,18 @@ template <typename In, typename Out>
 QuickDecryptor<In, Out>::~QuickDecryptor() = default;
 
 template <typename In, typename Out>
-bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::unique_ptr<In> source_, std::size_t size,
-                                                  std::unique_ptr<Out> destination_,
+bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::shared_ptr<In> source_, std::size_t size,
+                                                  std::shared_ptr<Out> destination_,
                                                   const ProgressCallback& callback_, bool decrypt_,
-                                                  Core::Key::AESKey key_, Core::Key::AESKey ctr_) {
+                                                  Core::Key::AESKey key_, Core::Key::AESKey ctr_,
+                                                  std::size_t aes_seek_pos_) {
     if (is_running) {
         LOG_ERROR(Core, "Decryptor is running");
         return false;
+    }
+
+    if (size == 0) {
+        return true;
     }
 
     for (auto& event : data_read_event) {
@@ -48,6 +53,7 @@ bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::unique_ptr<In> source_, s
     decrypt = decrypt_;
     key = std::move(key_);
     ctr = std::move(ctr_);
+    aes_seek_pos = aes_seek_pos_;
     callback = callback_;
 
     current_total_size = size;
@@ -117,6 +123,7 @@ template <typename In, typename Out>
 void QuickDecryptor<In, Out>::DataDecryptLoop() {
     CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
     aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
+    aes.Seek(aes_seek_pos);
 
     std::size_t current_buffer = 0;
     std::size_t file_size = current_total_size;

@@ -33,11 +33,23 @@ public:
     explicit QuickDecryptor();
     ~QuickDecryptor();
 
-    bool DecryptAndWriteFile(std::unique_ptr<In> source, std::size_t size,
-                             std::unique_ptr<Out> destination,
+    /**
+     * Decrypts and writes a file.
+     *
+     * @param source Source file
+     * @param size Size to read, decrypt and write
+     * @param destination Destination file
+     * @param callback Progress callback
+     * @param decrypt Whether to perform decryption or not
+     * @param key AES Key for decryption
+     * @param ctr AES CTR for decryption
+     * @param aes_seek_pos The position to seek to for decryption.
+     */
+    bool DecryptAndWriteFile(std::shared_ptr<In> source, std::size_t size,
+                             std::shared_ptr<Out> destination,
                              const ProgressCallback& callback = [](std::size_t, std::size_t) {},
                              bool decrypt = false, Core::Key::AESKey key = {},
-                             Core::Key::AESKey ctr = {});
+                             Core::Key::AESKey ctr = {}, std::size_t aes_seek_pos = 0);
 
     void DataReadLoop();
     void DataDecryptLoop();
@@ -51,11 +63,12 @@ public:
 private:
     static constexpr std::size_t BufferSize = 16 * 1024; // 16 KB
 
-    std::unique_ptr<In> source;
-    std::unique_ptr<Out> destination;
+    std::shared_ptr<In> source;
+    std::shared_ptr<Out> destination;
     bool decrypt{};
     Core::Key::AESKey key;
     Core::Key::AESKey ctr;
+    std::size_t aes_seek_pos;
 
     // Total size of this content, may consist of multiple files
     std::size_t total_size{};

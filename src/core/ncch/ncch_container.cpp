@@ -18,6 +18,7 @@
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/seed_db.h"
+#include "core/quick_decryptor.h"
 
 namespace Core {
 
@@ -30,15 +31,15 @@ static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
 
 NCCHContainer::NCCHContainer(const std::string& root_folder, const std::string& filepath)
     : root_folder(root_folder), filepath(filepath) {
-    file = SDMCFile(root_folder, filepath, "rb");
+    file = std::make_shared<SDMCFile>(root_folder, filepath, "rb");
 }
 
 ResultStatus NCCHContainer::OpenFile(const std::string& root_folder, const std::string& filepath) {
     this->root_folder = root_folder;
     this->filepath = filepath;
-    file = SDMCFile(root_folder, filepath, "rb");
+    file = std::make_shared<SDMCFile>(root_folder, filepath, "rb");
 
-    if (!file.IsOpen()) {
+    if (!file->IsOpen()) {
         LOG_WARNING(Service_FS, "Failed to open {}", filepath);
         return ResultStatus::Error;
     }
@@ -52,11 +53,11 @@ ResultStatus NCCHContainer::Load() {
     if (is_loaded)
         return ResultStatus::Success;
 
-    if (file.IsOpen()) {
+    if (file->IsOpen()) {
         // Reset read pointer in case this file has been read before.
-        file.Seek(0, SEEK_SET);
+        file->Seek(0, SEEK_SET);
 
-        if (file.ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header))
+        if (file->ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header))
             return ResultStatus::Error;
 
         // Verify we are loading the correct file type...
@@ -192,7 +193,7 @@ ResultStatus NCCHContainer::Load() {
                 return file && file.ReadBytes(&exheader_header, size) == size;
             };
 
-            if (!read_exheader(file)) {
+            if (!read_exheader(*file)) {
                 return ResultStatus::Error;
             }
 
@@ -248,8 +249,8 @@ ResultStatus NCCHContainer::Load() {
 
             LOG_DEBUG(Service_FS, "ExeFS offset:                0x{:08X}", exefs_offset);
             LOG_DEBUG(Service_FS, "ExeFS size:                  0x{:08X}", exefs_size);
-            file.Seek(exefs_offset, SEEK_SET);
-            if (file.ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
+            file->Seek(exefs_offset, SEEK_SET);
+            if (file->ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
                 return ResultStatus::Error;
 
             if (is_encrypted) {
@@ -259,7 +260,7 @@ ResultStatus NCCHContainer::Load() {
                     .ProcessData(data, data, sizeof(exefs_header));
             }
 
-            exefs_file = SDMCFile(root_folder, filepath, "rb");
+            exefs_file = std::make_shared<SDMCFile>(root_folder, filepath, "rb");
             has_exefs = true;
         }
 
@@ -276,7 +277,7 @@ ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& 
     if (result != ResultStatus::Success)
         return result;
 
-    if (!exefs_file.IsOpen())
+    if (!exefs_file->IsOpen())
         return ResultStatus::Error;
 
     LOG_DEBUG(Service_FS, "{} sections:", kMaxSections);
@@ -289,14 +290,14 @@ ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& 
                       section.offset, section.size, section.name);
 
             s64 section_offset = (section.offset + exefs_offset + sizeof(ExeFs_Header));
-            exefs_file.Seek(section_offset, SEEK_SET);
+            exefs_file->Seek(section_offset, SEEK_SET);
 
             CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption dec(primary_key.data(),
                                                               primary_key.size(), exefs_ctr.data());
             dec.Seek(section.offset + sizeof(ExeFs_Header));
 
             buffer.resize(section.size);
-            if (exefs_file.ReadBytes(&buffer[0], section.size) != section.size)
+            if (exefs_file->ReadBytes(&buffer[0], section.size) != section.size)
                 return ResultStatus::Error;
             if (is_encrypted) {
                 dec.ProcessData(&buffer[0], &buffer[0], section.size);
@@ -415,6 +416,123 @@ ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
         return ResultStatus::ErrorNotUsed;
 
     used = ncch_header.seed_crypto;
+    return ResultStatus::Success;
+}
+
+ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
+                                          const ProgressCallback& callback) {
+    ResultStatus result = Load();
+    if (result != ResultStatus::Success)
+        return result;
+
+    if (!has_header || !has_exheader)
+        return ResultStatus::ErrorNotUsed;
+
+    if (!FileUtil::CreateFullPath(destination)) {
+        LOG_ERROR(Core, "Could not create path {}", destination);
+        return ResultStatus::Error;
+    }
+    auto dest_file = std::make_shared<FileUtil::IOFile>(destination, "wb");
+    if (!*dest_file) {
+        LOG_ERROR(Core, "Could not open file {}", destination);
+        return ResultStatus::Error;
+    }
+
+    if (!is_encrypted) {
+        // Simply copy everything
+        QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
+        const auto size = file->GetSize();
+        decryptor.Reset(size);
+        decryptor.DecryptAndWriteFile(file, size, dest_file, callback);
+    }
+
+    // Write NCCH header
+    NCCH_Header modified_header = ncch_header;
+    modified_header.no_crypto.Assign(1);
+    modified_header.secondary_key_slot = 0;
+    if (dest_file->WriteBytes(&modified_header, sizeof(modified_header)) !=
+        sizeof(modified_header)) {
+        LOG_ERROR(Core, "Could not write NCCH header to file {}", destination);
+        return ResultStatus::Error;
+    }
+
+    // Write Exheader
+    if (dest_file->WriteBytes(&exheader_header, sizeof(exheader_header)) !=
+        sizeof(exheader_header)) {
+        LOG_ERROR(Core, "Could not write Exheader to file {}", destination);
+        return ResultStatus::Error;
+    }
+
+    QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
+    const auto total_size =
+        file->GetSize() - sizeof(NCCH_Header) - sizeof(ExHeader_Header) - sizeof(ExeFs_Header);
+    decryptor.Reset(total_size);
+
+    std::size_t written = sizeof(NCCH_Header) + sizeof(ExHeader_Header);
+
+    const auto Write = [&](std::string_view name, std::size_t offset, std::size_t size,
+                           bool decrypt = false, const Key::AESKey& key = {},
+                           const Key::AESKey& ctr = {}, std::size_t aes_seek_pos = 0) {
+        if (offset == 0 || size == 0) {
+            return true;
+        }
+
+        file->Seek(written, SEEK_SET);
+        ASSERT_MSG(written <= offset, "Offsets are not in increasing order");
+        if (!decryptor.DecryptAndWriteFile(file, offset - written, dest_file, callback)) {
+            LOG_ERROR(Core, "Could not write data before {} to {}", name, destination);
+            return false;
+        }
+        if (!decryptor.DecryptAndWriteFile(file, size, dest_file, callback, decrypt, key, ctr,
+                                           aes_seek_pos)) {
+            LOG_ERROR(Core, "Could not write {} to {}", name, destination);
+            return false;
+        }
+        written = offset + size;
+        return true;
+    };
+
+    if (!Write("plain region", ncch_header.plain_region_offset * 0x200,
+               ncch_header.plain_region_size * 0x200)) {
+        return ResultStatus::Error;
+    }
+
+    // Write ExeFS header
+    if (dest_file->WriteBytes(&exefs_header, sizeof(exefs_header)) != sizeof(exefs_header)) {
+        LOG_ERROR(Core, "Could not write ExeFS header to file {}", destination);
+        return ResultStatus::Error;
+    }
+    written += sizeof(ExeFs_Header);
+
+    for (unsigned section_number = 0; section_number < kMaxSections; section_number++) {
+        const auto& section = exefs_header.section[section_number];
+        if (section.offset == 0 && section.size == 0) { // not used
+            continue;
+        }
+
+        Key::AESKey key;
+        if (strcmp(section.name, "icon") == 0 || strcmp(section.name, "banner") == 0) {
+            key = primary_key;
+        } else {
+            key = secondary_key;
+        }
+
+        // Plus 1 for the ExeFS header
+        if (!Write(section.name, section.offset + (ncch_header.exefs_offset + 1) * 0x200,
+                   section.size, true, key, exefs_ctr, section.offset + sizeof(exefs_header))) {
+            return ResultStatus::Error;
+        }
+    }
+
+    if (!Write("romfs", ncch_header.romfs_offset * 0x200, ncch_header.romfs_size * 0x200, true,
+               secondary_key, romfs_ctr)) {
+        return ResultStatus::Error;
+    }
+    if (written < file->GetSize()) {
+        LOG_WARNING(Core, "Data after {} ignored", written);
+    }
+
+    callback(total_size, total_size);
     return ResultStatus::Success;
 }
 

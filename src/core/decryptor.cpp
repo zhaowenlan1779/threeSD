@@ -59,9 +59,9 @@ bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::st
         return false;
     }
 
-    auto source_file = std::make_unique<FileUtil::IOFile>(root_folder + source, "rb");
+    auto source_file = std::make_shared<FileUtil::IOFile>(root_folder + source, "rb");
     auto size = source_file->GetSize();
-    auto destination_file = std::make_unique<FileUtil::IOFile>(destination, "wb");
+    auto destination_file = std::make_shared<FileUtil::IOFile>(destination, "wb");
     auto key = Key::GetNormalKey(Key::SDKey);
     auto ctr = GetFileCTR(source);
     return quick_decryptor.DecryptAndWriteFile(std::move(source_file), size,

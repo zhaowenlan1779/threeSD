@@ -265,6 +265,13 @@ public:
      */
     ResultStatus ReadSeedCrypto(bool& used);
 
+    /**
+     * Decrypts this NCCH and write to the destination file.
+     * @return ResultStatus result of function.
+     */
+    ResultStatus DecryptToFile(const std::string& destination,
+                               const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+
     NCCH_Header ncch_header;
     ExHeader_Header exheader_header;
     ExeFs_Header exefs_header;
@@ -289,8 +296,8 @@ private:
 
     std::string root_folder;
     std::string filepath;
-    SDMCFile file;
-    SDMCFile exefs_file;
+    std::shared_ptr<SDMCFile> file;
+    std::shared_ptr<SDMCFile> exefs_file;
 };
 
 /**
