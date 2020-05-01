@@ -277,7 +277,7 @@ ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& 
     if (result != ResultStatus::Success)
         return result;
 
-    if (!exefs_file->IsOpen())
+    if (!exefs_file || !exefs_file->IsOpen())
         return ResultStatus::Error;
 
     LOG_DEBUG(Service_FS, "{} sections:", kMaxSections);
