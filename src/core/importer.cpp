@@ -495,16 +495,19 @@ void SDMCImporter::ListSystemArchive(std::vector<ContentSpecifier>& out) const {
 }
 
 void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
-#define CHECK_CONTENT(id, var_path, citra_path, display_name)                                      \
-    if (!var_path.empty()) {                                                                       \
-        out.push_back({ContentType::Sysdata, id, FileUtil::Exists(citra_path),                     \
-                       FileUtil::GetSize(var_path), display_name});                                \
-    }
+    const auto CheckContent = [&out](u64 id, const std::string& var_path,
+                                     const std::string& citra_path,
+                                     const std::string& display_name) {
+        if (!var_path.empty()) {
+            out.push_back({ContentType::Sysdata, id, FileUtil::Exists(citra_path),
+                           FileUtil::GetSize(var_path), display_name});
+        }
+    };
 
     {
         const auto sysdata_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir);
-        CHECK_CONTENT(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
-        CHECK_CONTENT(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
+        CheckContent(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
+        CheckContent(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
         if (!config.bootrom_path.empty()) {
             // Check in case there was an older version
             const bool exists = FileUtil::Exists(sysdata_path + AES_KEYS) &&
@@ -513,13 +516,11 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
             // but it's maximum_size so probably okay
             out.push_back({ContentType::Sysdata, 4, exists, 47 * 3, AES_KEYS});
         }
-        CHECK_CONTENT(5, config.config_savegame_path,
-                      fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
-                                  FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)),
-                      "Config savegame");
+        CheckContent(5, config.config_savegame_path,
+                     fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
+                                 FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)),
+                     "Config savegame");
     }
-
-#undef CHECK_CONTENT
 
     do {
         if (config.safe_mode_firm_path.empty()) {
