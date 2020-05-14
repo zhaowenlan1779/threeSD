@@ -26,6 +26,7 @@ enum class ContentType {
     Extdata,
     SystemArchive,
     Sysdata,
+    SystemTitle,
 };
 
 /**
@@ -77,8 +78,12 @@ struct Config {
     std::string config_savegame_path; ///< Path to config savegame (Sysdata 5)
 
     std::string system_archives_path; ///< Path to system archives.
+    std::string system_titles_path;   ///< Path to system titles.
 };
 
+class SDMCFile;
+
+template <typename File>
 class NCCHContainer;
 
 class SDMCImporter {
@@ -140,37 +145,31 @@ private:
     bool Init();
 
     bool ImportTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
+    bool ImportNandTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
     bool ImportSavegame(u64 id, const ProgressCallback& callback);
     bool ImportExtdata(u64 id, const ProgressCallback& callback);
     bool ImportSystemArchive(u64 id, const ProgressCallback& callback);
     bool ImportSysdata(u64 id, const ProgressCallback& callback);
 
     void ListTitle(std::vector<ContentSpecifier>& out) const;
+    void ListNandTitle(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
     void ListSystemArchive(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
 
     void DeleteTitle(u64 id) const;
+    void DeleteNandTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;
     void DeleteExtdata(u64 id) const;
     void DeleteSystemArchive(u64 id) const;
     void DeleteSysdata(u64 id) const;
-
-    /**
-     * Loads the English short title name, extdata id, encryption and icon of a title.
-     * @param path Path of the 'content' folder relative to the SDMC root folder.
-     * Required to end with '/'.
-     * @return {name, extdata_id, encryption, seed_crypto, icon}
-     */
-    std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(
-        const std::string& path) const;
 
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> decryptor;
 
     // The NCCH used to dump CXIs.
-    std::unique_ptr<NCCHContainer> dump_cxi_ncch;
+    std::unique_ptr<NCCHContainer<SDMCFile>> dump_cxi_ncch;
 };
 
 /**

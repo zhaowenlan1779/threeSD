@@ -16,7 +16,10 @@ end
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nWorking..."
 
+# === movable.sed
 cp -w -n "1:/private/movable.sed" $[OUT]/movable.sed
+
+# === bootrom
 if find "M:/boot9.bin" NULL
     cp -w -n "M:/boot9.bin" $[OUT]/boot9.bin
 elif find "0:/3DS/boot9.bin" NULL
@@ -26,6 +29,7 @@ else
     goto Exit
 end
 
+# === Safe mode firm
 if not find $[OUT]/firm NULL
     mkdir $[OUT]/firm
 end
@@ -47,10 +51,12 @@ else
     decrypt $[APP]
 end
 
+# === Secret sector (N3DS only)
 if chk $[ONTYPE] "N3DS"
     cp -w -n "S:/sector0x96.bin" $[OUT]/sector0x96.bin
 end
 
+# === System Archives
 if not find $[OUT]/sysarchives NULL
     mkdir $[OUT]/sysarchives
 end
@@ -98,10 +104,52 @@ find 1:/title/000400db/00010302/content/*.app APP
 cp -w -n $[APP] $[OUT]/sysarchives/000400db/00010302.app
 decrypt $[OUT]/sysarchives/000400db/00010302.app
 
-# Config savegame
+# === Config savegame
 cp -w -n 1:/data/$[SYSID0]/sysdata/00010017/00000000 $[OUT]/config.sav
 
-# seeddb.bin
+# === Other system titles
+if not find $[OUT]/title NULL
+    mkdir $[OUT]/title
+end
+
+# System Applications
+if not find $[OUT]/title/00040010 NULL
+    mkdir $[OUT]/title/00040010
+end
+cp -w -n "1:/title/00040010" $[OUT]/title/00040010
+
+# System Data Archives
+if not find $[OUT]/title/0004001b NULL
+    mkdir $[OUT]/title/0004001b
+end
+cp -w -n "1:/title/0004001b" $[OUT]/title/0004001b
+
+# System Applets
+if not find $[OUT]/title/00040030 NULL
+    mkdir $[OUT]/title/00040030
+end
+cp -w -n "1:/title/00040030" $[OUT]/title/00040030
+
+# 0004009b Shared Data Archives skipped (included in sysarchives)
+
+# System Data Archives
+if not find $[OUT]/title/000400db NULL
+    mkdir $[OUT]/title/000400db
+end
+cp -w -n "1:/title/000400db" $[OUT]/title/000400db
+
+# System Modules
+if not find $[OUT]/title/00040130 NULL
+    mkdir $[OUT]/title/00040130
+end
+cp -w -n "1:/title/00040130" $[OUT]/title/00040130
+
+# 00040138 System Firmware skipped (dumped above)
+
+# Already included in sysarchives
+rm $[OUT]/title/000400db/00010302
+
+# === seeddb.bin
 sdump -o -s -w seeddb.bin
 if not find 0:/gm9/out/seeddb.bin NULL
     echo "WARNING: \nseeddb.bin couldn't be built. \nThis may be because your system \ndoes not have any seeds. \nOtherwise, imported games may fail \nto run if they use seed encryption."
@@ -109,6 +157,9 @@ else
     cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
     rm "0:/gm9/out/seeddb.bin"
 end
+
+# === Write version
+dumptxt $[OUT]/version.txt 1
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."

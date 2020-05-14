@@ -204,17 +204,13 @@ enum class EncryptionType;
  * Note that this is heavily stripped down and can only read (primary-key
  * encrypted non-code sections of) ExeFS and ExHeader by design.
  */
+template <typename File = SDMCFile>
 class NCCHContainer {
 public:
-    /**
-     * Constructs the container.
-     * @param root_folder Path to SDMC folder
-     * @param filepath Path relative to SDMC folder, starting with /
-     */
-    NCCHContainer(const std::string& root_folder, const std::string& filepath);
+    NCCHContainer(std::shared_ptr<File> file);
     NCCHContainer() {}
 
-    ResultStatus OpenFile(const std::string& root_folder, const std::string& filepath);
+    ResultStatus OpenFile(std::shared_ptr<File> file);
 
     /**
      * Ensure ExeFS and exheader is loaded and ready for reading sections
@@ -302,11 +298,11 @@ private:
 
     std::string root_folder;
     std::string filepath;
-    std::shared_ptr<SDMCFile> file;
-    std::shared_ptr<SDMCFile> exefs_file;
+    std::shared_ptr<File> file;
+    std::shared_ptr<File> exefs_file;
 
     // Used for DecryptToFile
-    QuickDecryptor<SDMCFile, FileUtil::IOFile> decryptor;
+    QuickDecryptor<File, FileUtil::IOFile> decryptor;
     std::atomic_bool aborted{false};
 };
 

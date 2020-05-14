@@ -81,18 +81,25 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
         return ImportSystemArchive(specifier.id, callback);
     case ContentType::Sysdata:
         return ImportSysdata(specifier.id, callback);
+    case ContentType::SystemTitle:
+        return ImportNandTitle(specifier, callback);
     default:
         UNREACHABLE();
     }
 }
 
-bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
-                               const ProgressCallback& callback) {
-    decryptor->Reset(specifier.maximum_size);
+namespace {
+
+template <typename Dec>
+bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
+                        const ContentSpecifier& specifier,
+                        const std::function<bool(const std::string&)>& decryption_func) {
+
+    decryptor.Reset(specifier.maximum_size);
     const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
-        [this, size = config.sdmc_path.size(), callback,
-         &DirectoryEntryCallback](u64* /*num_entries_out*/, const std::string& directory,
-                                  const std::string& virtual_name) {
+        [size = base_path.size(), &DirectoryEntryCallback,
+         &decryption_func](u64* /*num_entries_out*/, const std::string& directory,
+                           const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
                 if (virtual_name == "cmd") {
                     return true; // Skip cmd (not used in Citra)
@@ -102,6 +109,19 @@ bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
                                                        DirectoryEntryCallback);
             }
             const auto filepath = (directory + virtual_name).substr(size - 1);
+            return decryption_func(filepath);
+        };
+    const auto path = fmt::format("title/{:08x}/{:08x}/content/", (specifier.id >> 32),
+                                  (specifier.id & 0xFFFFFFFF));
+    return FileUtil::ForeachDirectoryEntry(nullptr, base_path + path, DirectoryEntryCallback);
+}
+
+} // namespace
+
+bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
+                               const ProgressCallback& callback) {
+    return ImportTitleGeneric(
+        *decryptor, config.sdmc_path, specifier, [this, &callback](const std::string& filepath) {
             return decryptor->DecryptAndWriteFile(
                 filepath,
                 FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
@@ -109,11 +129,31 @@ bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
                     "3DS/00000000000000000000000000000000/00000000000000000000000000000000" +
                     filepath,
                 callback);
-        };
-    const auto path = fmt::format("title/{:08x}/{:08x}/content/", (specifier.id >> 32),
-                                  (specifier.id & 0xFFFFFFFF));
-    return FileUtil::ForeachDirectoryEntry(nullptr, config.sdmc_path + path,
-                                           DirectoryEntryCallback);
+        });
+}
+
+bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
+                                   const ProgressCallback& callback) {
+
+    const auto base_path =
+        config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
+    QuickDecryptor<> quick_decryptor;
+    return ImportTitleGeneric(
+        quick_decryptor, base_path, specifier,
+        [&base_path, &quick_decryptor, &callback](const std::string& filepath) {
+            const auto physical_path = base_path + filepath.substr(1);
+            const auto citra_path = FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
+                                    "00000000000000000000000000000000" + filepath;
+            if (!FileUtil::CreateFullPath(citra_path)) {
+                LOG_ERROR(Core, "Could not create path {}", citra_path);
+                return false;
+            }
+            // Do not specify keys: plain copy with progress.
+            return quick_decryptor.DecryptAndWriteFile(
+                std::make_shared<FileUtil::IOFile>(physical_path, "rb"),
+                FileUtil::GetSize(physical_path),
+                std::make_shared<FileUtil::IOFile>(citra_path, "wb"), callback);
+        });
 }
 
 bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
@@ -310,6 +350,7 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
 std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
     std::vector<ContentSpecifier> content_list;
     ListTitle(content_list);
+    ListNandTitle(content_list);
     ListExtdata(content_list);
     ListSystemArchive(content_list);
     ListSysdata(content_list);
@@ -319,12 +360,10 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
 // Regex for half Title IDs
 static const std::regex title_regex{"[0-9a-f]{8}"};
 
-static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCDecryptor& decryptor,
-                    TitleMetadata& out) {
-
+static std::string FindTMD(const std::string& path) {
     std::string title_metadata;
     const bool ret = FileUtil::ForeachDirectoryEntry(
-        nullptr, sdmc_path + path,
+        nullptr, path,
         [&title_metadata](u64* /*num_entries_out*/, const std::string& directory,
                           const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name)) {
@@ -342,35 +381,32 @@ static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCD
         });
 
     if (ret) { // TMD not found
-        return false;
+        return {};
     }
 
-    if (!FileUtil::Exists(sdmc_path + path + title_metadata)) {
+    if (!FileUtil::Exists(path + title_metadata)) {
         // Probably TMD is not directly inside, aborting.
-        return false;
+        return {};
     }
-
-    return out.Load(decryptor.DecryptFile(path + title_metadata)) == ResultStatus::Success;
+    return path + title_metadata;
 }
 
-std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> SDMCImporter::LoadTitleData(
-    const std::string& path) const {
-    // Remove trailing '/'
-    const auto sdmc_path = config.sdmc_path.substr(0, config.sdmc_path.size() - 1);
+static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCDecryptor& decryptor,
+                    TitleMetadata& out) {
 
-    TitleMetadata tmd;
-    if (!LoadTMD(sdmc_path, path, *decryptor, tmd)) {
-        return {};
+    const auto tmd = FindTMD(sdmc_path + path.substr(1));
+    if (tmd.empty()) {
+        return false;
     }
 
-    const auto boot_content_path = fmt::format("{}{:08x}.app", path, tmd.GetBootContentID());
+    return out.Load(decryptor.DecryptFile(tmd.substr(sdmc_path.size() - 1))) ==
+           ResultStatus::Success;
+}
 
-    NCCHContainer ncch(config.sdmc_path, boot_content_path);
-    auto ret2 = ncch.Load();
-    if (ret2 != ResultStatus::Success) {
-        LOG_CRITICAL(Core, "failed to load ncch: {}", ret2);
-        return {};
-    }
+// English short title name, extdata id, encryption, seed, icon
+template <typename File>
+std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(
+    NCCHContainer<File>& ncch) {
 
     std::vector<u8> smdh_buffer;
     if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success) {
@@ -416,7 +452,8 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
 
     const auto boot_content_path =
         fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
-    dump_cxi_ncch = std::make_unique<NCCHContainer>(config.sdmc_path, boot_content_path);
+    dump_cxi_ncch = std::make_unique<NCCHContainer<SDMCFile>>(
+        std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
     return dump_cxi_ncch->DecryptToFile(destination, callback) == ResultStatus::Success;
 }
 
@@ -429,8 +466,9 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                                                                               u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, fmt::format("{}title/{:08x}/", sdmc_path, high_id),
-            [this, type, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
-                                        const std::string& virtual_name) {
+            [this, &sdmc_path, type, high_id, &out](u64* /*num_entries_out*/,
+                                                    const std::string& directory,
+                                                    const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
@@ -447,14 +485,38 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                     FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), high_id, virtual_name);
 
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
-                    const auto content_path =
-                        fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
-                    const auto& [name, extdata_id, encryption, seed_crypto, icon] =
-                        LoadTitleData(content_path);
-                    out.push_back(
-                        {type, id, FileUtil::Exists(citra_path + "content/"),
-                         FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                         name, extdata_id, encryption, seed_crypto, icon});
+                    do {
+                        const auto content_path =
+                            fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
+
+                        TitleMetadata tmd;
+                        if (!LoadTMD(sdmc_path, content_path, *decryptor, tmd)) {
+                            LOG_WARNING(Core, "Could not load tmd from {}", content_path);
+                            out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
+                                           FileUtil::GetDirectoryTreeSize(directory + virtual_name +
+                                                                          "/content/")});
+                            break;
+                        }
+
+                        const auto boot_content_path =
+                            fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
+                        NCCHContainer<SDMCFile> ncch(
+                            std::make_shared<SDMCFile>(sdmc_path, boot_content_path, "rb"));
+                        if (ncch.Load() != ResultStatus::Success) {
+                            LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
+                            out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
+                                           FileUtil::GetDirectoryTreeSize(directory + virtual_name +
+                                                                          "/content/")});
+                            break;
+                        }
+
+                        const auto& [name, extdata_id, encryption, seed_crypto, icon] =
+                            LoadTitleData(ncch);
+                        out.push_back(
+                            {type, id, FileUtil::Exists(citra_path + "content/"),
+                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
+                             name, extdata_id, encryption, seed_crypto, icon});
+                    } while (false);
                 }
 
                 if (type != ContentType::Application) {
@@ -481,6 +543,96 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
     ProcessDirectory(ContentType::Application, 0x00040000);
     ProcessDirectory(ContentType::Update, 0x0004000e);
     ProcessDirectory(ContentType::DLC, 0x0004008c);
+}
+
+static bool LoadNandTMD(const std::string& path, TitleMetadata& out) {
+
+    const auto tmd = FindTMD(path);
+    if (tmd.empty()) {
+        return false;
+    }
+
+    FileUtil::IOFile file(tmd, "rb");
+    if (!file) {
+        LOG_ERROR(Core, "Could not open file {}", tmd);
+        return false;
+    }
+    if (file.GetSize() >= 1024 * 1024) { // Too big
+        LOG_ERROR(Core, "TMD {} too big", tmd);
+        return false;
+    }
+
+    std::vector<u8> data(file.GetSize());
+    if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+        LOG_ERROR(Core, "Could not read from {}", tmd);
+        return false;
+    }
+    return out.Load(std::move(data)) == ResultStatus::Success;
+}
+
+// TODO: Simplify.
+void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
+    const auto ProcessDirectory = [&out,
+                                   &system_titles_path = config.system_titles_path](u64 high_id) {
+        FileUtil::ForeachDirectoryEntry(
+            nullptr, fmt::format("{}{:08x}/", system_titles_path, high_id),
+            [high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
+                            const std::string& virtual_name) {
+                if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                    return true;
+                }
+
+                if (!std::regex_match(virtual_name, title_regex)) {
+                    return true;
+                }
+
+                const u64 id = (high_id << 32) + std::stoull(virtual_name, nullptr, 16);
+                const auto citra_path = fmt::format(
+                    "{}00000000000000000000000000000000/title/{:08x}/{}/",
+                    FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), high_id, virtual_name);
+
+                const auto content_path = directory + virtual_name + "/content/";
+                if (FileUtil::Exists(content_path)) {
+                    do {
+                        TitleMetadata tmd;
+                        if (!LoadNandTMD(content_path, tmd)) {
+                            LOG_WARNING(Core, "Could not load tmd from {}", content_path);
+                            out.push_back({ContentType::SystemTitle, id,
+                                           FileUtil::Exists(citra_path + "content/"),
+                                           FileUtil::GetDirectoryTreeSize(content_path)});
+                            break;
+                        }
+
+                        const auto boot_content_path =
+                            fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
+                        NCCHContainer<FileUtil::IOFile> ncch(
+                            std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
+                        if (ncch.Load() != ResultStatus::Success) {
+                            LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
+                            out.push_back({ContentType::SystemTitle, id,
+                                           FileUtil::Exists(citra_path + "content/"),
+                                           FileUtil::GetDirectoryTreeSize(content_path)});
+                            break;
+                        }
+
+                        const auto& [name, extdata_id, encryption, seed_crypto, icon] =
+                            LoadTitleData(ncch);
+                        out.push_back(
+                            {ContentType::SystemTitle, id,
+                             FileUtil::Exists(citra_path + "content/"),
+                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
+                             name, extdata_id, encryption, seed_crypto, icon});
+                    } while (false);
+                }
+                return true;
+            });
+    };
+
+    ProcessDirectory(0x00040010);
+    ProcessDirectory(0x0004001b);
+    ProcessDirectory(0x00040030);
+    ProcessDirectory(0x000400db);
+    ProcessDirectory(0x00040130);
 }
 
 void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
@@ -627,6 +779,8 @@ void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) {
         return DeleteSystemArchive(specifier.id);
     case ContentType::Sysdata:
         return DeleteSysdata(specifier.id);
+    case ContentType::SystemTitle:
+        return DeleteNandTitle(specifier.id);
     default:
         UNREACHABLE();
     }
@@ -638,6 +792,12 @@ void SDMCImporter::DeleteTitle(u64 id) const {
         "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{:08x}/{:08x}/"
         "content/",
         FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+}
+
+void SDMCImporter::DeleteNandTitle(u64 id) const {
+    FileUtil::DeleteDirRecursively(fmt::format(
+        "{}00000000000000000000000000000000/title/{:08x}/{:08x}/content/",
+        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id >> 32), (id & 0xFFFFFFFF)));
 }
 
 void SDMCImporter::DeleteSavegame(u64 id) const {
@@ -721,6 +881,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);
         LOAD_DATA(config_savegame_path, "config.sav");
         LOAD_DATA(system_archives_path, "sysarchives/");
+        LOAD_DATA(system_titles_path, "title/");
 #undef LOAD_DATA
     }
 
