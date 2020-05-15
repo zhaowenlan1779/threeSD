@@ -44,7 +44,7 @@ static constexpr std::array<std::tuple<Core::ContentType, const char*, const cha
         {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), "save_data"},
         {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), "system_archive"},
         {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), "system_data"},
-        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), "system_archive"},
+        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), "hos"},
     }};
 
 static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{

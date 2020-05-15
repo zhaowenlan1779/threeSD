@@ -340,5 +340,5 @@ Public License instead of this License.
 
 ---
 
-The icons used in this project are from https://github.com/google/material-design-icons,
-licensed under Apache License 2.0.
+The icons used in this project (with the exception of hos.png) are fetched from
+https://github.com/google/material-design-icons licensed under Apache License 2.0.
