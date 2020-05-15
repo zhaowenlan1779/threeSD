@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <QThread>
 #include "common/common_types.h"
 
