@@ -251,6 +251,12 @@ public:
     bool HasExHeader();
 
     /**
+     * Reads the name of the codeset.
+     * @return ResultStatus result of function.
+     */
+    ResultStatus ReadCodesetName(std::string& name);
+
+    /**
      * Gets encryption type (which key is used).
      * @return ResultStatus result of function.
      */

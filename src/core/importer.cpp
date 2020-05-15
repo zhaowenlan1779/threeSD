@@ -404,19 +404,35 @@ static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCD
 }
 
 // English short title name, extdata id, encryption, seed, icon
+using TitleData = std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>>;
+
 template <typename File>
-std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>> LoadTitleData(
-    NCCHContainer<File>& ncch) {
+TitleData LoadTitleData(NCCHContainer<File>& ncch) {
+    std::string codeset_name;
+    ncch.ReadCodesetName(codeset_name);
+
+    u64 program_id{};
+    ncch.ReadProgramId(program_id);
+
+    std::string title_name_from_codeset;
+    if (!codeset_name.empty()) {
+        title_name_from_codeset =
+            fmt::format("{} (0x{:016x})", std::move(codeset_name), program_id);
+    }
 
     std::vector<u8> smdh_buffer;
     if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success) {
         LOG_WARNING(Core, "Failed to load icon in ExeFS");
-        return {};
+        TitleData data{};
+        std::get<0>(data) = std::move(title_name_from_codeset);
+        return data;
     }
 
     if (smdh_buffer.size() != sizeof(SMDH)) {
         LOG_ERROR(Core, "ExeFS icon section size is not correct");
-        return {};
+        TitleData data{};
+        std::get<0>(data) = std::move(title_name_from_codeset);
+        return data;
     }
 
     SMDH smdh;

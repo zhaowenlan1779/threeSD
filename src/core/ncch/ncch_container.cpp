@@ -375,6 +375,21 @@ bool NCCHContainer<File>::HasExHeader() {
 }
 
 template <typename File>
+ResultStatus NCCHContainer<File>::ReadCodesetName(std::string& name) {
+    ResultStatus result = Load();
+    if (result != ResultStatus::Success)
+        return result;
+
+    if (!has_exheader)
+        return ResultStatus::ErrorNotUsed;
+
+    std::array<char, 9> name_data{};
+    std::memcpy(name_data.data(), exheader_header.codeset_info.name, 8);
+    name = name_data.data();
+    return ResultStatus::Success;
+}
+
+template <typename File>
 ResultStatus NCCHContainer<File>::ReadEncryptionType(EncryptionType& encryption) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
