@@ -899,6 +899,13 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(system_archives_path, "sysarchives/");
         LOAD_DATA(system_titles_path, "title/");
 #undef LOAD_DATA
+
+        // Load version
+        if (FileUtil::Exists(mount_point + "threeSD/version.txt")) {
+            std::ifstream stream;
+            OpenFStream(stream, mount_point + "threeSD/version.txt", std::ios::in);
+            stream >> config_template.version;
+        }
     }
 
     // Regex for 3DS ID0 and ID1

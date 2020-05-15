@@ -79,7 +79,12 @@ struct Config {
 
     std::string system_archives_path; ///< Path to system archives.
     std::string system_titles_path;   ///< Path to system titles.
+
+    int version = 0; ///< Version of the dumper used.
 };
+
+// Version of the current dumper.
+constexpr int CurrentDumperVersion = 1;
 
 class SDMCFile;
 

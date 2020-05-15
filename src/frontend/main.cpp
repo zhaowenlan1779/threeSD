@@ -98,9 +98,6 @@ void MainDialog::LoadPresetConfig() {
 
         auto list = Core::LoadPresetConfig(storage.rootPath().toStdString());
         for (std::size_t i = 0; i < list.size(); ++i) {
-            if (!IsConfigGood(list[i])) {
-                return;
-            }
             preset_config_list.emplace_back(list[i]);
 
             QString path = storage.rootPath();
@@ -119,8 +116,13 @@ void MainDialog::LoadPresetConfig() {
 
             // Get status
             QString status = tr("Good");
-            if (list[i].safe_mode_firm_path.empty() || list[i].config_savegame_path.empty() ||
-                list[i].system_archives_path.empty()) {
+            if (!IsConfigGood(list[i])) {
+                status = tr("No Configuration Found");
+            } else if (list[i].version != Core::CurrentDumperVersion) {
+                status = tr("Version Dismatch");
+            } else if (list[i].safe_mode_firm_path.empty() ||
+                       list[i].config_savegame_path.empty() ||
+                       list[i].system_archives_path.empty()) {
 
                 status = tr("Missing System Files");
             } else if (list[i].seed_db_path.empty()) {
@@ -172,6 +174,24 @@ void MainDialog::LaunchImportDialog() {
     }
 
     // Check config integrity
+    if (!IsConfigGood(config)) {
+        QMessageBox::critical(
+            this, tr("Error"),
+            tr("Could not load configuration from this SD card. You need to prepare your SD card "
+               "before using threeSD.<br>Please check if you have followed the <a "
+               "href='https://github.com/zhaowenlan1779/threeSD/wiki/Quickstart-Guide'>"
+               "guide</a> correctly."));
+        return;
+    }
+
+    if (config.version != Core::CurrentDumperVersion) {
+        QMessageBox::critical(this, tr("Version Dismatch"),
+                              tr("You are using an unsupported version of threeSDumper.<br>Please "
+                                 "ensure that you are using the most recent version of both "
+                                 "threeSD and threeSDumper and try again."));
+        return;
+    }
+
     if (config.safe_mode_firm_path.empty() || config.config_savegame_path.empty() ||
         config.system_archives_path.empty()) {
         QMessageBox::warning(
