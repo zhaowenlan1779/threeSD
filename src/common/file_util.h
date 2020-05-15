@@ -137,6 +137,9 @@ void SetUserPath(const std::string& path = "");
 // directory. To be used in "multi-user" mode (that is, installed).
 const std::string& GetUserPath(UserPath path);
 
+// Whetehr we are using the portable user directory.
+bool IsPortableUserDirectory();
+
 // Returns the path to where the sys file are
 std::string GetSysDirectory();
 

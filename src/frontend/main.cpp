@@ -5,7 +5,6 @@
 #include <regex>
 #include <string>
 #include <QApplication>
-#include <QDesktopServices>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QStorageInfo>
@@ -57,13 +56,10 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         }
     });
 
-    ui->importDestination->setText(
-        QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)));
-    connect(ui->importDestinationButton, &QPushButton::clicked, [this] {
-        QDesktopServices::openUrl(QUrl(
-            QStringLiteral("file:///%1")
-                .arg(QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)))));
-    });
+    ui->importDestination->setText(tr("Import Destination: %1")
+                                       .arg(FileUtil::IsPortableUserDirectory()
+                                                ? tr("Portable Citra Install")
+                                                : tr("User-wide Citra Install")));
 
     connect(ui->main, &QTreeWidget::itemSelectionChanged, [this] {
         ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)

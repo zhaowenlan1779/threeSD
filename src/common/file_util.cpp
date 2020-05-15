@@ -694,7 +694,8 @@ std::string GetSysDirectory() {
 
 namespace {
 std::unordered_map<UserPath, std::string> g_paths;
-}
+bool g_portable_user_directory = false;
+} // namespace
 
 void SetUserPath(const std::string& path) {
     if (!g_paths.empty()) {
@@ -715,6 +716,7 @@ void SetUserPath(const std::string& path) {
             user_path = AppDataRoamingDirectory() + DIR_SEP EMU_DATA_DIR DIR_SEP;
         } else {
             LOG_INFO(Common_Filesystem, "Using the local user directory");
+            g_portable_user_directory = true;
         }
 
         g_paths.emplace(UserPath::ConfigDir, user_path + CONFIG_DIR DIR_SEP);
@@ -726,6 +728,9 @@ void SetUserPath(const std::string& path) {
             user_path = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
             g_paths.emplace(UserPath::ConfigDir, user_path + CONFIG_DIR DIR_SEP);
             g_paths.emplace(UserPath::CacheDir, user_path + CACHE_DIR DIR_SEP);
+
+            LOG_INFO(Common_Filesystem, "Using the local user directory");
+            g_portable_user_directory = true;
         } else {
             std::string data_dir = GetUserDirectory("XDG_DATA_HOME");
             std::string config_dir = GetUserDirectory("XDG_CONFIG_HOME");
@@ -751,6 +756,10 @@ const std::string& GetUserPath(UserPath path) {
     if (g_paths.empty())
         SetUserPath();
     return g_paths[path];
+}
+
+bool IsPortableUserDirectory() {
+    return g_portable_user_directory;
 }
 
 std::size_t WriteStringToFile(bool text_file, const std::string& filename, std::string_view str) {

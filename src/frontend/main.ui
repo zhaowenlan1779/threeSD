@@ -61,21 +61,7 @@
    <item>
     <layout class="QHBoxLayout">
      <item>
-      <widget class="QLabel">
-       <property name="text">
-        <string>Files will be imported to: </string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QLabel" name="importDestination"/>
-     </item>
-     <item>
-      <widget class="QPushButton" name="importDestinationButton">
-       <property name="text">
-        <string>Open</string>
-       </property>
-      </widget>
      </item>
      <item>
       <spacer>
