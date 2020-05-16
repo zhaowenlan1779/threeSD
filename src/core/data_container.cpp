@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include "common/assert.h"
+#include "common/common_funcs.h"
 #include "core/data_container.h"
 
 namespace Core {
@@ -20,32 +21,53 @@ DPFSContainer::DPFSContainer(DPFSDescriptor descriptor_, u8 level1_selector_,
     ASSERT_MSG(descriptor.version == 0x10000, "DPFS Version is not correct");
 }
 
-u8 DPFSContainer::GetBit(u8 level, u8 selector, u64 index) const {
+bool DPFSContainer::GetBit(u8& out, u8 level, u8 selector, u64 index) const {
     ASSERT_MSG(level <= 2 && selector <= 1, "Level or selector invalid");
-    return (data[(descriptor.levels[level].offset + selector * descriptor.levels[level].size) / 4 +
-                 index / 32] >>
-            (31 - (index % 32))) &
-           static_cast<u32_le>(1);
+
+    const auto word =
+        (descriptor.levels[level].offset + selector * descriptor.levels[level].size) / 4 +
+        index / 32;
+    if (data.size() <= word) {
+        LOG_ERROR(Core, "Out of bound: level {} selector {} index {}", level, selector, index);
+        return false;
+    }
+
+    out = (data[word] >> (31 - (index % 32))) & static_cast<u32_le>(1);
+    return true;
 }
 
-u8 DPFSContainer::GetByte(u8 level, u8 selector, u64 index) const {
+bool DPFSContainer::GetByte(u8& out, u8 level, u8 selector, u64 index) const {
     ASSERT_MSG(level <= 2 && selector <= 1, "Level or selector invalid");
-    return reinterpret_cast<const u8*>(
-        data.data())[descriptor.levels[level].offset + selector * descriptor.levels[level].size +
-                     index];
+
+    const auto byte =
+        descriptor.levels[level].offset + selector * descriptor.levels[level].size + index;
+    if (data.size() * 4 <= byte) {
+        LOG_ERROR(Core, "Out of bound: level {} selector {} index {}", level, selector, index);
+        return false;
+    }
+
+    out =
+        reinterpret_cast<const u8*>(data.data())[descriptor.levels[level].offset +
+                                                 selector * descriptor.levels[level].size + index];
+    return true;
 }
 
-std::vector<u8> DPFSContainer::GetLevel3Data() const {
+bool DPFSContainer::GetLevel3Data(std::vector<u8>& out) const {
     std::vector<u8> level3_data(descriptor.levels[2].size);
     for (std::size_t i = 0; i < level3_data.size(); i++) {
         auto level2_bit_index = i / std::pow(2, descriptor.levels[2].block_size);
         auto level1_bit_index =
             (level2_bit_index / 8) / std::pow(2, descriptor.levels[1].block_size);
-        auto level2_selector = GetBit(0, level1_selector, level1_bit_index);
-        auto level3_selector = GetBit(1, level2_selector, level2_bit_index);
-        level3_data[i] = GetByte(2, level3_selector, i);
+
+        u8 level2_selector, level3_selector;
+        if (!GetBit(level2_selector, 0, level1_selector, level1_bit_index) ||
+            !GetBit(level3_selector, 1, level2_selector, level2_bit_index) ||
+            !GetByte(level3_data[i], 2, level3_selector, i)) {
+            return false;
+        }
     }
-    return level3_data;
+    out = std::move(level3_data);
+    return true;
 }
 
 DataContainer::DataContainer(std::vector<u8> data_) : data(std::move(data_)) {
@@ -75,7 +97,8 @@ bool DataContainer::IsGood() const {
 
 bool DataContainer::InitAsDISA() {
     DISAHeader header;
-    std::memcpy(&header, data.data() + 0x100, sizeof(header));
+    TRY(CheckedMemcpy(&header, data, 0x100, sizeof(header)),
+        LOG_ERROR(Core, "File size is too small"));
 
     if (header.version != 0x40000) {
         LOG_ERROR(Core, "DISA Version {:x} is not correct", header.version);
@@ -103,7 +126,8 @@ bool DataContainer::InitAsDISA() {
 
 bool DataContainer::InitAsDIFF() {
     DIFFHeader header;
-    std::memcpy(&header, data.data() + 0x100, sizeof(header));
+    TRY(CheckedMemcpy(&header, data, 0x100, sizeof(header)),
+        LOG_ERROR(Core, "File size is too small"));
 
     if (header.version != 0x30000) {
         LOG_ERROR(Core, "DIFF Version {:x} is not correct", header.version);
@@ -123,52 +147,75 @@ bool DataContainer::InitAsDIFF() {
     return true;
 }
 
-std::vector<u8> DataContainer::GetPartitionData(u8 index) const {
+bool DataContainer::GetPartitionData(std::vector<u8>& out, u8 index) const {
     auto partition_descriptor_offset = partition_table_offset + partition_descriptors[index].offset;
 
     DIFIHeader difi;
-    std::memcpy(&difi, data.data() + partition_descriptor_offset, sizeof(difi));
-    ASSERT_MSG(difi.magic == MakeMagic('D', 'I', 'F', 'I'), "DIFI Magic is not correct");
-    ASSERT_MSG(difi.version == 0x10000, "DIFI Version is not correct");
+    TRY(CheckedMemcpy(&difi, data, partition_descriptor_offset, sizeof(difi)),
+        LOG_ERROR(Core, "File size is too small"));
+
+    if (difi.magic != MakeMagic('D', 'I', 'F', 'I') || difi.version != 0x10000) {
+        LOG_ERROR(Core, "Invalid magic {:08x} or version {}", difi.magic, difi.version);
+        return false;
+    }
 
     ASSERT_MSG(difi.ivfc.size >= sizeof(IVFCDescriptor), "IVFC descriptor size is too small");
     IVFCDescriptor ivfc_descriptor;
-    std::memcpy(&ivfc_descriptor, data.data() + partition_descriptor_offset + difi.ivfc.offset,
-                sizeof(ivfc_descriptor));
+    TRY(CheckedMemcpy(&ivfc_descriptor, data, partition_descriptor_offset + difi.ivfc.offset,
+                      sizeof(ivfc_descriptor)),
+        LOG_ERROR(Core, "File size is too small"));
 
     if (difi.enable_external_IVFC_level_4) {
-        std::vector<u8> result(
+        if (data.size() < partitions[index].offset + difi.external_IVFC_level_4_offset +
+                              ivfc_descriptor.levels[3].size) {
+            LOG_ERROR(Core, "File size is too small");
+            return false;
+        }
+        out = std::vector<u8>(
             data.data() + partitions[index].offset + difi.external_IVFC_level_4_offset,
             data.data() + partitions[index].offset + difi.external_IVFC_level_4_offset +
                 ivfc_descriptor.levels[3].size);
-        return result;
+        return true;
     }
 
     // Unwrap DPFS Tree
     ASSERT_MSG(difi.dpfs.size >= sizeof(DPFSDescriptor), "DPFS descriptor size is too small");
     DPFSDescriptor dpfs_descriptor;
-    std::memcpy(&dpfs_descriptor, data.data() + partition_descriptor_offset + difi.dpfs.offset,
-                sizeof(dpfs_descriptor));
+    TRY(CheckedMemcpy(&dpfs_descriptor, data, partition_descriptor_offset + difi.dpfs.offset,
+                      sizeof(dpfs_descriptor)),
+        LOG_ERROR(Core, "File size is too small"));
 
     std::vector<u32_le> partition_data(partitions[index].size / 4);
-    std::memcpy(partition_data.data(), data.data() + partitions[index].offset,
-                partitions[index].size);
+    TRY(CheckedMemcpy(partition_data.data(), data, partitions[index].offset,
+                      partitions[index].size),
+        LOG_ERROR(Core, "File size is too small"));
 
     DPFSContainer dpfs_container(dpfs_descriptor, difi.dpfs_level1_selector,
                                  std::move(partition_data));
-    auto ivfc_data = dpfs_container.GetLevel3Data();
 
-    std::vector<u8> result(ivfc_data.data() + ivfc_descriptor.levels[3].offset,
-                           ivfc_data.data() + ivfc_descriptor.levels[3].offset +
-                               ivfc_descriptor.levels[3].size);
-    return result;
+    std::vector<u8> ivfc_data;
+    if (!dpfs_container.GetLevel3Data(ivfc_data)) {
+        return false;
+    }
+
+    if (ivfc_data.size() < ivfc_descriptor.levels[3].offset + ivfc_descriptor.levels[3].size) {
+        LOG_ERROR(Core, "IVFC data size is too small");
+        return false;
+    }
+
+    out = std::vector<u8>(ivfc_data.data() + ivfc_descriptor.levels[3].offset,
+                          ivfc_data.data() + ivfc_descriptor.levels[3].offset +
+                              ivfc_descriptor.levels[3].size);
+    return true;
 }
 
-std::vector<std::vector<u8>> DataContainer::GetIVFCLevel4Data() const {
+bool DataContainer::GetIVFCLevel4Data(std::vector<std::vector<u8>>& out) const {
     if (partition_count == 1) {
-        return {GetPartitionData(0)};
+        out.resize(1);
+        return GetPartitionData(out[0], 0);
     } else {
-        return {GetPartitionData(0), GetPartitionData(1)};
+        out.resize(2);
+        return GetPartitionData(out[0], 0) && GetPartitionData(out[1], 1);
     }
 }
 

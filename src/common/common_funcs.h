@@ -4,18 +4,27 @@
 
 #pragma once
 
+#include <cstring>
 #include <string>
+#include <type_traits>
 
 #if !defined(ARCHITECTURE_x86_64)
 #include <cstdlib> // for exit
 #endif
 #include "common/common_types.h"
+#include "common/logging/log.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 /// Textually concatenates two tokens. The double-expansion is required by the C preprocessor.
 #define CONCAT2(x, y) DO_CONCAT2(x, y)
 #define DO_CONCAT2(x, y) x##y
+
+#define TRY(x, fail)                                                                               \
+    if (!(x)) {                                                                                    \
+        fail;                                                                                      \
+        return false;                                                                              \
+    }
 
 // helper macro to properly align structure members.
 // Calling INSERT_PADDING_BYTES will add a new member variable with a name like "pad121",
@@ -60,3 +69,13 @@ __declspec(dllimport) void __stdcall DebugBreak(void);
 // This function might change the error code.
 // Defined in Misc.cpp.
 std::string GetLastErrorMsg();
+
+template <typename T>
+bool CheckedMemcpy(void* dest, T& container, std::ptrdiff_t offset, std::size_t size) {
+    static_assert(std::is_same_v<typename T::value_type, u8>, "Only works with u8");
+    if (container.size() < offset + size) {
+        return false;
+    }
+    std::memcpy(dest, container.data() + offset, size);
+    return true;
+}

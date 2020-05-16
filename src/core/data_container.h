@@ -94,11 +94,11 @@ public:
     explicit DPFSContainer(DPFSDescriptor descriptor, u8 level1_selector, std::vector<u32_le> data);
 
     /// Unwraps the DPFS Tree, returning actual data in Level3.
-    std::vector<u8> GetLevel3Data() const;
+    bool GetLevel3Data(std::vector<u8>& out) const;
 
 private:
-    u8 GetBit(u8 level, u8 selector, u64 index) const;
-    u8 GetByte(u8 level, u8 selector, u64 index) const;
+    bool GetBit(u8& out, u8 level, u8 selector, u64 index) const;
+    bool GetByte(u8& out, u8 level, u8 selector, u64 index) const;
 
     DPFSDescriptor descriptor;
     u8 level1_selector;
@@ -114,7 +114,7 @@ public:
     ~DataContainer();
 
     /// Unwraps the whole container, returning the data in IVFC Level 4 of all partitions.
-    std::vector<std::vector<u8>> GetIVFCLevel4Data() const;
+    bool GetIVFCLevel4Data(std::vector<std::vector<u8>>& out) const;
 
     bool IsGood() const;
 
@@ -123,7 +123,7 @@ private:
     bool InitAsDIFF();
 
     /// Unwraps the whole container, returning the data in IVFC Level 4 of a partition.
-    std::vector<u8> GetPartitionData(u8 index) const;
+    bool GetPartitionData(std::vector<u8>& out, u8 index) const;
 
     bool is_good = false;
     std::vector<u8> data;

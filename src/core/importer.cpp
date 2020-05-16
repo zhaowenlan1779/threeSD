@@ -164,7 +164,12 @@ bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallbac
         return false;
     }
 
-    SDSavegame save(std::move(container.GetIVFCLevel4Data()));
+    std::vector<std::vector<u8>> container_data;
+    if (!container.GetIVFCLevel4Data(container_data)) {
+        return false;
+    }
+
+    SDSavegame save(std::move(container_data));
     if (!save.IsGood()) {
         return false;
     }
@@ -329,7 +334,12 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
             return false;
         }
 
-        SDSavegame save(std::move(container.GetIVFCLevel4Data()));
+        std::vector<std::vector<u8>> container_data;
+        if (!container.GetIVFCLevel4Data(container_data)) {
+            return false;
+        }
+
+        SDSavegame save(std::move(container_data));
         if (!save.IsGood()) {
             return false;
         }

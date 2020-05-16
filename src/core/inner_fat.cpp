@@ -4,6 +4,7 @@
 
 #include <fmt/format.h>
 #include "common/assert.h"
+#include "common/common_funcs.h"
 #include "common/file_util.h"
 #include "core/data_container.h"
 #include "core/decryptor.h"
@@ -95,23 +96,27 @@ SDSavegame::SDSavegame(std::vector<std::vector<u8>> partitions) {
 SDSavegame::~SDSavegame() = default;
 
 bool SDSavegame::Init() {
-    auto header_iter = duplicate_data ? data.data() : partitionA.data();
+    const auto& header_vector = duplicate_data ? data : partitionA;
 
     // Read header
-    std::memcpy(&header, header_iter, sizeof(header));
+    TRY(CheckedMemcpy(&header, header_vector, 0, sizeof(header)),
+        LOG_ERROR(Core, "File size is too small"));
+
     if (header.magic != MakeMagic('S', 'A', 'V', 'E') || header.version != 0x40000) {
         LOG_ERROR(Core, "File is invalid, decryption errors may have happened.");
         return false;
     }
 
     // Read filesystem information
-    std::memcpy(&fs_info, header_iter + header.filesystem_information_offset, sizeof(fs_info));
+    TRY(CheckedMemcpy(&fs_info, header_vector, header.filesystem_information_offset,
+                      sizeof(fs_info)),
+        LOG_ERROR(Core, "File size is too small"));
 
     // Read data region
     if (duplicate_data) {
         data_region.resize(fs_info.data_region_block_count * fs_info.data_region_block_size);
-        std::memcpy(data_region.data(), data.data() + fs_info.data_region_offset,
-                    data_region.size());
+        TRY(CheckedMemcpy(data_region.data(), data, fs_info.data_region_offset, data_region.size()),
+            LOG_ERROR(Core, "File size is too small"));
     } else {
         data_region = std::move(partitionB);
     }
@@ -121,31 +126,36 @@ bool SDSavegame::Init() {
     // so it should be safe to directly read the bytes.
 
     // Read directory entry table
-    auto directory_entry_table_iter =
-        header_iter + (duplicate_data ? fs_info.data_region_offset +
-                                            fs_info.directory_entry_table.duplicate.block_index *
-                                                fs_info.data_region_block_size
-                                      : fs_info.directory_entry_table.non_duplicate);
-
     directory_entry_table.resize(fs_info.maximum_directory_count + 2); // including head and root
-    std::memcpy(directory_entry_table.data(), directory_entry_table_iter,
-                directory_entry_table.size() * sizeof(DirectoryEntryTableEntry));
+
+    auto directory_entry_table_pos =
+        duplicate_data
+            ? fs_info.data_region_offset + fs_info.directory_entry_table.duplicate.block_index *
+                                               fs_info.data_region_block_size
+            : fs_info.directory_entry_table.non_duplicate;
+
+    TRY(CheckedMemcpy(directory_entry_table.data(), header_vector, directory_entry_table_pos,
+                      directory_entry_table.size() * sizeof(DirectoryEntryTableEntry)),
+        LOG_ERROR(Core, "File is too small"));
 
     // Read file entry table
-    auto file_entry_table_iter =
-        header_iter + (duplicate_data ? fs_info.data_region_offset +
-                                            fs_info.file_entry_table.duplicate.block_index *
-                                                fs_info.data_region_block_size
-                                      : fs_info.file_entry_table.non_duplicate);
-
     file_entry_table.resize(fs_info.maximum_file_count + 1); // including head
-    std::memcpy(file_entry_table.data(), file_entry_table_iter,
-                file_entry_table.size() * sizeof(FileEntryTableEntry));
+
+    auto file_entry_table_pos =
+        duplicate_data
+            ? fs_info.data_region_offset +
+                  fs_info.file_entry_table.duplicate.block_index * fs_info.data_region_block_size
+            : fs_info.file_entry_table.non_duplicate;
+
+    TRY(CheckedMemcpy(file_entry_table.data(), header_vector, file_entry_table_pos,
+                      file_entry_table.size() * sizeof(FileEntryTableEntry)),
+        LOG_ERROR(Core, "File is too small"));
 
     // Read file allocation table
     fat.resize(fs_info.file_allocation_table_entry_count);
-    std::memcpy(fat.data(), header_iter + fs_info.file_allocation_table_offset,
-                fat.size() * sizeof(FATNode));
+    TRY(CheckedMemcpy(fat.data(), header_vector, fs_info.file_allocation_table_offset,
+                      fat.size() * sizeof(FATNode)),
+        LOG_ERROR(Core, "File size is too small"));
 
     return true;
 }
@@ -189,6 +199,11 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
 
         const std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
         const std::size_t to_write = std::min(file_size, size);
+
+        if (data_region.size() < fs_info.data_region_block_size * block + to_write) {
+            LOG_ERROR(Core, "Out of bound block: {} to_write: {}", block, to_write);
+            return false;
+        }
         if (file.WriteBytes(data_region.data() + fs_info.data_region_block_size * block,
                             to_write) != to_write) {
             LOG_ERROR(Core, "Write data failed (file: {})", path + name);
@@ -257,36 +272,50 @@ bool SDExtdata::Init() {
     if (!vsxe_container.IsGood()) {
         return false;
     }
-    auto vsxe = vsxe_container.GetIVFCLevel4Data()[0];
+
+    std::vector<std::vector<u8>> container_data;
+    if (!vsxe_container.GetIVFCLevel4Data(container_data)) {
+        return false;
+    }
+    const auto& vsxe = container_data[0];
 
     // Read header
-    std::memcpy(&header, vsxe.data(), sizeof(header));
+    TRY(CheckedMemcpy(&header, vsxe, 0, sizeof(header)), LOG_ERROR(Core, "File size is too small"));
+
     if (header.magic != MakeMagic('V', 'S', 'X', 'E') || header.version != 0x30000) {
         LOG_ERROR(Core, "File is invalid, decryption errors may have happened.");
         return false;
     }
 
     // Read filesystem information
-    std::memcpy(&fs_info, vsxe.data() + header.filesystem_information_offset, sizeof(fs_info));
+    TRY(CheckedMemcpy(&fs_info, vsxe, header.filesystem_information_offset, sizeof(fs_info)),
+        LOG_ERROR(Core, "File size is too small"));
 
     // Read data region
-    data_region.resize(fs_info.data_region_block_count * fs_info.data_region_block_size);
-    std::memcpy(data_region.data(), vsxe.data() + fs_info.data_region_offset, data_region.size());
+    TRY(CheckedMemcpy(data_region.data(), vsxe, fs_info.data_region_offset, data_region.size()),
+        LOG_ERROR(Core, "File size is too small"));
 
     // Read directory entry table
     directory_entry_table.resize(fs_info.maximum_directory_count + 2); // including head and root
-    std::memcpy(directory_entry_table.data(),
-                vsxe.data() + fs_info.data_region_offset +
-                    fs_info.directory_entry_table.duplicate.block_index *
-                        fs_info.data_region_block_size,
-                directory_entry_table.size() * sizeof(DirectoryEntryTableEntry));
+
+    const auto directory_entry_table_pos =
+        fs_info.data_region_offset +
+        fs_info.directory_entry_table.duplicate.block_index * fs_info.data_region_block_size;
+
+    TRY(CheckedMemcpy(directory_entry_table.data(), vsxe, directory_entry_table_pos,
+                      directory_entry_table.size() * sizeof(DirectoryEntryTableEntry)),
+        LOG_ERROR(Core, "File size is too small"));
 
     // Read file entry table
     file_entry_table.resize(fs_info.maximum_file_count + 1); // including head
-    std::memcpy(file_entry_table.data(),
-                vsxe.data() + fs_info.data_region_offset +
-                    fs_info.file_entry_table.duplicate.block_index * fs_info.data_region_block_size,
-                file_entry_table.size() * sizeof(FileEntryTableEntry));
+
+    const auto file_entry_table_pos =
+        fs_info.data_region_offset +
+        fs_info.file_entry_table.duplicate.block_index * fs_info.data_region_block_size;
+
+    TRY(CheckedMemcpy(file_entry_table.data(), vsxe, file_entry_table_pos,
+                      file_entry_table.size() * sizeof(FileEntryTableEntry)),
+        LOG_ERROR(Core, "File size is too small"));
 
     // File allocation table isn't needed here, as the only files allocated by them are
     // directory/file entry tables which we already read above.
@@ -346,8 +375,12 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
         return false;
     }
 
-    auto data = container.GetIVFCLevel4Data()[0];
-    if (file.WriteBytes(data.data(), data.size()) != data.size()) {
+    std::vector<std::vector<u8>> data;
+    if (!container.GetIVFCLevel4Data(data)) {
+        return false;
+    }
+
+    if (file.WriteBytes(data[0].data(), data[0].size()) != data[0].size()) {
         LOG_ERROR(Core, "Write data failed (file: {})", path + name);
         return false;
     }

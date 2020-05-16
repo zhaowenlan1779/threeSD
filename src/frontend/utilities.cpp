@@ -38,12 +38,6 @@ UtilitiesDialog::UtilitiesDialog(QWidget* parent)
         ui->sdDecryptionDisabledLabel->setVisible(!checked);
         ui->sdDecryption->setEnabled(checked);
 
-        ui->savedataExtractionLabel->setVisible(false);
-        ui->savedataExtractionDisabledLabel->setVisible(false);
-        ui->savedataExtractionLabel->setVisible(checked);
-        ui->savedataExtractionDisabledLabel->setVisible(!checked);
-        ui->savedataExtraction->setEnabled(checked);
-
         ui->extdataExtractionLabel->setVisible(false);
         ui->extdataExtractionDisabledLabel->setVisible(false);
         ui->extdataExtractionLabel->setVisible(checked);
@@ -206,7 +200,12 @@ void UtilitiesDialog::SaveDataExtractionTool() {
                 return false;
             }
 
-            Core::SDSavegame save(std::move(container.GetIVFCLevel4Data()));
+            std::vector<std::vector<u8>> container_data;
+            if (!container.GetIVFCLevel4Data(container_data)) {
+                return false;
+            }
+
+            Core::SDSavegame save(std::move(container_data));
             if (!save.IsGood()) {
                 return false;
             }
@@ -228,7 +227,12 @@ void UtilitiesDialog::SaveDataExtractionTool() {
                 return false;
             }
 
-            Core::SDSavegame save(std::move(container.GetIVFCLevel4Data()));
+            std::vector<std::vector<u8>> container_data;
+            if (!container.GetIVFCLevel4Data(container_data)) {
+                return false;
+            }
+
+            Core::SDSavegame save(std::move(container_data));
             if (!save.IsGood()) {
                 return false;
             }
