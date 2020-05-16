@@ -21,8 +21,7 @@ void ImportJob::run() {
         if (!importer.ImportContent(content, callback)) {
             importer.DeleteContent(content);
             if (!cancelled) {
-                emit ErrorOccured(content);
-                return;
+                failed_contents.emplace_back(content);
             }
         }
         count++;
@@ -38,4 +37,8 @@ void ImportJob::run() {
 void ImportJob::Cancel() {
     cancelled.store(true);
     importer.AbortImporting();
+}
+
+std::vector<Core::ContentSpecifier> ImportJob::GetFailedContents() const {
+    return failed_contents;
 }

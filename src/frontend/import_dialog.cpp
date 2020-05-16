@@ -495,16 +495,25 @@ void ImportDialog::StartImporting() {
                                          .arg(ReadableByteSize(current_size_imported))
                                          .arg(ReadableByteSize(current_content.maximum_size)));
             });
-    connect(job, &ImportJob::ErrorOccured, this,
-            [this, dialog](Core::ContentSpecifier current_content) {
-                QMessageBox::critical(this, tr("Error"),
-                                      tr("Failed to import content %1 (%2)!")
-                                          .arg(GetContentName(current_content))
-                                          .arg(GetContentTypeName(current_content.type)));
-                dialog->hide();
-            });
-    connect(job, &ImportJob::Completed, this, [this, dialog] {
+    connect(job, &ImportJob::Completed, this, [this, dialog, job] {
         dialog->setValue(dialog->maximum());
+
+        const auto failed_contents = job->GetFailedContents();
+        if (failed_contents.empty()) {
+            QMessageBox::information(this, tr("Import Completed"),
+                                     tr("Successfully imported the selected contents."));
+        } else {
+            QString list_content;
+            for (const auto& content : failed_contents) {
+                list_content.append(QStringLiteral("<li>%1 (%2)</li>")
+                                        .arg(GetContentName(content))
+                                        .arg(GetContentTypeName(content.type)));
+            }
+            QMessageBox::critical(
+                this, tr("Import Failed"),
+                tr("The following contents couldn't be imported:<ul>%1</ul>").arg(list_content));
+        }
+
         RelistContent();
     });
     connect(dialog, &QProgressDialog::canceled, this, [this, dialog, job] {

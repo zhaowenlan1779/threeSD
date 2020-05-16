@@ -22,6 +22,10 @@ bool InnerFAT::IsGood() const {
 }
 
 bool InnerFAT::ExtractDirectory(const std::string& path, std::size_t index) const {
+    if (index >= directory_entry_table.size()) {
+        LOG_ERROR(Core, "Index out of bound {}", index);
+        return false;
+    }
     auto entry = directory_entry_table[index];
 
     std::array<char, 17> name_data = {}; // Append a null terminator
@@ -152,6 +156,10 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
         return false;
     }
 
+    if (index >= file_entry_table.size()) {
+        LOG_ERROR(Core, "Index out of bound {}", index);
+        return false;
+    }
     auto entry = file_entry_table[index];
 
     std::array<char, 17> name_data = {}; // Append a null terminator
@@ -305,6 +313,10 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
     /// Maximum amount of device files a device directory can hold.
     constexpr u32 DeviceDirCapacity = 126;
 
+    if (index >= file_entry_table.size()) {
+        LOG_ERROR(Core, "Index out of bound {}", index);
+        return false;
+    }
     auto entry = file_entry_table[index];
 
     std::array<char, 17> name_data = {}; // Append a null terminator

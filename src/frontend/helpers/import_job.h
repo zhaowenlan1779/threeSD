@@ -19,6 +19,8 @@ public:
     void run() override;
     void Cancel();
 
+    std::vector<Core::ContentSpecifier> GetFailedContents() const;
+
 signals:
     /**
      * Called when progress is updated on the current content.
@@ -32,12 +34,12 @@ signals:
     void NextContent(u64 size_imported, u64 count, Core::ContentSpecifier next_content);
 
     void Completed();
-    void ErrorOccured(Core::ContentSpecifier current_content);
 
 private:
     std::atomic_bool cancelled{false};
     Core::SDMCImporter& importer;
     std::vector<Core::ContentSpecifier> contents;
+    std::vector<Core::ContentSpecifier> failed_contents;
 };
 
 Q_DECLARE_METATYPE(Core::ContentSpecifier)
