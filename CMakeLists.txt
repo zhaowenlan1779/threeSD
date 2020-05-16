@@ -128,10 +128,6 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU|SunOS)$")
     set(PLATFORM_LIBRARIES rt)
 endif()
 
-if (NOT MSVC)
-    add_compile_options("-flto")
-endif()
-
 # Include source code
 # ===================
 add_subdirectory(externals)
