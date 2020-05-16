@@ -446,6 +446,15 @@ std::vector<Core::ContentSpecifier> ImportDialog::GetSelectedContentList() {
     return to_import;
 }
 
+static QString FormatETA(int eta) {
+    if (eta < 0) {
+        return QStringLiteral("&nbsp;");
+    }
+    return QCoreApplication::translate("ImportDialog", "ETA %1m%2s")
+        .arg(eta / 60, 2, 10, QLatin1Char('0'))
+        .arg(eta % 60, 2, 10, QLatin1Char('0'));
+}
+
 void ImportDialog::StartImporting() {
     UpdateSizeDisplay();
     if (!ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->isEnabled()) {
@@ -478,29 +487,31 @@ void ImportDialog::StartImporting() {
 
     connect(job, &ImportJob::NextContent, this,
             [this, dialog, multiplier, total_count](u64 size_imported, u64 count,
-                                                    Core::ContentSpecifier next_content) {
+                                                    Core::ContentSpecifier next_content, int eta) {
                 dialog->setValue(static_cast<int>(size_imported / multiplier));
                 dialog->setLabelText(
-                    tr("<p align=\"left\">(%1/%2) Importing %3 (%4)...</p><p> </p>")
+                    tr("<p>(%1/%2) Importing %3 (%4)...</p><p>&nbsp;</p><p align=\"right\">%5</p>")
                         .arg(count)
                         .arg(total_count)
                         .arg(GetContentName(next_content))
-                        .arg(GetContentTypeName(next_content.type)));
+                        .arg(GetContentTypeName(next_content.type))
+                        .arg(FormatETA(eta)));
                 current_content = next_content;
                 current_count = count;
             });
     connect(job, &ImportJob::ProgressUpdated, this,
             [this, dialog, multiplier, total_count](u64 total_size_imported,
-                                                    u64 current_size_imported) {
+                                                    u64 current_size_imported, int eta) {
                 dialog->setValue(static_cast<int>(total_size_imported / multiplier));
-                dialog->setLabelText(tr("<p align=\"left\">(%1/%2) Importing %3 (%4)...</p><p "
-                                        "align=\"left\">%5 / %6</p>")
+                dialog->setLabelText(tr("<p>(%1/%2) Importing %3 (%4)...</p><p align=\"center\">%5 "
+                                        "/ %6</p><p align=\"right\">%7</p>")
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
                                          .arg(GetContentTypeName(current_content.type))
                                          .arg(ReadableByteSize(current_size_imported))
-                                         .arg(ReadableByteSize(current_content.maximum_size)));
+                                         .arg(ReadableByteSize(current_content.maximum_size))
+                                         .arg(FormatETA(eta)));
             });
     connect(job, &ImportJob::Completed, this, [this, dialog, job] {
         dialog->setValue(dialog->maximum());
