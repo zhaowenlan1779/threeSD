@@ -12,7 +12,6 @@
 #include <cstdlib> // for exit
 #endif
 #include "common/common_types.h"
-#include "common/logging/log.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
