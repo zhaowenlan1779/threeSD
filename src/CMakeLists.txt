@@ -104,7 +104,7 @@ else()
 
         if (MINGW_STATIC_BUILD)
             add_definitions(-DQT_STATICPLUGIN)
-            add_compile_options("-static -flto")
+            add_compile_options("-static")
         endif()
     endif()
 
