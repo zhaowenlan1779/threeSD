@@ -60,6 +60,7 @@ after_build:
           Remove-Item -Force .\msvc_build\bin\release\styles\*.pdb
           Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
         } else {
+          C:\msys64\usr\bin\bash.exe -lc 'strip ./mingw_build/bin/threeSD.exe'
           Copy-Item .\mingw_build\bin\threeSD.exe -Destination release
         }
 
