@@ -463,8 +463,13 @@ void ImportDialog::StartImporting() {
     const u64 multiplier =
         (total_size + std::numeric_limits<int>::max() - 1) / std::numeric_limits<int>::max();
 
+    auto* label = new QLabel(tr("Initializing..."));
+    label->setWordWrap(true);
+    label->setFixedWidth(600);
+
     auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
                                        static_cast<int>(total_size / multiplier), this);
+    dialog->setLabel(label);
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
     dialog->setValue(0);
@@ -475,11 +480,12 @@ void ImportDialog::StartImporting() {
             [this, dialog, multiplier, total_count](u64 size_imported, u64 count,
                                                     Core::ContentSpecifier next_content) {
                 dialog->setValue(static_cast<int>(size_imported / multiplier));
-                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4)...")
-                                         .arg(count)
-                                         .arg(total_count)
-                                         .arg(GetContentName(next_content))
-                                         .arg(GetContentTypeName(next_content.type)));
+                dialog->setLabelText(
+                    tr("<p align=\"left\">(%1/%2) Importing %3 (%4)...</p><p> </p>")
+                        .arg(count)
+                        .arg(total_count)
+                        .arg(GetContentName(next_content))
+                        .arg(GetContentTypeName(next_content.type)));
                 current_content = next_content;
                 current_count = count;
             });
@@ -487,7 +493,8 @@ void ImportDialog::StartImporting() {
             [this, dialog, multiplier, total_count](u64 total_size_imported,
                                                     u64 current_size_imported) {
                 dialog->setValue(static_cast<int>(total_size_imported / multiplier));
-                dialog->setLabelText(tr("(%1/%2) Importing %3 (%4) (%5/%6)...")
+                dialog->setLabelText(tr("<p align=\"left\">(%1/%2) Importing %3 (%4)...</p><p "
+                                        "align=\"left\">%5 / %6</p>")
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
