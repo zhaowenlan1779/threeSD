@@ -24,6 +24,8 @@ install:
         if ($env:BUILD_TYPE -eq 'mingw') {
           $dependencies = "mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-qt5-static"
           C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S $dependencies"
+          # (HACK) Replace libzstd.dll.a with libzstd.a to really static link qt
+          C:\msys64\usr\bin\bash -lc "sed -i ""s/libzstd.dll.a/libzstd.a/g"" /mingw64/qt5-static/lib/*.prl"
           # (HACK) ignore errors
           0
         }
