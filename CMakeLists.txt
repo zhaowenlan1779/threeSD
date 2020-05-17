@@ -128,6 +128,19 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "^(Linux|kFreeBSD|GNU|SunOS)$")
     set(PLATFORM_LIBRARIES rt)
 endif()
 
+
+if (MINGW)
+    add_definitions(-DMINGW_HAS_SECURE_API)
+    if (COMPILE_WITH_DWARF)
+        add_compile_options("-gdwarf")
+    endif()
+
+    if (MINGW_STATIC_BUILD)
+        add_definitions(-DQT_STATICPLUGIN)
+        add_compile_options("-static")
+    endif()
+endif()
+
 # Include source code
 # ===================
 add_subdirectory(externals)
