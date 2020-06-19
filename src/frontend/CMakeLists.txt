@@ -34,12 +34,11 @@ target_link_libraries(threeSD PRIVATE qdevicewatcher)
 target_link_libraries(threeSD PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
 if (APPLE)
-    # TODO: support macOS
     # set(MACOSX_ICON "../../dist/citra.icns")
     # set_source_files_properties(${MACOSX_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     # target_sources(threeSD PRIVATE ${MACOSX_ICON})
-    # set_target_properties(threeSD PROPERTIES MACOSX_BUNDLE TRUE)
-    # set_target_properties(threeSD PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
+    set_target_properties(threeSD PROPERTIES MACOSX_BUNDLE TRUE)
+    set_target_properties(threeSD PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
 elseif(WIN32)
     # compile as a win32 gui application instead of a console application
     target_link_libraries(threeSD PRIVATE Qt5::WinMain)
