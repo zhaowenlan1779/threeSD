@@ -198,7 +198,7 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
         }
 
         const std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
-        const std::size_t to_write = std::min(file_size, size);
+        const std::size_t to_write = std::min<std::size_t>(file_size, size);
 
         if (data_region.size() < fs_info.data_region_block_size * block + to_write) {
             LOG_ERROR(Core, "Out of bound block: {} to_write: {}", block, to_write);
