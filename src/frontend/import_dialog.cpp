@@ -534,7 +534,7 @@ void ImportDialog::StartImporting() {
 
         RelistContent();
     });
-    connect(dialog, &QProgressDialog::canceled, this, [this, dialog, job] {
+    connect(dialog, &QProgressDialog::canceled, this, [this, job] {
         // Add yet-another-ProgressDialog to indicate cancel progress
         auto* cancel_dialog = new QProgressDialog(tr("Canceling..."), tr("Cancel"), 0, 0, this);
         cancel_dialog->setWindowModality(Qt::WindowModal);
@@ -620,7 +620,7 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
         [this] { importer.AbortDumpCXI(); });
 
     connect(job, &ProgressiveJob::ProgressUpdated, this,
-            [this, specifier, dialog, multiplier](u64 current, u64 total) {
+            [specifier, dialog, multiplier](u64 current, u64 total) {
                 dialog->setValue(static_cast<int>(current / multiplier));
                 dialog->setLabelText(tr("%1 / %2")
                                          .arg(ReadableByteSize(current))
@@ -631,7 +631,7 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
         dialog->hide();
     });
     connect(job, &ProgressiveJob::Completed, this,
-            [this, dialog] { dialog->setValue(dialog->maximum()); });
+            [dialog] { dialog->setValue(dialog->maximum()); });
     connect(dialog, &QProgressDialog::canceled, this, [this, job] { job->Cancel(); });
 
     job->start();
