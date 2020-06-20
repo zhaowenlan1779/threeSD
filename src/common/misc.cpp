@@ -4,6 +4,8 @@
 
 #include <cstddef>
 #include <cstring>
+#include <type_traits>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -22,12 +24,14 @@ std::string GetLastErrorMsg() {
 #if defined(_WIN32)
     FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, GetLastError(),
                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), err_str, buff_size, nullptr);
-#elif defined(__GNUC__)
-    const char* err = strerror_r(errno, err_str, buff_size);
-    return std::string(err, strlen(err));
 #else
-    // Thread safe (XSI-compliant)
-    strerror_r(errno, err_str, buff_size);
+    auto ret = strerror_r(errno, err_str, buff_size);
+    if constexpr (std::is_same_v<decltype(ret), const char*>) {
+        // GNU specific
+        // This is a workaround for XSI-compliant variant; this should always be safe.
+        const char* str = reinterpret_cast<const char*>(ret);
+        return std::string(str, strlen(str));
+    }
 #endif
 
     return std::string(err_str, strnlen(err_str, buff_size));
