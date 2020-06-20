@@ -632,7 +632,7 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
     });
     connect(job, &ProgressiveJob::Completed, this,
             [dialog] { dialog->setValue(dialog->maximum()); });
-    connect(dialog, &QProgressDialog::canceled, this, [this, job] { job->Cancel(); });
+    connect(dialog, &QProgressDialog::canceled, this, [job] { job->Cancel(); });
 
     job->start();
 }

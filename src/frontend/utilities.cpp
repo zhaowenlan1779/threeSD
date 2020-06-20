@@ -164,10 +164,11 @@ void UtilitiesDialog::SDDecryptionTool() {
         return;
     }
     // TODO: Add Progress reporting
-    ShowProgressDialog([sdmc_root, relative_source, destination] {
-        Core::SDMCDecryptor decryptor(sdmc_root);
-        return decryptor.DecryptAndWriteFile(relative_source, destination.toStdString());
-    });
+    ShowProgressDialog(
+        [sdmc_root = sdmc_root, relative_source = relative_source, destination = destination] {
+            Core::SDMCDecryptor decryptor(sdmc_root);
+            return decryptor.DecryptAndWriteFile(relative_source, destination.toStdString());
+        });
 }
 
 void UtilitiesDialog::SaveDataExtractionTool() {
@@ -187,7 +188,8 @@ void UtilitiesDialog::SaveDataExtractionTool() {
         }
 
         // TODO: Add Progress reporting
-        ShowProgressDialog([sdmc_root, relative_source, source, destination] {
+        ShowProgressDialog([sdmc_root = sdmc_root, relative_source = relative_source,
+                            source = source, destination = destination] {
             const auto size = FileUtil::GetSize(source.toStdString());
             std::vector<u8> data(size);
             Core::SDMCFile file(sdmc_root, relative_source, "rb");
@@ -214,7 +216,7 @@ void UtilitiesDialog::SaveDataExtractionTool() {
         });
     } else {
         // TODO: Add Progress reporting
-        ShowProgressDialog([source, destination] {
+        ShowProgressDialog([source = source, destination = destination] {
             const auto size = FileUtil::GetSize(source.toStdString());
             std::vector<u8> data(size);
             FileUtil::IOFile file(source.toStdString(), "rb");
@@ -256,15 +258,16 @@ void UtilitiesDialog::ExtdataExtractionTool() {
         return;
     }
     // TODO: Add Progress reporting
-    ShowProgressDialog([sdmc_root, relative_source, destination] {
-        Core::SDMCDecryptor decryptor(sdmc_root);
-        Core::SDExtdata extdata(relative_source, decryptor);
-        if (!extdata.IsGood()) {
-            return false;
-        }
+    ShowProgressDialog(
+        [sdmc_root = sdmc_root, relative_source = relative_source, destination = destination] {
+            Core::SDMCDecryptor decryptor(sdmc_root);
+            Core::SDExtdata extdata(relative_source, decryptor);
+            if (!extdata.IsGood()) {
+                return false;
+            }
 
-        return extdata.Extract(destination.toStdString());
-    });
+            return extdata.Extract(destination.toStdString());
+        });
 }
 
 void UtilitiesDialog::RomFSExtractionTool() {
@@ -273,7 +276,7 @@ void UtilitiesDialog::RomFSExtractionTool() {
         return;
     }
 
-    ShowProgressDialog([source, destination] {
+    ShowProgressDialog([source = source, destination = destination] {
         const auto size = FileUtil::GetSize(source.toStdString());
         std::vector<u8> data(size);
         FileUtil::IOFile src_file(source.toStdString(), "rb");

@@ -33,8 +33,8 @@ void ImportJob::run() {
 
     for (const auto& content : contents) {
         emit NextContent(size_imported, count + 1, content, eta);
-        const auto callback = [this, total_size, size_imported, &eta,
-                               &UpdateETA](std::size_t current_size, std::size_t /*total_size*/) {
+        const auto callback = [this, size_imported, &eta, &UpdateETA](std::size_t current_size,
+                                                                      std::size_t /*total_size*/) {
             UpdateETA(size_imported + current_size);
             emit ProgressUpdated(size_imported + current_size, current_size, eta);
         };
