@@ -47,6 +47,9 @@ elseif(WIN32)
     elseif(MINGW)
         set_target_properties(threeSD PROPERTIES LINK_FLAGS_RELEASE "-mwindows")
     endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # In Ubuntu, the executable would be recognized as a shared library otherwise.
+    target_link_options(threeSD PRIVATE "-no-pie")
 endif()
 
 target_compile_definitions(threeSD PRIVATE
