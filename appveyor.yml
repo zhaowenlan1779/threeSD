@@ -71,8 +71,19 @@ after_build:
         Copy-Item .\README.md -Destination release
         Copy-Item .\dist\threeSDumper.gm9 -Destination release\dist
 
-        7z a release.7z release
+        $BUILD_SEVENZIP = "threeSD-windows-$GITDATE-$GITREV.7z" -replace " ", ""
+        $env:BUILD_SEVENZIP = $BUILD_SEVENZIP
+
+        7z a $BUILD_SEVENZIP release
+
 
 artifacts:
-  - path: release.7z
+  - path: $(BUILD_SEVENZIP)
     name: build
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: 4xdt1ZdE/ZgP2amG5Jr073yvbitMmdV0ts48wKBKEWpR6PJwDG3bR0Attvm9Mgv8
+  artifact: build
+  draft: true
