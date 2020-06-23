@@ -49,7 +49,7 @@ elseif(WIN32)
     endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # In Ubuntu, the executable would be recognized as a shared library otherwise.
-    target_link_options(threeSD PRIVATE "-no-pie")
+    set_target_properties(threeSD PROPERTIES LINK_FLAGS "-no-pie")
 endif()
 
 target_compile_definitions(threeSD PRIVATE
