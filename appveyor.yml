@@ -71,6 +71,9 @@ after_build:
         Copy-Item .\README.md -Destination release
         Copy-Item .\dist\threeSDumper.gm9 -Destination release\dist
 
+        $GITDATE = $(git show -s --date=short --format='%ad') -replace "-",""
+        $GITREV = $(git show -s --format='%h')
+
         $BUILD_SEVENZIP = "threeSD-windows-$GITDATE-$GITREV.7z" -replace " ", ""
         $env:BUILD_SEVENZIP = $BUILD_SEVENZIP
 
