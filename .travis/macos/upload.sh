@@ -27,4 +27,6 @@ chmod +x ${REV_NAME}/threeSD.app/Contents/MacOS/threeSD
 # Verify loader instructions
 find "$REV_NAME" -exec otool -L {} \;
 
+mkdir "$REV_NAME/dist"
+
 . .travis/common/post-upload.sh
