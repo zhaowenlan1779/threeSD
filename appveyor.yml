@@ -96,3 +96,5 @@ deploy:
   draft: true
   on:
     branch: master
+    APPVEYOR_REPO_NAME: zhaowenlan1779/threeSD
+    APPVEYOR_REPO_TAG: true

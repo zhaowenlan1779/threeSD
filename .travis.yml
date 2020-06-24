@@ -32,4 +32,6 @@ deploy:
   skip_cleanup: true
   draft: true
   on:
+    branch: master
     repo: zhaowenlan1779/threeSD
+    tags: true
