@@ -2,7 +2,13 @@
 
 . .travis/common/pre-upload.sh
 
-REV_NAME="threeSD-linux-${GITDATE}-${GITREV}"
+# Find out what release we are building
+if [ -z $TRAVIS_TAG ]; then
+    REV_NAME="threeSD-linux-${GITDATE}-${GITREV}"
+else
+    REV_NAME="threeSD-linux-${TRAVIS_TAG}"
+fi
+
 ARCHIVE_NAME="${REV_NAME}.tar.xz"
 COMPRESSION_FLAGS="-cJvf"
 

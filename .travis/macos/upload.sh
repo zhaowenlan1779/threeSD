@@ -2,7 +2,13 @@
 
 . .travis/common/pre-upload.sh
 
-REV_NAME="threeSD-macos-${GITDATE}-${GITREV}"
+# Find out what release we are building
+if [ -z $TRAVIS_TAG ]; then
+    REV_NAME="threeSD-macos-${GITDATE}-${GITREV}"
+else
+    REV_NAME="threeSD-macos-${TRAVIS_TAG}"
+fi
+
 ARCHIVE_NAME="${REV_NAME}.tar.gz"
 COMPRESSION_FLAGS="-czvf"
 

@@ -74,7 +74,11 @@ after_build:
         $GITDATE = $(git show -s --date=short --format='%ad') -replace "-",""
         $GITREV = $(git show -s --format='%h')
 
-        $BUILD_SEVENZIP = "threeSD-windows-$GITDATE-$GITREV.7z" -replace " ", ""
+        if ($env:APPVEYOR_REPO_TAG_NAME) {
+          $BUILD_SEVENZIP = "threeSD-windows-$env:APPVEYOR_REPO_TAG_NAME.7z" -replace " ", ""
+        } else {
+          $BUILD_SEVENZIP = "threeSD-windows-$GITDATE-$GITREV.7z" -replace " ", ""
+        }
         $env:BUILD_SEVENZIP = $BUILD_SEVENZIP
 
         7z a $BUILD_SEVENZIP release
@@ -90,3 +94,5 @@ deploy:
     secure: 4xdt1ZdE/ZgP2amG5Jr073yvbitMmdV0ts48wKBKEWpR6PJwDG3bR0Attvm9Mgv8
   artifact: build
   draft: true
+  on:
+    branch: master
