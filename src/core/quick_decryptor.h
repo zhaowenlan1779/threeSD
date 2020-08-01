@@ -20,10 +20,7 @@ using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
 /**
  * Helper that reads, decrypts and writes data. This uses three threads to process the data
  * and call progress callbacks occasionally.
- *
- * While this is a template, it really should only be used with IOFile and SDMCFile.
  */
-template <typename In = FileUtil::IOFile, typename Out = FileUtil::IOFile>
 class QuickDecryptor {
 public:
     /**
@@ -45,8 +42,8 @@ public:
      * @param ctr AES CTR for decryption
      * @param aes_seek_pos The position to seek to for decryption.
      */
-    bool DecryptAndWriteFile(std::shared_ptr<In> source, std::size_t size,
-                             std::shared_ptr<Out> destination,
+    bool DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
+                             std::shared_ptr<FileUtil::IOFile> destination,
                              const ProgressCallback& callback = [](std::size_t, std::size_t) {},
                              bool decrypt = false, Core::Key::AESKey key = {},
                              Core::Key::AESKey ctr = {}, std::size_t aes_seek_pos = 0);
@@ -63,8 +60,8 @@ public:
 private:
     static constexpr std::size_t BufferSize = 16 * 1024; // 16 KB
 
-    std::shared_ptr<In> source;
-    std::shared_ptr<Out> destination;
+    std::shared_ptr<FileUtil::IOFile> source;
+    std::shared_ptr<FileUtil::IOFile> destination;
     bool decrypt{};
     Core::Key::AESKey key;
     Core::Key::AESKey ctr;

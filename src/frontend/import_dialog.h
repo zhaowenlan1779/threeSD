@@ -42,8 +42,8 @@ private:
     Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
     void OnContextMenu(const QPoint& point);
     void StartDumpingCXI(const Core::ContentSpecifier& content);
-    Core::NCCHContainer<Core::SDMCFile> dump_cxi_container; // NCCH container used for dumping CXI
-    QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXI
+    Core::NCCHContainer dump_cxi_container; // NCCH container used for dumping CXI
+    QString last_dump_cxi_path;             // Used for recording last path in StartDumpingCXI
 
     std::unique_ptr<Ui::ImportDialog> ui;
 

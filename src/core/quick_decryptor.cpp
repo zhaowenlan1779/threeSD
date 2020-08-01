@@ -16,18 +16,16 @@
 
 namespace Core {
 
-template <typename In, typename Out>
-QuickDecryptor<In, Out>::QuickDecryptor() = default;
+QuickDecryptor::QuickDecryptor() = default;
 
-template <typename In, typename Out>
-QuickDecryptor<In, Out>::~QuickDecryptor() = default;
+QuickDecryptor::~QuickDecryptor() = default;
 
-template <typename In, typename Out>
-bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::shared_ptr<In> source_, std::size_t size,
-                                                  std::shared_ptr<Out> destination_,
-                                                  const ProgressCallback& callback_, bool decrypt_,
-                                                  Core::Key::AESKey key_, Core::Key::AESKey ctr_,
-                                                  std::size_t aes_seek_pos_) {
+bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_,
+                                         std::size_t size,
+                                         std::shared_ptr<FileUtil::IOFile> destination_,
+                                         const ProgressCallback& callback_, bool decrypt_,
+                                         Core::Key::AESKey key_, Core::Key::AESKey ctr_,
+                                         std::size_t aes_seek_pos_) {
     if (is_running) {
         LOG_ERROR(Core, "Decryptor is running");
         return false;
@@ -84,8 +82,7 @@ bool QuickDecryptor<In, Out>::DecryptAndWriteFile(std::shared_ptr<In> source_, s
     return ret;
 }
 
-template <typename In, typename Out>
-void QuickDecryptor<In, Out>::DataReadLoop() {
+void QuickDecryptor::DataReadLoop() {
     std::size_t current_buffer = 0;
     bool is_first_run = true;
 
@@ -119,8 +116,7 @@ void QuickDecryptor<In, Out>::DataReadLoop() {
     }
 }
 
-template <typename In, typename Out>
-void QuickDecryptor<In, Out>::DataDecryptLoop() {
+void QuickDecryptor::DataDecryptLoop() {
     CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
     aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
     aes.Seek(aes_seek_pos);
@@ -142,8 +138,7 @@ void QuickDecryptor<In, Out>::DataDecryptLoop() {
     }
 }
 
-template <typename In, typename Out>
-void QuickDecryptor<In, Out>::DataWriteLoop() {
+void QuickDecryptor::DataWriteLoop() {
     std::size_t current_buffer = 0;
 
     if (!*destination) {
@@ -187,21 +182,16 @@ void QuickDecryptor<In, Out>::DataWriteLoop() {
     completion_event.Set();
 }
 
-template <typename In, typename Out>
-void QuickDecryptor<In, Out>::Abort() {
+void QuickDecryptor::Abort() {
     if (is_running.exchange(false)) {
         is_good = false;
         completion_event.Set();
     }
 }
 
-template <typename In, typename Out>
-void QuickDecryptor<In, Out>::Reset(std::size_t total_size_) {
+void QuickDecryptor::Reset(std::size_t total_size_) {
     total_size = total_size_;
     imported_size = 0;
 }
-
-template class QuickDecryptor<FileUtil::IOFile, FileUtil::IOFile>;
-template class QuickDecryptor<SDMCFile, FileUtil::IOFile>;
 
 } // namespace Core

@@ -87,8 +87,6 @@ struct Config {
 constexpr int CurrentDumperVersion = 1;
 
 class SDMCFile;
-
-template <typename File>
 class NCCHContainer;
 
 class SDMCImporter {
@@ -174,7 +172,7 @@ private:
     std::unique_ptr<SDMCDecryptor> decryptor;
 
     // The NCCH used to dump CXIs.
-    std::unique_ptr<NCCHContainer<SDMCFile>> dump_cxi_ncch;
+    std::unique_ptr<NCCHContainer> dump_cxi_ncch;
 };
 
 /**

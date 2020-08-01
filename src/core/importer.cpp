@@ -137,7 +137,7 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
 
     const auto base_path =
         config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
-    QuickDecryptor<> quick_decryptor;
+    QuickDecryptor quick_decryptor;
     return ImportTitleGeneric(
         quick_decryptor, base_path, specifier,
         [&base_path, &quick_decryptor, &callback](const std::string& filepath) {
@@ -416,8 +416,7 @@ static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCD
 // English short title name, extdata id, encryption, seed, icon
 using TitleData = std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>>;
 
-template <typename File>
-TitleData LoadTitleData(NCCHContainer<File>& ncch) {
+TitleData LoadTitleData(NCCHContainer& ncch) {
     std::string codeset_name;
     ncch.ReadCodesetName(codeset_name);
 
@@ -478,7 +477,7 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
 
     const auto boot_content_path =
         fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
-    dump_cxi_ncch = std::make_unique<NCCHContainer<SDMCFile>>(
+    dump_cxi_ncch = std::make_unique<NCCHContainer>(
         std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
     return dump_cxi_ncch->DecryptToFile(destination, callback) == ResultStatus::Success;
 }
@@ -526,7 +525,7 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
 
                         const auto boot_content_path =
                             fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
-                        NCCHContainer<SDMCFile> ncch(
+                        NCCHContainer ncch(
                             std::make_shared<SDMCFile>(sdmc_path, boot_content_path, "rb"));
                         if (ncch.Load() != ResultStatus::Success) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
@@ -631,7 +630,7 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
 
                         const auto boot_content_path =
                             fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
-                        NCCHContainer<FileUtil::IOFile> ncch(
+                        NCCHContainer ncch(
                             std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
                         if (ncch.Load() != ResultStatus::Success) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);

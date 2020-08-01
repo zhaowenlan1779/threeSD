@@ -52,69 +52,26 @@ public:
 
 private:
     std::string root_folder;
-    QuickDecryptor<> quick_decryptor;
+    QuickDecryptor quick_decryptor;
 };
 
 /// Interface for reading an SDMC file like a normal IOFile. This is read-only.
-class SDMCFile : public NonCopyable {
+class SDMCFile : public FileUtil::IOFile {
 public:
-    SDMCFile();
-
     SDMCFile(std::string root_folder, const std::string& filename, const char openmode[],
              int flags = 0);
 
-    ~SDMCFile();
+    ~SDMCFile() override;
 
-    SDMCFile(SDMCFile&& other);
-    SDMCFile& operator=(SDMCFile&& other);
-
-    void Swap(SDMCFile& other);
-
-    bool Open(const std::string& filename, const char openmode[], int flags = 0);
-    bool Close();
-
-    template <typename T>
-    std::size_t ReadArray(T* data, std::size_t length) {
-        std::size_t items_read = file.ReadArray(data, length);
-
-        if (IsGood()) {
-            DecryptData(reinterpret_cast<u8*>(data), sizeof(T) * length);
-        }
-
-        return items_read;
-    }
-
-    template <typename T>
-    std::size_t ReadBytes(T* data, std::size_t length) {
-        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
-        return ReadArray(reinterpret_cast<char*>(data), length);
-    }
-
-    bool IsOpen() const {
-        return file.IsOpen();
-    }
-
-    // m_good is set to false when a read, write or other function fails
-    bool IsGood() const {
-        return file.IsGood();
-    }
-    explicit operator bool() const {
-        return IsGood();
-    }
-
-    bool Seek(s64 off, int origin);
-    u64 Tell() const;
-    u64 GetSize() const;
-
-    void Clear();
+    std::size_t Read(char* data, std::size_t length) override;
+    std::size_t Write(const char* data, std::size_t length) override;
+    bool Seek(s64 off, int origin) override;
 
 private:
     void DecryptData(u8* data, std::size_t size);
 
-    FileUtil::IOFile file;
-    // CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
-    std::array<u8, 16> original_ctr;
-    std::array<u8, 16> key;
+    struct Impl;
+    std::unique_ptr<Impl> impl;
 };
 
 } // namespace Core

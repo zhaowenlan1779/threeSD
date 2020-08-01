@@ -821,20 +821,6 @@ IOFile::~IOFile() {
     Close();
 }
 
-IOFile::IOFile(IOFile&& other) {
-    Swap(other);
-}
-
-IOFile& IOFile::operator=(IOFile&& other) {
-    Swap(other);
-    return *this;
-}
-
-void IOFile::Swap(IOFile& other) {
-    std::swap(m_file, other.m_file);
-    std::swap(m_good, other.m_good);
-}
-
 bool IOFile::Open(const std::string& filename, const char openmode[], int flags) {
     Close();
 #ifdef _WIN32
@@ -859,6 +845,32 @@ bool IOFile::Close() {
 
     m_file = nullptr;
     return m_good;
+}
+
+std::size_t IOFile::Read(char* data, std::size_t length) {
+    if (!IsOpen()) {
+        m_good = false;
+        return std::numeric_limits<std::size_t>::max();
+    }
+
+    std::size_t items_read = std::fread(data, 1, length, m_file);
+    if (items_read != length)
+        m_good = false;
+
+    return items_read;
+}
+
+std::size_t IOFile::Write(const char* data, std::size_t length) {
+    if (!IsOpen()) {
+        m_good = false;
+        return std::numeric_limits<std::size_t>::max();
+    }
+
+    std::size_t items_written = std::fwrite(data, 1, length, m_file);
+    if (items_written != length)
+        m_good = false;
+
+    return items_written;
 }
 
 u64 IOFile::GetSize() const {

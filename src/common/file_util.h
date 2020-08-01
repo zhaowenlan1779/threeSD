@@ -178,48 +178,21 @@ public:
     // isn't considered "locked" while citra is open and people can open the log file and view it
     IOFile(const std::string& filename, const char openmode[], int flags = 0);
 
-    ~IOFile();
-
-    IOFile(IOFile&& other);
-    IOFile& operator=(IOFile&& other);
-
-    void Swap(IOFile& other);
+    virtual ~IOFile();
 
     bool Open(const std::string& filename, const char openmode[], int flags = 0);
     bool Close();
 
     template <typename T>
     std::size_t ReadArray(T* data, std::size_t length) {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "Given array does not consist of trivially copyable objects");
-
-        if (!IsOpen()) {
-            m_good = false;
-            return std::numeric_limits<std::size_t>::max();
-        }
-
-        std::size_t items_read = std::fread(data, sizeof(T), length, m_file);
-        if (items_read != length)
-            m_good = false;
-
-        return items_read;
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+        return Read(reinterpret_cast<char*>(data), length * sizeof(T));
     }
 
     template <typename T>
     std::size_t WriteArray(const T* data, std::size_t length) {
-        static_assert(std::is_trivially_copyable_v<T>,
-                      "Given array does not consist of trivially copyable objects");
-
-        if (!IsOpen()) {
-            m_good = false;
-            return std::numeric_limits<std::size_t>::max();
-        }
-
-        std::size_t items_written = std::fwrite(data, sizeof(T), length, m_file);
-        if (items_written != length)
-            m_good = false;
-
-        return items_written;
+        static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
+        return Write(reinterpret_cast<const char*>(data), length * sizeof(T));
     }
 
     template <typename T>
@@ -244,6 +217,9 @@ public:
         return WriteArray(str.data(), str.length());
     }
 
+    virtual std::size_t Read(char* data, std::size_t length);
+    virtual std::size_t Write(const char* data, std::size_t length);
+
     bool IsOpen() const {
         return nullptr != m_file;
     }
@@ -256,7 +232,7 @@ public:
         return IsGood();
     }
 
-    bool Seek(s64 off, int origin);
+    virtual bool Seek(s64 off, int origin);
     u64 Tell() const;
     u64 GetSize() const;
     bool Resize(u64 size);

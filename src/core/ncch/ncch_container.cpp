@@ -29,11 +29,9 @@ constexpr u32 MakeMagic(char a, char b, char c, char d) {
 static const int kMaxSections = 8;   ///< Maximum number of sections (files) in an ExeFs
 static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
 
-template <typename File>
-NCCHContainer<File>::NCCHContainer(std::shared_ptr<File> file_) : file(std::move(file_)) {}
+NCCHContainer::NCCHContainer(std::shared_ptr<FileUtil::IOFile> file_) : file(std::move(file_)) {}
 
-template <typename File>
-ResultStatus NCCHContainer<File>::OpenFile(std::shared_ptr<File> file_) {
+ResultStatus NCCHContainer::OpenFile(std::shared_ptr<FileUtil::IOFile> file_) {
     file = std::move(file_);
 
     if (!file->IsOpen()) {
@@ -45,8 +43,7 @@ ResultStatus NCCHContainer<File>::OpenFile(std::shared_ptr<File> file_) {
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::Load() {
+ResultStatus NCCHContainer::Load() {
     if (is_loaded)
         return ResultStatus::Success;
 
@@ -185,7 +182,7 @@ ResultStatus NCCHContainer<File>::Load() {
 
         // System archives and DLC don't have an extended header but have RomFS
         if (ncch_header.extended_header_size) {
-            auto read_exheader = [this](File& file) {
+            auto read_exheader = [this](FileUtil::IOFile& file) {
                 const std::size_t size = sizeof(exheader_header);
                 return file && file.ReadBytes(&exheader_header, size) == size;
             };
@@ -269,8 +266,7 @@ ResultStatus NCCHContainer<File>::Load() {
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::LoadSectionExeFS(const char* name, std::vector<u8>& buffer) {
+ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& buffer) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -307,8 +303,7 @@ ResultStatus NCCHContainer<File>::LoadSectionExeFS(const char* name, std::vector
     return ResultStatus::ErrorNotUsed;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::ReadProgramId(u64_le& program_id) {
+ResultStatus NCCHContainer::ReadProgramId(u64_le& program_id) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -320,8 +315,7 @@ ResultStatus NCCHContainer<File>::ReadProgramId(u64_le& program_id) {
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::ReadExtdataId(u64& extdata_id) {
+ResultStatus NCCHContainer::ReadExtdataId(u64& extdata_id) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -356,8 +350,7 @@ ResultStatus NCCHContainer<File>::ReadExtdataId(u64& extdata_id) {
     return ResultStatus::Success;
 }
 
-template <typename File>
-bool NCCHContainer<File>::HasExeFS() {
+bool NCCHContainer::HasExeFS() {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return false;
@@ -365,8 +358,7 @@ bool NCCHContainer<File>::HasExeFS() {
     return has_exefs;
 }
 
-template <typename File>
-bool NCCHContainer<File>::HasExHeader() {
+bool NCCHContainer::HasExHeader() {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return false;
@@ -374,8 +366,7 @@ bool NCCHContainer<File>::HasExHeader() {
     return has_exheader;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::ReadCodesetName(std::string& name) {
+ResultStatus NCCHContainer::ReadCodesetName(std::string& name) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -389,8 +380,7 @@ ResultStatus NCCHContainer<File>::ReadCodesetName(std::string& name) {
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::ReadEncryptionType(EncryptionType& encryption) {
+ResultStatus NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -425,8 +415,7 @@ ResultStatus NCCHContainer<File>::ReadEncryptionType(EncryptionType& encryption)
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::ReadSeedCrypto(bool& used) {
+ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -438,9 +427,8 @@ ResultStatus NCCHContainer<File>::ReadSeedCrypto(bool& used) {
     return ResultStatus::Success;
 }
 
-template <typename File>
-ResultStatus NCCHContainer<File>::DecryptToFile(const std::string& destination,
-                                                const ProgressCallback& callback) {
+ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
+                                          const ProgressCallback& callback) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
@@ -565,14 +553,10 @@ ResultStatus NCCHContainer<File>::DecryptToFile(const std::string& destination,
     return ResultStatus::Success;
 }
 
-template <typename File>
-void NCCHContainer<File>::AbortDecryptToFile() {
+void NCCHContainer::AbortDecryptToFile() {
     aborted = true;
     decryptor.Abort();
 }
-
-template class NCCHContainer<SDMCFile>;
-template class NCCHContainer<FileUtil::IOFile>;
 
 #pragma pack(push, 1)
 struct RomFSIVFCHeader {
