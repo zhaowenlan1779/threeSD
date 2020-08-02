@@ -55,6 +55,62 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
     return ResultStatus::Success;
 }
 
+ResultStatus TitleMetadata::Save(const std::string& file_path) {
+    FileUtil::IOFile file(file_path, "wb");
+    if (!file.IsOpen())
+        return ResultStatus::Error;
+
+    if (!file.WriteBytes(&signature_type, sizeof(u32_be)))
+        return ResultStatus::Error;
+
+    // Signature lengths are variable, and the body follows the signature
+    u32 signature_size = GetSignatureSize(signature_type);
+    if (signature_size == 0) {
+        return ResultStatus::Error;
+    }
+
+    if (!file.WriteBytes(tmd_signature.data(), signature_size))
+        return ResultStatus::Error;
+
+    // The TMD body start position is rounded to the nearest 0x40 after the signature
+    std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
+    file.Seek(body_start, SEEK_SET);
+
+    // Update our TMD body values and hashes
+    tmd_body.content_count = static_cast<u16>(tmd_chunks.size());
+
+    // TODO(shinyquagsire23): Do TMDs with more than one contentinfo exist?
+    // For now we'll just adjust the first index to hold all content chunks
+    // and ensure that no further content info data exists.
+    tmd_body.contentinfo = {};
+    tmd_body.contentinfo[0].index = 0;
+    tmd_body.contentinfo[0].command_count = static_cast<u16>(tmd_chunks.size());
+
+    CryptoPP::SHA256 chunk_hash;
+    for (u16 i = 0; i < tmd_body.content_count; i++) {
+        chunk_hash.Update(reinterpret_cast<u8*>(&tmd_chunks[i]), sizeof(ContentChunk));
+    }
+    chunk_hash.Final(tmd_body.contentinfo[0].hash.data());
+
+    CryptoPP::SHA256 contentinfo_hash;
+    for (std::size_t i = 0; i < tmd_body.contentinfo.size(); i++) {
+        chunk_hash.Update(reinterpret_cast<u8*>(&tmd_body.contentinfo[i]), sizeof(ContentInfo));
+    }
+    chunk_hash.Final(tmd_body.contentinfo_hash.data());
+
+    // Write our TMD body, then write each of our ContentChunks
+    if (file.WriteBytes(&tmd_body, sizeof(TitleMetadata::Body)) != sizeof(TitleMetadata::Body))
+        return ResultStatus::Error;
+
+    for (u16 i = 0; i < tmd_body.content_count; i++) {
+        ContentChunk chunk = tmd_chunks[i];
+        if (file.WriteBytes(&chunk, sizeof(ContentChunk)) != sizeof(ContentChunk))
+            return ResultStatus::Error;
+    }
+
+    return ResultStatus::Success;
+}
+
 u64 TitleMetadata::GetTitleID() const {
     return tmd_body.title_id;
 }
@@ -103,6 +159,26 @@ std::array<u8, 16> TitleMetadata::GetContentCTRByIndex(u16 index) const {
     std::array<u8, 16> ctr{};
     std::memcpy(ctr.data(), &tmd_chunks[index].index, sizeof(u16));
     return ctr;
+}
+
+void TitleMetadata::SetTitleID(u64 title_id) {
+    tmd_body.title_id = title_id;
+}
+
+void TitleMetadata::SetTitleType(u32 type) {
+    tmd_body.title_type = type;
+}
+
+void TitleMetadata::SetTitleVersion(u16 version) {
+    tmd_body.title_version = version;
+}
+
+void TitleMetadata::SetSystemVersion(u64 version) {
+    tmd_body.system_version = version;
+}
+
+void TitleMetadata::AddContentChunk(const ContentChunk& chunk) {
+    tmd_chunks.push_back(chunk);
 }
 
 void TitleMetadata::Print() const {

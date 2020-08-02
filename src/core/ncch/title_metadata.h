@@ -110,6 +110,7 @@ public:
 #pragma pack(pop)
 
     ResultStatus Load(const std::vector<u8> file_data, std::size_t offset = 0);
+    ResultStatus Save(const std::string& file_path);
 
     u64 GetTitleID() const;
     u32 GetTitleType() const;
@@ -123,6 +124,12 @@ public:
     u16 GetContentTypeByIndex(u16 index) const;
     u64 GetContentSizeByIndex(u16 index) const;
     std::array<u8, 16> GetContentCTRByIndex(u16 index) const;
+
+    void SetTitleID(u64 title_id);
+    void SetTitleType(u32 type);
+    void SetTitleVersion(u16 version);
+    void SetSystemVersion(u64 version);
+    void AddContentChunk(const ContentChunk& chunk);
 
     void Print() const;
 
