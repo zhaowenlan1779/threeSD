@@ -17,6 +17,8 @@ add_library(core STATIC
   ncch/seed_db.h
   ncch/smdh.cpp
   ncch/smdh.h
+  ncch/ticket.cpp
+  ncch/ticket.h
   ncch/title_metadata.cpp
   ncch/title_metadata.h
   quick_decryptor.cpp
