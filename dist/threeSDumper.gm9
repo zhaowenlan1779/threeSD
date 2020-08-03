@@ -29,6 +29,13 @@ else
     goto Exit
 end
 
+# === certs.db
+if chk $[RDTYPE] "devkit"
+    echo "WARNING: \nDev kit detected. \nCIA building will not be usable."
+else
+    cp -w -n "1:/dbs/certs.db" $[OUT]/certs.db
+end
+
 # === Safe mode firm
 if not find $[OUT]/firm NULL
     mkdir $[OUT]/firm
@@ -159,7 +166,7 @@ else
 end
 
 # === Write version
-dumptxt $[OUT]/version.txt 1
+dumptxt $[OUT]/version.txt 2
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."

@@ -901,6 +901,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
 
         LOAD_DATA(movable_sed_path, MOVABLE_SED);
         LOAD_DATA(bootrom_path, BOOTROM9);
+        LOAD_DATA(certs_db_path, CERTS_DB);
         LOAD_DATA(safe_mode_firm_path, "firm/");
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);

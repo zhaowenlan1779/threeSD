@@ -68,6 +68,8 @@ struct Config {
     std::string movable_sed_path; ///< Path to movable.sed
     std::string bootrom_path;     ///< Path to bootrom (boot9.bin) (Sysdata 0)
 
+    std::string certs_db_path; ///< Path to certs.db. Used while building CIA.
+
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
 
@@ -84,7 +86,7 @@ struct Config {
 };
 
 // Version of the current dumper.
-constexpr int CurrentDumperVersion = 1;
+constexpr int CurrentDumperVersion = 2;
 
 class SDMCFile;
 class NCCHContainer;
