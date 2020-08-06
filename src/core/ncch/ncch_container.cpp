@@ -427,22 +427,17 @@ ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
     return ResultStatus::Success;
 }
 
-ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
+ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
                                           const ProgressCallback& callback) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;
 
-    if (!has_header || !has_exheader)
+    if (!has_header)
         return ResultStatus::ErrorNotUsed;
 
-    if (!FileUtil::CreateFullPath(destination)) {
-        LOG_ERROR(Core, "Could not create path {}", destination);
-        return ResultStatus::Error;
-    }
-    auto dest_file = std::make_shared<FileUtil::IOFile>(destination, "wb");
     if (!*dest_file) {
-        LOG_ERROR(Core, "Could not open file {}", destination);
+        LOG_ERROR(Core, "File is not open");
         return ResultStatus::Error;
     }
 
@@ -457,28 +452,38 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
         return ret ? ResultStatus::Success : ResultStatus::Error;
     }
 
+    auto total_size = file->GetSize() - sizeof(NCCH_Header);
+    // These are written directly instead of using the decryptor
+    if (has_exheader) {
+        total_size -= sizeof(ExHeader_Header);
+    }
+    if (has_exefs) {
+        total_size -= sizeof(ExeFs_Header);
+    }
+    decryptor.Reset(total_size);
+
+    std::size_t written{};
+
     // Write NCCH header
     NCCH_Header modified_header = ncch_header;
-    modified_header.no_crypto.Assign(1);
+    modified_header.raw_crypto_flags = 0x4; // No crypto
     modified_header.secondary_key_slot = 0;
     if (dest_file->WriteBytes(&modified_header, sizeof(modified_header)) !=
         sizeof(modified_header)) {
-        LOG_ERROR(Core, "Could not write NCCH header to file {}", destination);
+        LOG_ERROR(Core, "Could not write NCCH header to file");
         return ResultStatus::Error;
     }
+    written += sizeof(NCCH_Header);
 
     // Write Exheader
-    if (dest_file->WriteBytes(&exheader_header, sizeof(exheader_header)) !=
-        sizeof(exheader_header)) {
-        LOG_ERROR(Core, "Could not write Exheader to file {}", destination);
-        return ResultStatus::Error;
+    if (has_exheader) {
+        if (dest_file->WriteBytes(&exheader_header, sizeof(exheader_header)) !=
+            sizeof(exheader_header)) {
+            LOG_ERROR(Core, "Could not write Exheader to file");
+            return ResultStatus::Error;
+        }
+        written += sizeof(ExHeader_Header);
     }
-
-    const auto total_size =
-        file->GetSize() - sizeof(NCCH_Header) - sizeof(ExHeader_Header) - sizeof(ExeFs_Header);
-    decryptor.Reset(total_size);
-
-    std::size_t written = sizeof(NCCH_Header) + sizeof(ExHeader_Header);
 
     const auto Write = [&](std::string_view name, std::size_t offset, std::size_t size,
                            bool decrypt = false, const Key::AESKey& key = {},
@@ -490,24 +495,38 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
         if (aborted.exchange(false)) {
             return false;
         }
-        file->Seek(written, SEEK_SET);
         ASSERT_MSG(written <= offset, "Offsets are not in increasing order");
-        if (!decryptor.DecryptAndWriteFile(file, offset - written, dest_file, callback)) {
-            LOG_ERROR(Core, "Could not write data before {} to {}", name, destination);
-            return false;
+
+        // Zero out the gap
+        const std::array<u8, 1024> zeroes{};
+        std::size_t zeroes_left = offset - written;
+        while (zeroes_left > 0) {
+            const auto to_write = std::min(zeroes.size(), zeroes_left);
+            if (dest_file->WriteBytes(zeroes.data(), to_write) != to_write) {
+                LOG_ERROR(Core, "Could not write zeroes before {}", name);
+                return false;
+            }
+            zeroes_left -= to_write;
         }
+
+        file->Seek(offset, SEEK_SET);
 
         if (aborted.exchange(false)) {
             return false;
         }
         if (!decryptor.DecryptAndWriteFile(file, size, dest_file, callback, decrypt, key, ctr,
                                            aes_seek_pos)) {
-            LOG_ERROR(Core, "Could not write {} to {}", name, destination);
+            LOG_ERROR(Core, "Could not write {}", name);
             return false;
         }
         written = offset + size;
         return true;
     };
+
+    if (!Write("logo", ncch_header.logo_region_offset * 0x200,
+               ncch_header.logo_region_size * 0x200)) {
+        return ResultStatus::Error;
+    }
 
     if (!Write("plain region", ncch_header.plain_region_offset * 0x200,
                ncch_header.plain_region_size * 0x200)) {
@@ -515,34 +534,36 @@ ResultStatus NCCHContainer::DecryptToFile(const std::string& destination,
     }
 
     // Write ExeFS header
-    if (dest_file->WriteBytes(&exefs_header, sizeof(exefs_header)) != sizeof(exefs_header)) {
-        LOG_ERROR(Core, "Could not write ExeFS header to file {}", destination);
-        return ResultStatus::Error;
-    }
-    written += sizeof(ExeFs_Header);
-
-    for (unsigned section_number = 0; section_number < kMaxSections; section_number++) {
-        const auto& section = exefs_header.section[section_number];
-        if (section.offset == 0 && section.size == 0) { // not used
-            continue;
-        }
-
-        Key::AESKey key;
-        if (strcmp(section.name, "icon") == 0 || strcmp(section.name, "banner") == 0) {
-            key = primary_key;
-        } else {
-            key = secondary_key;
-        }
-
-        // Plus 1 for the ExeFS header
-        if (!Write(section.name, section.offset + (ncch_header.exefs_offset + 1) * 0x200,
-                   section.size, true, key, exefs_ctr, section.offset + sizeof(exefs_header))) {
+    if (has_exefs) {
+        if (dest_file->WriteBytes(&exefs_header, sizeof(exefs_header)) != sizeof(exefs_header)) {
+            LOG_ERROR(Core, "Could not write ExeFS header to file");
             return ResultStatus::Error;
         }
+        written += sizeof(ExeFs_Header);
+
+        for (unsigned section_number = 0; section_number < kMaxSections; section_number++) {
+            const auto& section = exefs_header.section[section_number];
+            if (section.offset == 0 && section.size == 0) { // not used
+                continue;
+            }
+
+            Key::AESKey key;
+            if (strcmp(section.name, "icon") == 0 || strcmp(section.name, "banner") == 0) {
+                key = primary_key;
+            } else {
+                key = secondary_key;
+            }
+
+            // Plus 1 for the ExeFS header
+            if (!Write(section.name, section.offset + (ncch_header.exefs_offset + 1) * 0x200,
+                       section.size, true, key, exefs_ctr, section.offset + sizeof(exefs_header))) {
+                return ResultStatus::Error;
+            }
+        }
     }
 
-    if (!Write("romfs", ncch_header.romfs_offset * 0x200, ncch_header.romfs_size * 0x200, true,
-               secondary_key, romfs_ctr)) {
+    if (has_romfs && !Write("romfs", ncch_header.romfs_offset * 0x200,
+                            ncch_header.romfs_size * 0x200, true, secondary_key, romfs_ctr)) {
         return ResultStatus::Error;
     }
     if (written < file->GetSize()) {

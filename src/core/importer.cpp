@@ -479,7 +479,14 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
         fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
     dump_cxi_ncch = std::make_unique<NCCHContainer>(
         std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
-    return dump_cxi_ncch->DecryptToFile(destination, callback) == ResultStatus::Success;
+
+    if (!FileUtil::CreateFullPath(destination)) {
+        LOG_ERROR(Core, "Failed to create path {}", destination);
+        return false;
+    }
+
+    return dump_cxi_ncch->DecryptToFile(std::make_shared<FileUtil::IOFile>(destination, "wb"),
+                                        callback) == ResultStatus::Success;
 }
 
 void SDMCImporter::AbortDumpCXI() {

@@ -56,6 +56,7 @@ struct NCCH_Header {
         BitField<1, 1, u8> no_romfs;
         BitField<2, 1, u8> no_crypto;
         BitField<5, 1, u8> seed_crypto;
+        u8 raw_crypto_flags;
     };
     u32_le plain_region_offset;
     u32_le plain_region_size;
@@ -271,7 +272,7 @@ public:
      * Decrypts this NCCH and write to the destination file.
      * @return ResultStatus result of function.
      */
-    ResultStatus DecryptToFile(const std::string& destination,
+    ResultStatus DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
                                const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
