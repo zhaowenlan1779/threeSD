@@ -55,9 +55,6 @@ inline u32 GetSignatureSize(u32 signature_type) {
  * Helper which implements an interface to read and write Title Metadata (TMD) files.
  * If a file path is provided and the file exists, it can be parsed and used, otherwise
  * it must be created. The TMD file can then be interpreted, modified and/or saved.
- *
- * This is a stripped down version of Citra's implementation which does not have writing
- * and setting features.
  */
 class TitleMetadata {
 public:
@@ -110,7 +107,10 @@ public:
 #pragma pack(pop)
 
     ResultStatus Load(const std::vector<u8> file_data, std::size_t offset = 0);
+    ResultStatus Save(FileUtil::IOFile& file);
     ResultStatus Save(const std::string& file_path);
+
+    std::size_t GetSize() const;
 
     u64 GetTitleID() const;
     u32 GetTitleType() const;
@@ -125,6 +125,9 @@ public:
     u64 GetContentSizeByIndex(u16 index) const;
     std::array<u8, 16> GetContentCTRByIndex(u16 index) const;
 
+    ContentChunk& GetContentChunkByID(u32 content_id);
+    const ContentChunk& GetContentChunkByID(u32 content_id) const;
+
     void SetTitleID(u64 title_id);
     void SetTitleType(u32 type);
     void SetTitleVersion(u16 version);
@@ -133,7 +136,6 @@ public:
 
     void Print() const;
 
-private:
     Body tmd_body;
     u32_be signature_type;
     std::vector<u8> tmd_signature;

@@ -2,9 +2,11 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
 #include <cinttypes>
 #include <cryptopp/sha.h>
 #include "common/alignment.h"
+#include "common/assert.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
 #include "core/ncch/title_metadata.h"
@@ -55,8 +57,9 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
     return ResultStatus::Success;
 }
 
-ResultStatus TitleMetadata::Save(const std::string& file_path) {
-    FileUtil::IOFile file(file_path, "wb");
+ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
+    const std::size_t offset = file.Tell();
+
     if (!file.IsOpen())
         return ResultStatus::Error;
 
@@ -74,7 +77,7 @@ ResultStatus TitleMetadata::Save(const std::string& file_path) {
 
     // The TMD body start position is rounded to the nearest 0x40 after the signature
     std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    file.Seek(body_start, SEEK_SET);
+    file.Seek(offset + body_start, SEEK_SET);
 
     // Update our TMD body values and hashes
     tmd_body.content_count = static_cast<u16>(tmd_chunks.size());
@@ -109,6 +112,17 @@ ResultStatus TitleMetadata::Save(const std::string& file_path) {
     }
 
     return ResultStatus::Success;
+}
+
+ResultStatus TitleMetadata::Save(const std::string& file_path) {
+    FileUtil::IOFile file(file_path, "wb");
+    return Save(file);
+}
+
+std::size_t TitleMetadata::GetSize() const {
+    const std::size_t body_start =
+        Common::AlignUp(GetSignatureSize(signature_type) + sizeof(u32), 0x40);
+    return body_start + sizeof(TitleMetadata::Body) + sizeof(ContentChunk) * tmd_chunks.size();
 }
 
 u64 TitleMetadata::GetTitleID() const {
@@ -175,6 +189,22 @@ void TitleMetadata::SetTitleVersion(u16 version) {
 
 void TitleMetadata::SetSystemVersion(u64 version) {
     tmd_body.system_version = version;
+}
+
+TitleMetadata::ContentChunk& TitleMetadata::GetContentChunkByID(u32 content_id) {
+    const auto it =
+        std::find_if(tmd_chunks.begin(), tmd_chunks.end(),
+                     [content_id](const ContentChunk& chunk) { return chunk.id == content_id; });
+    ASSERT(it != tmd_chunks.end());
+    return *it;
+}
+
+const TitleMetadata::ContentChunk& TitleMetadata::GetContentChunkByID(u32 content_id) const {
+    const auto it =
+        std::find_if(tmd_chunks.begin(), tmd_chunks.end(),
+                     [content_id](const ContentChunk& chunk) { return chunk.id == content_id; });
+    ASSERT(it != tmd_chunks.end());
+    return *it;
 }
 
 void TitleMetadata::AddContentChunk(const ContentChunk& chunk) {
