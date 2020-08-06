@@ -101,37 +101,32 @@ ResultStatus NCCHContainer::Load() {
                 }
                 primary_key = Key::GetNormalKey(Key::NCCHSecure1);
 
+                const auto SetSecondaryKey = [this, &failed_to_decrypt,
+                                              &key_y_secondary](Key::KeySlotID slot) {
+                    Key::SetKeyY(slot, key_y_secondary);
+                    if (!Key::IsNormalKeyAvailable(slot)) {
+                        LOG_ERROR(Service_FS, "{:#04X} KeyX missing", slot);
+                        failed_to_decrypt = true;
+                    }
+                    secondary_key = Key::GetNormalKey(slot);
+                };
+
                 switch (ncch_header.secondary_key_slot) {
                 case 0:
                     LOG_DEBUG(Service_FS, "Secure1 crypto");
-                    secondary_key = primary_key;
+                    SetSecondaryKey(Key::NCCHSecure1);
                     break;
                 case 1:
                     LOG_DEBUG(Service_FS, "Secure2 crypto");
-                    Key::SetKeyY(Key::NCCHSecure2, key_y_secondary);
-                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure2)) {
-                        LOG_ERROR(Service_FS, "Secure2 KeyX missing");
-                        failed_to_decrypt = true;
-                    }
-                    secondary_key = Key::GetNormalKey(Key::NCCHSecure2);
+                    SetSecondaryKey(Key::NCCHSecure2);
                     break;
                 case 10:
                     LOG_DEBUG(Service_FS, "Secure3 crypto");
-                    Key::SetKeyY(Key::NCCHSecure3, key_y_secondary);
-                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure3)) {
-                        LOG_ERROR(Service_FS, "Secure3 KeyX missing");
-                        failed_to_decrypt = true;
-                    }
-                    secondary_key = Key::GetNormalKey(Key::NCCHSecure3);
+                    SetSecondaryKey(Key::NCCHSecure3);
                     break;
                 case 11:
                     LOG_DEBUG(Service_FS, "Secure4 crypto");
-                    Key::SetKeyY(Key::NCCHSecure4, key_y_secondary);
-                    if (!Key::IsNormalKeyAvailable(Key::NCCHSecure4)) {
-                        LOG_ERROR(Service_FS, "Secure4 KeyX missing");
-                        failed_to_decrypt = true;
-                    }
-                    secondary_key = Key::GetNormalKey(Key::NCCHSecure4);
+                    SetSecondaryKey(Key::NCCHSecure4);
                     break;
                 }
             }
