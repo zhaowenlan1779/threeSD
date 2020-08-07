@@ -36,6 +36,9 @@ else
     cp -w -n "1:/dbs/certs.db" $[OUT]/certs.db
 end
 
+# === ticket.db
+cp -w -n "1:/dbs/ticket.db" $[OUT]/ticket.db
+
 # === Safe mode firm
 if not find $[OUT]/firm NULL
     mkdir $[OUT]/firm
