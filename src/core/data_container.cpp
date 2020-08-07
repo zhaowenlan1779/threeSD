@@ -190,7 +190,7 @@ bool DataContainer::GetPartitionData(std::vector<u8>& out, u8 index) const {
                       partitions[index].size),
         LOG_ERROR(Core, "File size is too small"));
 
-    DPFSContainer dpfs_container(dpfs_descriptor, difi.dpfs_level1_selector,
+    DPFSContainer dpfs_container(std::move(dpfs_descriptor), difi.dpfs_level1_selector,
                                  std::move(partition_data));
 
     std::vector<u8> ivfc_data;

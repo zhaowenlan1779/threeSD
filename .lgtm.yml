@@ -1,4 +1,6 @@
 path_classifiers:
   library: "externals"
 queries:
-  include: "*"
+  - include: "*"
+  - exclude: cpp/array-in-interface
+  - exclude: cpp/world-writable-file-creation

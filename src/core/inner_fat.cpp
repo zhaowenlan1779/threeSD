@@ -114,7 +114,8 @@ bool SDSavegame::Init() {
 
     // Read data region
     if (duplicate_data) {
-        data_region.resize(fs_info.data_region_block_count * fs_info.data_region_block_size);
+        data_region.resize(fs_info.data_region_block_count *
+                           static_cast<std::size_t>(fs_info.data_region_block_size));
         TRY(CheckedMemcpy(data_region.data(), data, fs_info.data_region_offset, data_region.size()),
             LOG_ERROR(Core, "File size is too small"));
     } else {
@@ -129,10 +130,10 @@ bool SDSavegame::Init() {
     directory_entry_table.resize(fs_info.maximum_directory_count + 2); // including head and root
 
     auto directory_entry_table_pos =
-        duplicate_data
-            ? fs_info.data_region_offset + fs_info.directory_entry_table.duplicate.block_index *
-                                               fs_info.data_region_block_size
-            : fs_info.directory_entry_table.non_duplicate;
+        duplicate_data ? fs_info.data_region_offset +
+                             fs_info.directory_entry_table.duplicate.block_index *
+                                 static_cast<std::size_t>(fs_info.data_region_block_size)
+                       : fs_info.directory_entry_table.non_duplicate;
 
     TRY(CheckedMemcpy(directory_entry_table.data(), header_vector, directory_entry_table_pos,
                       directory_entry_table.size() * sizeof(DirectoryEntryTableEntry)),
@@ -142,10 +143,10 @@ bool SDSavegame::Init() {
     file_entry_table.resize(fs_info.maximum_file_count + 1); // including head
 
     auto file_entry_table_pos =
-        duplicate_data
-            ? fs_info.data_region_offset +
-                  fs_info.file_entry_table.duplicate.block_index * fs_info.data_region_block_size
-            : fs_info.file_entry_table.non_duplicate;
+        duplicate_data ? fs_info.data_region_offset +
+                             fs_info.file_entry_table.duplicate.block_index *
+                                 static_cast<std::size_t>(fs_info.data_region_block_size)
+                       : fs_info.file_entry_table.non_duplicate;
 
     TRY(CheckedMemcpy(file_entry_table.data(), header_vector, file_entry_table_pos,
                       file_entry_table.size() * sizeof(FileEntryTableEntry)),
@@ -197,10 +198,12 @@ bool SDSavegame::ExtractFile(const std::string& path, std::size_t index) const {
             last_block = fat[block + 2].v.index - 1;
         }
 
-        const std::size_t size = fs_info.data_region_block_size * (last_block - block + 1);
+        const std::size_t size =
+            static_cast<std::size_t>(fs_info.data_region_block_size) * (last_block - block + 1);
         const std::size_t to_write = std::min<std::size_t>(file_size, size);
 
-        if (data_region.size() < fs_info.data_region_block_size * block + to_write) {
+        if (data_region.size() <
+            static_cast<std::size_t>(fs_info.data_region_block_size) * block + to_write) {
             LOG_ERROR(Core, "Out of bound block: {} to_write: {}", block, to_write);
             return false;
         }
@@ -299,8 +302,8 @@ bool SDExtdata::Init() {
     directory_entry_table.resize(fs_info.maximum_directory_count + 2); // including head and root
 
     const auto directory_entry_table_pos =
-        fs_info.data_region_offset +
-        fs_info.directory_entry_table.duplicate.block_index * fs_info.data_region_block_size;
+        fs_info.data_region_offset + fs_info.directory_entry_table.duplicate.block_index *
+                                         static_cast<std::size_t>(fs_info.data_region_block_size);
 
     TRY(CheckedMemcpy(directory_entry_table.data(), vsxe, directory_entry_table_pos,
                       directory_entry_table.size() * sizeof(DirectoryEntryTableEntry)),
@@ -310,8 +313,8 @@ bool SDExtdata::Init() {
     file_entry_table.resize(fs_info.maximum_file_count + 1); // including head
 
     const auto file_entry_table_pos =
-        fs_info.data_region_offset +
-        fs_info.file_entry_table.duplicate.block_index * fs_info.data_region_block_size;
+        fs_info.data_region_offset + fs_info.file_entry_table.duplicate.block_index *
+                                         static_cast<std::size_t>(fs_info.data_region_block_size);
 
     TRY(CheckedMemcpy(file_entry_table.data(), vsxe, file_entry_table_pos,
                       file_entry_table.size() * sizeof(FileEntryTableEntry)),

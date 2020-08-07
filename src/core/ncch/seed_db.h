@@ -4,6 +4,8 @@
 
 // Modified from Citra's implementation to allow multiple instances
 
+#pragma once
+
 #include <array>
 #include <optional>
 #include <vector>

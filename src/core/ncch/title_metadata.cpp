@@ -234,7 +234,7 @@ void TitleMetadata::Print() const {
             continue;
 
         LOG_DEBUG(Service_FS, "Content chunks for content info index {}:", i);
-        for (u16 j = index; j < index + count; j++) {
+        for (u16 j = index; j < static_cast<u16>(index + count); j++) {
             // Don't attempt to print content we don't have
             if (j > tmd_body.content_count)
                 break;
