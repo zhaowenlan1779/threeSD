@@ -590,7 +590,6 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
                 QAction* build_base_cia = context_menu.addAction(tr("Build Base CIA"));
                 connect(build_base_cia, &QAction::triggered,
                         [this, specifier] { StartBuildingCIA(specifier); });
-                break;
             } else if (specifier.type == Core::ContentType::Update) {
                 QAction* build_update_cia = context_menu.addAction(tr("Build Update CIA"));
                 connect(build_update_cia, &QAction::triggered,
@@ -636,7 +635,7 @@ void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
 
 void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
     const QString path = QFileDialog::getSaveFileName(this, tr("Dump CXI file"), last_dump_cxi_path,
-                                                      tr("CTR Executable Image (*.CXI)"));
+                                                      tr("CTR Executable Image (*.cxi)"));
     if (path.isEmpty()) {
         return;
     }
@@ -657,7 +656,7 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
 
 void ImportDialog::StartBuildingCIA(const Core::ContentSpecifier& specifier) {
     const QString path = QFileDialog::getSaveFileName(this, tr("Build CIA"), last_build_cia_path,
-                                                      tr("CTR Importable Archive (*.CIA)"));
+                                                      tr("CTR Importable Archive (*.cia)"));
     if (path.isEmpty()) {
         return;
     }
