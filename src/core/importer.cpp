@@ -526,12 +526,17 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string
         return false;
     }
 
-    ret = FileUtil::ForeachDirectoryEntry(
-        nullptr, physical_path,
-        [this, path](u64* /*num_entries_out*/, const std::string& directory,
-                     const std::string& virtual_name) {
+    const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
+        [this, specifier, path, &DirectoryEntryCallback](u64* /*num_entries_out*/,
+                                                         const std::string& directory,
+                                                         const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
-                return true;
+                if (virtual_name == "cmd") {
+                    return true; // Skip cmd (not used in Citra)
+                }
+                // Recursive call (necessary for DLCs)
+                return FileUtil::ForeachDirectoryEntry(nullptr, directory + virtual_name + "/",
+                                                       DirectoryEntryCallback);
             }
 
             static const std::regex app_regex{"([0-9a-f]{8})\\.app"};
@@ -543,11 +548,12 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string
             ASSERT(match.size() >= 2);
 
             const u32 id = static_cast<u32>(std::stoul(match[1], nullptr, 16));
-            NCCHContainer ncch(
-                std::make_shared<SDMCFile>(config.sdmc_path, path + virtual_name, "rb"));
+            const auto relative_path = directory.substr(config.sdmc_path.size() - 1) + virtual_name;
+            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
             return cia_builder->AddContent(id, ncch);
-        });
-    if (!ret) {
+        };
+
+    if (!FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback)) {
         return false;
     }
 

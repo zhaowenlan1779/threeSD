@@ -97,7 +97,6 @@ private:
     std::size_t ticket_offset{};
     std::size_t tmd_offset{};
     std::size_t content_offset{};
-    std::size_t metadata_offset{};
 
     std::shared_ptr<HashedFile> file;
     std::size_t written{}; // size written (with alignment)

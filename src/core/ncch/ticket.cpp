@@ -31,8 +31,9 @@ Ticket BuildFakeTicket(u64 title_id) {
     ticket.title_id = title_id;
     ticket.common_key_index = 0x00;
     ticket.audit = 0x01;
-    std::memset(ticket.content_index.data(), 0xFF, ticket.content_index.size());
     std::memcpy(ticket.content_index.data(), TicketContentIndex.data(), TicketContentIndex.size());
+    // GodMode9 by default sets all remaining 0x80 bytes to 0xFF, but legit tickets only set 0x20
+    std::memset(ticket.content_index.data() + TicketContentIndex.size(), 0xFF, 0x20);
     return ticket;
 }
 

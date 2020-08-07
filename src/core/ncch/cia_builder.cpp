@@ -47,6 +47,9 @@ bool CIABuilder::Init(const std::string& destination, TitleMetadata tmd_,
                       const std::string& certs_db_path, std::size_t total_size_,
                       const ProgressCallback& callback_) {
 
+    header = {};
+    meta = {};
+
     file = std::make_shared<HashedFile>(destination, "wb");
     if (!*file) {
         LOG_ERROR(Core, "Could not open file {}", destination);
@@ -165,13 +168,14 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     written = Common::AlignUp(file->Tell(), CIA_ALIGNMENT);
 
     header.content_size = written - content_offset;
-    header.SetContentPresent(content_id);
 
     auto& tmd_chunk = tmd.GetContentChunkByID(content_id);
+    header.SetContentPresent(tmd_chunk.index);
     file->GetHash(tmd_chunk.hash.data());
     file->SetHashEnabled(false);
 
-    if (tmd_chunk.index != TMDContentIndex::Main) {
+    // DLCs do not have a meta
+    if (tmd_chunk.index != TMDContentIndex::Main || (tmd.GetTitleID() & 0x0004008c'00000000)) {
         return true;
     }
 
