@@ -12,6 +12,7 @@
 #include "core/importer.h"
 #include "core/inner_fat.h"
 #include "core/key/key.h"
+#include "core/ncch/cia_builder.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/seed_db.h"
 #include "core/ncch/smdh.h"
@@ -53,6 +54,7 @@ bool SDMCImporter::Init() {
     }
 
     decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
+    cia_builder = std::make_unique<CIABuilder>();
 
     FileUtil::SetUserPath(config.user_path);
     return true;
@@ -491,6 +493,69 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
 
 void SDMCImporter::AbortDumpCXI() {
     dump_cxi_ncch->AbortDecryptToFile();
+}
+
+bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string& destination,
+                            const ProgressCallback& callback) {
+
+    if (config.certs_db_path.empty()) {
+        LOG_ERROR(Core, "Missing certs.db");
+        return false;
+    }
+
+    if (specifier.type != ContentType::Application && specifier.type != ContentType::Update &&
+        specifier.type != ContentType::DLC) {
+
+        LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
+        return false;
+    }
+
+    // Load TMD
+    const auto path = fmt::format("/title/{:08x}/{:08x}/content/", (specifier.id >> 32),
+                                  (specifier.id & 0xFFFFFFFF));
+    TitleMetadata tmd;
+    if (!LoadTMD(config.sdmc_path, path, *decryptor, tmd)) {
+        LOG_ERROR(Core, "Failed to load TMD from {}", path);
+        return false;
+    }
+
+    const auto physical_path = config.sdmc_path + path.substr(1);
+    bool ret = cia_builder->Init(destination, std::move(tmd), config.certs_db_path,
+                                 FileUtil::GetDirectoryTreeSize(physical_path), callback);
+    if (!ret) {
+        return false;
+    }
+
+    ret = FileUtil::ForeachDirectoryEntry(
+        nullptr, physical_path,
+        [this, path](u64* /*num_entries_out*/, const std::string& directory,
+                     const std::string& virtual_name) {
+            if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                return true;
+            }
+
+            static const std::regex app_regex{"([0-9a-f]{8})\\.app"};
+
+            std::smatch match;
+            if (!std::regex_match(virtual_name, match, app_regex)) {
+                return true;
+            }
+            ASSERT(match.size() >= 2);
+
+            const u32 id = static_cast<u32>(std::stoul(match[1], nullptr, 16));
+            NCCHContainer ncch(
+                std::make_shared<SDMCFile>(config.sdmc_path, path + virtual_name, "rb"));
+            return cia_builder->AddContent(id, ncch);
+        });
+    if (!ret) {
+        return false;
+    }
+
+    return cia_builder->Finalize();
+}
+
+void SDMCImporter::AbortBuildCIA() {
+    cia_builder->Abort();
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {

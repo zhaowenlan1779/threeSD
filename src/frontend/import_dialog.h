@@ -12,6 +12,7 @@
 #include "core/importer.h"
 #include "core/ncch/ncch_container.h"
 
+class ProgressiveJob;
 class QTreeWidgetItem;
 
 namespace Ui {
@@ -41,13 +42,19 @@ private:
 
     Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
     void OnContextMenu(const QPoint& point);
+
+    void RunProgressiveJob(ProgressiveJob* job);
+
     void StartDumpingCXI(const Core::ContentSpecifier& content);
-    Core::NCCHContainer dump_cxi_container; // NCCH container used for dumping CXI
-    QString last_dump_cxi_path;             // Used for recording last path in StartDumpingCXI
+    QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXI
+
+    void StartBuildingCIA(const Core::ContentSpecifier& content);
+    QString last_build_cia_path; // Used for recording last path in StartBuildingCIA
 
     std::unique_ptr<Ui::ImportDialog> ui;
 
     std::string user_path;
+    bool has_cert_db = false;
     Core::SDMCImporter importer;
     std::vector<Core::ContentSpecifier> contents;
     u64 total_size = 0;

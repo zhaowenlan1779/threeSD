@@ -23,10 +23,6 @@ using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
  */
 class QuickDecryptor {
 public:
-    /**
-     * Initializes the decryptor.
-     * @param root_folder Path to the "Nintendo 3DS/<ID0>/<ID1>" folder.
-     */
     explicit QuickDecryptor();
     ~QuickDecryptor();
 

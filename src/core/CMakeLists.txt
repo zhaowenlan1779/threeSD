@@ -11,6 +11,8 @@ add_library(core STATIC
   key/arithmetic128.h
   key/key.cpp
   key/key.h
+  ncch/cia_builder.cpp
+  ncch/cia_builder.h
   ncch/ncch_container.cpp
   ncch/ncch_container.h
   ncch/seed_db.cpp

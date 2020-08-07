@@ -85,7 +85,7 @@ QPixmap GetContentIcon(const Core::ContentSpecifier& specifier, bool use_categor
 
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), user_path(config.user_path),
-      importer(config) {
+      has_cert_db(!config.certs_db_path.empty()), importer(config) {
 
     qRegisterMetaType<u64>("u64");
     qRegisterMetaType<Core::ContentSpecifier>();
@@ -564,12 +564,18 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
     QMenu context_menu;
     if (item->parent()) { // Second level
         const auto& specifier = SpecifierFromItem(item);
-        if (specifier.type != Core::ContentType::Application) {
-            return;
+        if (specifier.type == Core::ContentType::Application) {
+            QAction* dump_cxi = context_menu.addAction(tr("Dump CXI file"));
+            connect(dump_cxi, &QAction::triggered,
+                    [this, specifier] { StartDumpingCXI(specifier); });
         }
-
-        QAction* dump_cxi = context_menu.addAction(tr("Dump CXI file"));
-        connect(dump_cxi, &QAction::triggered, [this, specifier] { StartDumpingCXI(specifier); });
+        if (specifier.type == Core::ContentType::Application ||
+            specifier.type == Core::ContentType::Update ||
+            specifier.type == Core::ContentType::DLC) {
+            QAction* build_cia = context_menu.addAction(tr("Build CIA (standard)"));
+            connect(build_cia, &QAction::triggered,
+                    [this, specifier] { StartBuildingCIA(specifier); });
+        }
     } else { // Top level
         if (!title_view) {
             return;
@@ -581,12 +587,51 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
                 QAction* dump_base_cxi = context_menu.addAction(tr("Dump Base CXI file"));
                 connect(dump_base_cxi, &QAction::triggered,
                         [this, specifier] { StartDumpingCXI(specifier); });
+                QAction* build_base_cia = context_menu.addAction(tr("Build Base CIA"));
+                connect(build_base_cia, &QAction::triggered,
+                        [this, specifier] { StartBuildingCIA(specifier); });
                 break;
+            } else if (specifier.type == Core::ContentType::Update) {
+                QAction* build_update_cia = context_menu.addAction(tr("Build Update CIA"));
+                connect(build_update_cia, &QAction::triggered,
+                        [this, specifier] { StartBuildingCIA(specifier); });
+            } else if (specifier.type == Core::ContentType::DLC) {
+                QAction* build_dlc_cia = context_menu.addAction(tr("Build DLC CIA"));
+                connect(build_dlc_cia, &QAction::triggered,
+                        [this, specifier] { StartBuildingCIA(specifier); });
             }
-            // TODO: Add updates, etc
         }
     }
     context_menu.exec(ui->main->viewport()->mapToGlobal(point));
+}
+
+// Runs the job, opening a dialog to report its progress.
+void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
+    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 100, this);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->setMinimumDuration(0);
+    dialog->setValue(0);
+
+    connect(job, &ProgressiveJob::ProgressUpdated, this, [dialog](u64 current, u64 total) {
+        // Try to map total to int range
+        // This is equal to ceil(total / INT_MAX)
+        const u64 multiplier =
+            (total + std::numeric_limits<int>::max() - 1) / std::numeric_limits<int>::max();
+        dialog->setMaximum(static_cast<int>(total / multiplier));
+        dialog->setValue(static_cast<int>(current / multiplier));
+        dialog->setLabelText(
+            tr("%1 / %2").arg(ReadableByteSize(current)).arg(ReadableByteSize(total)));
+    });
+    connect(job, &ProgressiveJob::ErrorOccured, this, [this, dialog] {
+        QMessageBox::critical(this, tr("threeSD"),
+                              tr("Operation failed. Please refer to the log."));
+        dialog->hide();
+    });
+    connect(job, &ProgressiveJob::Completed, this,
+            [dialog] { dialog->setValue(dialog->maximum()); });
+    connect(dialog, &QProgressDialog::canceled, this, [job] { job->Cancel(); });
+
+    job->start();
 }
 
 void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
@@ -596,17 +641,6 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
         return;
     }
     last_dump_cxi_path = QFileInfo(path).path();
-
-    // Try to map total_size to int range
-    // This is equal to ceil(total_size / INT_MAX)
-    const u64 multiplier = (specifier.maximum_size + std::numeric_limits<int>::max() - 1) /
-                           std::numeric_limits<int>::max();
-
-    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
-                                       static_cast<int>(specifier.maximum_size / multiplier), this);
-    dialog->setWindowModality(Qt::WindowModal);
-    dialog->setMinimumDuration(0);
-    dialog->setValue(0);
 
     auto* job = new ProgressiveJob(
         this,
@@ -618,21 +652,26 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
             return true;
         },
         [this] { importer.AbortDumpCXI(); });
+    RunProgressiveJob(job);
+}
 
-    connect(job, &ProgressiveJob::ProgressUpdated, this,
-            [specifier, dialog, multiplier](u64 current, u64 total) {
-                dialog->setValue(static_cast<int>(current / multiplier));
-                dialog->setLabelText(tr("%1 / %2")
-                                         .arg(ReadableByteSize(current))
-                                         .arg(ReadableByteSize(specifier.maximum_size)));
-            });
-    connect(job, &ProgressiveJob::ErrorOccured, this, [this, dialog] {
-        QMessageBox::critical(this, tr("threeSD"), tr("Failed to dump CXI!"));
-        dialog->hide();
-    });
-    connect(job, &ProgressiveJob::Completed, this,
-            [dialog] { dialog->setValue(dialog->maximum()); });
-    connect(dialog, &QProgressDialog::canceled, this, [job] { job->Cancel(); });
+void ImportDialog::StartBuildingCIA(const Core::ContentSpecifier& specifier) {
+    const QString path = QFileDialog::getSaveFileName(this, tr("Build CIA"), last_build_cia_path,
+                                                      tr("CTR Importable Archive (*.CIA)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    last_build_cia_path = QFileInfo(path).path();
 
-    job->start();
+    auto* job = new ProgressiveJob(
+        this,
+        [this, specifier, path](const ProgressiveJob::ProgressCallback& callback) {
+            if (!importer.BuildCIA(specifier, path.toStdString(), callback)) {
+                FileUtil::Delete(path.toStdString());
+                return false;
+            }
+            return true;
+        },
+        [this] { importer.AbortBuildCIA(); });
+    RunProgressiveJob(job);
 }

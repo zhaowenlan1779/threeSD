@@ -12,6 +12,7 @@
 
 namespace Core {
 
+class CIABuilder;
 class SDMCDecryptor;
 
 /**
@@ -131,6 +132,19 @@ public:
     void AbortDumpCXI();
 
     /**
+     * Builds a CIA from a content.
+     * Blocks, but can be aborted on another thread.
+     * @return true on success, false otherwise
+     */
+    bool BuildCIA(const ContentSpecifier& specifier, const std::string& destination,
+                  const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+
+    /**
+     * Aborts current CIA building
+     */
+    void AbortBuildCIA();
+
+    /**
      * Deletes/Cleans up a content. Used for deleting contents that have
      * not been fully imported.
      */
@@ -172,6 +186,7 @@ private:
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> decryptor;
+    std::unique_ptr<CIABuilder> cia_builder;
 
     // The NCCH used to dump CXIs.
     std::unique_ptr<NCCHContainer> dump_cxi_ncch;
