@@ -447,17 +447,14 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
         return ret ? ResultStatus::Success : ResultStatus::Error;
     }
 
-    auto total_size = file->GetSize() - sizeof(NCCH_Header);
-    // These are written directly instead of using the decryptor
-    if (has_exheader) {
-        total_size -= sizeof(ExHeader_Header);
-    }
-    if (has_exefs) {
-        total_size -= sizeof(ExeFs_Header);
-    }
-    decryptor.Reset(total_size);
+    const auto total_size = file->GetSize();
+    decryptor.Reset(total_size); // This is inaccurate but doesn't really matter as we don't use it
 
     std::size_t written{};
+    const auto decryptor_callback = [total_size, &written, &callback](std::size_t current,
+                                                                      std::size_t /*total*/) {
+        callback(written + current, total_size);
+    };
 
     // Write NCCH header
     NCCH_Header modified_header = ncch_header;
@@ -509,8 +506,10 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
         if (aborted.exchange(false)) {
             return false;
         }
-        if (!decryptor.DecryptAndWriteFile(file, size, dest_file, callback, decrypt, key, ctr,
-                                           aes_seek_pos)) {
+
+        written = offset;
+        if (!decryptor.DecryptAndWriteFile(file, size, dest_file, decryptor_callback, decrypt, key,
+                                           ctr, aes_seek_pos)) {
             LOG_ERROR(Core, "Could not write {}", name);
             return false;
         }
@@ -561,7 +560,7 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
                             ncch_header.romfs_size * 0x200, true, secondary_key, romfs_ctr)) {
         return ResultStatus::Error;
     }
-    if (written < file->GetSize()) {
+    if (written < total_size) {
         LOG_WARNING(Core, "Data after {} ignored", written);
     }
 
