@@ -10,6 +10,7 @@
 #include <QFutureWatcher>
 #include <QMenu>
 #include <QMessageBox>
+#include <QProgressBar>
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QStorageInfo>
@@ -464,7 +465,7 @@ void ImportDialog::StartImporting() {
         return;
     }
 
-    const auto& to_import = GetSelectedContentList();
+    auto to_import = GetSelectedContentList();
     const std::size_t total_count = to_import.size();
 
     // Try to map total_size to int range
@@ -476,19 +477,22 @@ void ImportDialog::StartImporting() {
     label->setWordWrap(true);
     label->setFixedWidth(600);
 
-    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
-                                       static_cast<int>(total_size / multiplier), this);
+    auto* bar = new QProgressBar(this);
+    bar->setRange(0, static_cast<int>(total_size / multiplier));
+    bar->setValue(0);
+
+    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, this);
+    dialog->setBar(bar);
     dialog->setLabel(label);
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
-    dialog->setValue(0);
 
     auto* job = new ImportJob(this, importer, std::move(to_import));
 
     connect(job, &ImportJob::NextContent, this,
-            [this, dialog, multiplier, total_count](u64 size_imported, u64 count,
-                                                    Core::ContentSpecifier next_content, int eta) {
-                dialog->setValue(static_cast<int>(size_imported / multiplier));
+            [this, bar, dialog, multiplier, total_count](
+                u64 size_imported, u64 count, Core::ContentSpecifier next_content, int eta) {
+                bar->setValue(static_cast<int>(size_imported / multiplier));
                 dialog->setLabelText(
                     tr("<p>(%1/%2) Importing %3 (%4)...</p><p>&nbsp;</p><p align=\"right\">%5</p>")
                         .arg(count)
@@ -500,9 +504,9 @@ void ImportDialog::StartImporting() {
                 current_count = count;
             });
     connect(job, &ImportJob::ProgressUpdated, this,
-            [this, dialog, multiplier, total_count](u64 total_size_imported,
-                                                    u64 current_size_imported, int eta) {
-                dialog->setValue(static_cast<int>(total_size_imported / multiplier));
+            [this, bar, dialog, multiplier, total_count](u64 total_size_imported,
+                                                         u64 current_size_imported, int eta) {
+                bar->setValue(static_cast<int>(total_size_imported / multiplier));
                 dialog->setLabelText(tr("<p>(%1/%2) Importing %3 (%4)...</p><p align=\"center\">%5 "
                                         "/ %6</p><p align=\"right\">%7</p>")
                                          .arg(current_count)
