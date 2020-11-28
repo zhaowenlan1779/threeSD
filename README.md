@@ -17,6 +17,7 @@ Please refer to the [wiki](https://github.com/zhaowenlan1779/threeSD/wiki/Quicks
 
 ## TODO
 
+* Clean up core/importer.cpp by removing those 00000000...000000s there with FileUtil functions
 * UI improvements
     * Better error messages
     * Beautiful icons
