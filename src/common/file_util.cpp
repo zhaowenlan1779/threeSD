@@ -873,6 +873,25 @@ std::size_t IOFile::Write(const char* data, std::size_t length) {
     return items_written;
 }
 
+std::vector<u8> IOFile::GetData() {
+    if (!IsOpen()) {
+        m_good = false;
+        LOG_ERROR(Common, "File is not open");
+        return {};
+    }
+    if (!Seek(0, SEEK_SET)) {
+        LOG_ERROR(Common, "Failed to seek file");
+        return {};
+    }
+
+    std::vector<u8> data(GetSize());
+    if (Read(reinterpret_cast<char*>(data.data()), data.size()) != data.size()) {
+        LOG_ERROR(Common, "Failed to read from file");
+        return {};
+    }
+    return data;
+}
+
 u64 IOFile::GetSize() const {
     if (IsOpen())
         return FileUtil::GetSize(m_file);

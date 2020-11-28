@@ -217,10 +217,9 @@ void UtilitiesDialog::SaveDataExtractionTool() {
     } else {
         // TODO: Add Progress reporting
         ShowProgressDialog([source = source, destination = destination] {
-            const auto size = FileUtil::GetSize(source.toStdString());
-            std::vector<u8> data(size);
             FileUtil::IOFile file(source.toStdString(), "rb");
-            if (file.ReadBytes(data.data(), size) != size) {
+            std::vector<u8> data = file.GetData();
+            if (data.empty()) {
                 return false;
             }
 
@@ -277,10 +276,9 @@ void UtilitiesDialog::RomFSExtractionTool() {
     }
 
     ShowProgressDialog([source = source, destination = destination] {
-        const auto size = FileUtil::GetSize(source.toStdString());
-        std::vector<u8> data(size);
         FileUtil::IOFile src_file(source.toStdString(), "rb");
-        if (src_file.ReadBytes(data.data(), size) != size) {
+        std::vector<u8> data = src_file.GetData();
+        if (data.empty()) {
             return false;
         }
 

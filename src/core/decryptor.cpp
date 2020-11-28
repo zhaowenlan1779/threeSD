@@ -80,20 +80,13 @@ std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {
     aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
 
     FileUtil::IOFile file(root_folder + source, "rb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open {}", root_folder + source);
+    std::vector<u8> encrypted_data = file.GetData();
+    if (encrypted_data.empty()) {
+        LOG_ERROR(Core, "Failed to read from {}", root_folder + source);
         return {};
     }
 
-    auto size = file.GetSize();
-
-    std::vector<u8> encrypted_data(size);
-    if (file.ReadBytes(encrypted_data.data(), size) != size) {
-        LOG_ERROR(Core, "Could not read file {}", root_folder + source);
-        return {};
-    }
-
-    std::vector<u8> data(size);
+    std::vector<u8> data(file.GetSize());
     aes.ProcessData(data.data(), encrypted_data.data(), encrypted_data.size());
     return data;
 }

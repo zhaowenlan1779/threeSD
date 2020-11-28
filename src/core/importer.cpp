@@ -194,13 +194,8 @@ bool SDMCImporter::ImportNandSavegame(u64 id, [[maybe_unused]] const ProgressCal
     const auto path = fmt::format("sysdata/{:08x}/00000000", (id & 0xFFFFFFFF));
 
     FileUtil::IOFile file(config.nand_data_path + path, "rb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open file {}", path);
-        return false;
-    }
-
-    std::vector<u8> data(file.GetSize());
-    if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+    std::vector<u8> data = file.GetData();
+    if (data.empty()) {
         LOG_ERROR(Core, "Failed to read from {}", path);
         return false;
     }
@@ -248,13 +243,8 @@ bool SDMCImporter::ImportSystemArchive(u64 id, [[maybe_unused]] const ProgressCa
     const auto path = fmt::format("{}{:08x}/{:08x}.app", config.system_archives_path, (id >> 32),
                                   (id & 0xFFFFFFFF));
     FileUtil::IOFile file(path, "rb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open {}", path);
-        return false;
-    }
-
-    std::vector<u8> data(file.GetSize());
-    if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+    std::vector<u8> data = file.GetData();
+    if (data.empty()) {
         LOG_ERROR(Core, "Failed to read from {}", path);
         return false;
     }
@@ -373,12 +363,8 @@ bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback
     }
     case 5: { // Config savegame
         FileUtil::IOFile file(config.config_savegame_path, "rb");
-        if (!file) {
-            return false;
-        }
-
-        std::vector<u8> data(file.GetSize());
-        if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+        std::vector<u8> data = file.GetData();
+        if (data.empty()) {
             return false;
         }
 
@@ -808,16 +794,12 @@ void SDMCImporter::ListNandSavegame(std::vector<ContentSpecifier>& out) const {
 
             // Read the file to test.
             FileUtil::IOFile file(path, "rb");
-            if (!file) {
-                LOG_ERROR(Core, "Could not open {}", path);
-                return false;
-            }
-
-            std::vector<u8> data(file.GetSize());
-            if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+            std::vector<u8> data = file.GetData();
+            if (data.empty()) {
                 LOG_ERROR(Core, "Could not read from {}", path);
                 return false;
             }
+
             DataContainer container(std::move(data));
             if (!container.IsGood()) {
                 return true;

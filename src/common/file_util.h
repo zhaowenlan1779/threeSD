@@ -220,6 +220,8 @@ public:
     virtual std::size_t Read(char* data, std::size_t length);
     virtual std::size_t Write(const char* data, std::size_t length);
 
+    std::vector<u8> GetData();
+
     bool IsOpen() const {
         return nullptr != m_file;
     }

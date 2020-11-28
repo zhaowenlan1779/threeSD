@@ -279,17 +279,7 @@ std::vector<u8> SDExtdata::ReadFile(const std::string& path) const {
         return decryptor->DecryptFile(path);
     } else {
         FileUtil::IOFile file(path, "rb");
-        if (!file) {
-            LOG_ERROR(Core, "Failed to open {}", path);
-            return {};
-        }
-
-        std::vector<u8> data(file.GetSize());
-        if (file.ReadBytes(data.data(), data.size()) != data.size()) {
-            LOG_ERROR(Core, "Failed to read from {}", path);
-            return {};
-        }
-        return data;
+        return file.GetData();
     }
 }
 
