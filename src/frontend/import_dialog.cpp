@@ -39,15 +39,15 @@ QString ReadableByteSize(qulonglong size) {
 // content type, name, icon name
 static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*>, 9>
     ContentTypeMap{{
-        {Core::ContentType::Application, QT_TR_NOOP("Application"), "app"},
-        {Core::ContentType::Update, QT_TR_NOOP("Update"), "update"},
-        {Core::ContentType::DLC, QT_TR_NOOP("DLC"), "dlc"},
+        {Core::ContentType::Application, QT_TR_NOOP("Applications"), "app"},
+        {Core::ContentType::Update, QT_TR_NOOP("Updates"), "update"},
+        {Core::ContentType::DLC, QT_TR_NOOP("DLCs"), "dlc"},
         {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), "save_data"},
         {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), "save_data"},
-        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), "system_archive"},
+        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archives"), "system_archive"},
         {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), "system_data"},
-        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), "hos"},
-        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), "hos"},
+        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Titles"), "hos"},
+        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applets"), "hos"},
     }};
 
 static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
