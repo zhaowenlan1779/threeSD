@@ -816,8 +816,8 @@ void SDMCImporter::ListNandSavegame(std::vector<ContentSpecifier>& out) const {
 }
 
 void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [this, &out](u64 id_high, const std::string& path,
-                                               const std::string& citra_path_template) {
+    const auto ProcessDirectory = [&out](u64 id_high, const std::string& path,
+                                         const std::string& citra_path_template) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, path,
             [&out, id_high, citra_path_template](u64* /*num_entries_out*/,
