@@ -64,7 +64,9 @@ private:
     bool program_trigger = false;
 
     // Whether the System Archive / System Data warning has been shown
-    bool warning_shown = false;
+    bool system_warning_shown = false;
+    // Whether the Applets warning has been shown
+    bool applet_warning_shown = false;
 
     // TODO: Why this won't work as locals?
     Core::ContentSpecifier current_content = {};

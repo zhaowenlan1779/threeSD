@@ -28,6 +28,7 @@ enum class ContentType {
     SystemArchive,
     Sysdata,
     SystemTitle,
+    SystemApplet, // This should belong to System Title, but they cause problems so a new category.
 };
 
 /**
@@ -110,8 +111,9 @@ public:
      * Blocks, but can be aborted on another thread if needed.
      * @return true on success, false otherwise
      */
-    bool ImportContent(const ContentSpecifier& specifier,
-                       const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool ImportContent(
+        const ContentSpecifier& specifier,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current importing.
@@ -123,8 +125,9 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool DumpCXI(const ContentSpecifier& specifier, const std::string& destination,
-                 const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool DumpCXI(
+        const ContentSpecifier& specifier, const std::string& destination,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current CXI dumping.
@@ -136,8 +139,9 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool BuildCIA(const ContentSpecifier& specifier, const std::string& destination,
-                  const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool BuildCIA(
+        const ContentSpecifier& specifier, const std::string& destination,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current CIA building

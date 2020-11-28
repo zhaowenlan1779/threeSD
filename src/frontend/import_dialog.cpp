@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QStorageInfo>
 #include <QtConcurrent/QtConcurrentRun>
+#include "common/assert.h"
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
 #include "frontend/helpers/import_job.h"
@@ -36,7 +37,7 @@ QString ReadableByteSize(qulonglong size) {
 }
 
 // content type, name, icon name
-static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*>, 8>
+static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*>, 9>
     ContentTypeMap{{
         {Core::ContentType::Application, QT_TR_NOOP("Application"), "app"},
         {Core::ContentType::Update, QT_TR_NOOP("Update"), "update"},
@@ -46,6 +47,7 @@ static constexpr std::array<std::tuple<Core::ContentType, const char*, const cha
         {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), "system_archive"},
         {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), "system_data"},
         {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), "hos"},
+        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), "hos"},
     }};
 
 static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
@@ -144,7 +146,7 @@ void ImportDialog::RelistContent() {
         RepopulateContent();
     });
 
-    auto future = QtConcurrent::run([& contents = this->contents, &importer = this->importer] {
+    auto future = QtConcurrent::run([&contents = this->contents, &importer = this->importer] {
         contents = importer.ListContent();
     });
     future_watcher->setFuture(future);
@@ -192,6 +194,14 @@ void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
     item->setFirstColumnSpanned(true);
 }
 
+// Content types that themselves form a 'Title' like entity.
+constexpr std::array<Core::ContentType, 4> SpecialContentTypeList{{
+    Core::ContentType::SystemArchive,
+    Core::ContentType::Sysdata,
+    Core::ContentType::SystemTitle,
+    Core::ContentType::SystemApplet,
+}};
+
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                          std::size_t id, QString replace_name,
                                          QPixmap replace_icon) {
@@ -208,7 +218,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
             name = QStringLiteral("%1 (%2)")
                        .arg(GetContentName(content))
                        .arg(GetContentTypeName(content.type));
-        } else if (row <= 3) {
+        } else if (row <= SpecialContentTypeList.size()) {
             name = GetContentName(content);
         } else {
             name = GetContentTypeName(content.type);
@@ -228,7 +238,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
 
     if (content.type != Core::ContentType::Application &&
         content.type != Core::ContentType::Update && content.type != Core::ContentType::DLC &&
-        content.type != Core::ContentType::SystemTitle) {
+        content.type != Core::ContentType::SystemTitle &&
+        content.type != Core::ContentType::SystemApplet) {
 
         // Do not display encryption in this case
         encryption.clear();
@@ -241,7 +252,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     QPixmap icon;
     if (replace_icon.isNull()) {
         // Exclude system titles, they are a single group but have own icons.
-        if (use_title_view && content.type != Core::ContentType::SystemTitle) {
+        if (use_title_view && content.type != Core::ContentType::SystemTitle &&
+            content.type != Core::ContentType::SystemApplet) {
             icon = GetContentTypeIcon(content.type);
         } else {
             // When not in title view, System Data and System Archive groups use category icons.
@@ -258,12 +270,21 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     ui->main->setItemWidget(item, 0, checkBox);
 
     connect(checkBox, &QCheckBox::stateChanged,
-            [this, item, size = content.maximum_size, type = content.type,
+            [this, item, id = content.id, size = content.maximum_size, type = content.type,
              exists = content.already_exists](int state) {
                 if (state == Qt::Checked) {
+                    if (!applet_warning_shown && !exists &&
+                        type == Core::ContentType::SystemApplet) {
+                        QMessageBox::warning(
+                            this, tr("Warning"),
+                            tr("You are trying to import System Applets.\nThese are known to cause "
+                               "problems with certain games.\nOnly proceed if you understand what "
+                               "you are doing."));
+                        applet_warning_shown = true;
+                    }
                     total_size += size;
                 } else {
-                    if (!warning_shown && !exists &&
+                    if (!system_warning_shown && !exists &&
                         (type == Core::ContentType::SystemArchive ||
                          type == Core::ContentType::Sysdata ||
                          type == Core::ContentType::SystemTitle)) {
@@ -273,7 +294,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
                             tr("You are de-selecting important files that may be necessary for "
                                "your imported games to run.\nIt is highly recommended to import "
                                "these contents if they do not exist yet."));
-                        warning_shown = true;
+                        system_warning_shown = true;
                     }
                     total_size -= size;
                 }
@@ -284,7 +305,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
                 }
             });
 
-    if (!content.already_exists) {
+    // Skip System Applets, but enable everything else by default.
+    if (!content.already_exists && content.type != Core::ContentType::SystemApplet) {
         checkBox->setChecked(true);
     }
 }
@@ -307,15 +329,15 @@ void ImportDialog::RepopulateContent() {
 
     const bool use_title_view = ui->title_view_button->isChecked();
     if (use_title_view) {
+        // Create 'Ungrouped' category.
         title_name_map.insert_or_assign(0, tr("Ungrouped"));
-        title_name_map.insert_or_assign(1, tr("System Archive"));
-        title_name_map.insert_or_assign(2, tr("System Data"));
-        title_name_map.insert_or_assign(3, tr("System Title"));
-
         title_icon_map.insert_or_assign(0, QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24));
-        title_icon_map.insert_or_assign(1, GetContentTypeIcon(Core::ContentType::SystemArchive));
-        title_icon_map.insert_or_assign(2, GetContentTypeIcon(Core::ContentType::Sysdata));
-        title_icon_map.insert_or_assign(3, GetContentTypeIcon(Core::ContentType::SystemTitle));
+
+        // Create categories for special content types.
+        for (std::size_t i = 0; i < SpecialContentTypeList.size(); ++i) {
+            title_name_map.insert_or_assign(i + 1, GetContentTypeName(SpecialContentTypeList[i]));
+            title_icon_map.insert_or_assign(i + 1, GetContentTypeIcon(SpecialContentTypeList[i]));
+        }
 
         std::unordered_map<u64, u64> title_row_map;
         for (const auto& [id, name] : title_name_map) {
@@ -344,16 +366,12 @@ void ImportDialog::RepopulateContent() {
                 row = title_row_map.at(real_id);
                 break;
             }
-            case Core::ContentType::SystemArchive: {
-                row = title_row_map.at(1); // System archive
-                break;
-            }
-            case Core::ContentType::Sysdata: {
-                row = title_row_map.at(2); // System data
-                break;
-            }
-            case Core::ContentType::SystemTitle: {
-                row = title_row_map.at(3); // System title
+            default: {
+                const std::size_t idx = std::find(SpecialContentTypeList.begin(),
+                                                  SpecialContentTypeList.end(), content.type) -
+                                        SpecialContentTypeList.begin();
+                ASSERT_MSG(idx < SpecialContentTypeList.size(), "Content Type not handled");
+                row = title_row_map.at(idx + 1);
                 break;
             }
             }

@@ -84,6 +84,7 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
     case ContentType::Sysdata:
         return ImportSysdata(specifier.id, callback);
     case ContentType::SystemTitle:
+    case ContentType::SystemApplet:
         return ImportNandTitle(specifier, callback);
     default:
         UNREACHABLE();
@@ -720,9 +721,10 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
 
                         const auto& [name, extdata_id, encryption, seed_crypto, icon] =
                             LoadTitleData(ncch);
+                        const auto type = (id >> 32) == 0x00040030 ? ContentType::SystemApplet
+                                                                   : ContentType::SystemTitle;
                         out.push_back(
-                            {ContentType::SystemTitle, id,
-                             FileUtil::Exists(citra_path + "content/"),
+                            {type, id, FileUtil::Exists(citra_path + "content/"),
                              FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
                              name, extdata_id, encryption, seed_crypto, icon});
                     } while (false);
@@ -883,6 +885,7 @@ void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) {
     case ContentType::Sysdata:
         return DeleteSysdata(specifier.id);
     case ContentType::SystemTitle:
+    case ContentType::SystemApplet:
         return DeleteNandTitle(specifier.id);
     default:
         UNREACHABLE();
