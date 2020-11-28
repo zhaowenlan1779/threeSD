@@ -270,7 +270,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     ui->main->setItemWidget(item, 0, checkBox);
 
     connect(checkBox, &QCheckBox::stateChanged,
-            [this, item, id = content.id, size = content.maximum_size, type = content.type,
+            [this, item, size = content.maximum_size, type = content.type,
              exists = content.already_exists](int state) {
                 if (state == Qt::Checked) {
                     if (!applet_warning_shown && !exists &&
