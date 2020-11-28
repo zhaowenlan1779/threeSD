@@ -495,6 +495,8 @@ void ImportDialog::StartImporting() {
     label->setWordWrap(true);
     label->setFixedWidth(600);
 
+    // We need to create the bar ourselves to circumvent an issue caused by modal ProgressDialog's
+    // event handling.
     auto* bar = new QProgressBar(this);
     bar->setRange(0, static_cast<int>(total_size / multiplier));
     bar->setValue(0);
@@ -628,18 +630,24 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
 
 // Runs the job, opening a dialog to report its progress.
 void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
-    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 100, this);
+    // We need to create the bar ourselves to circumvent an issue caused by modal ProgressDialog's
+    // event handling.
+    auto* bar = new QProgressBar(this);
+    bar->setRange(0, 100);
+    bar->setValue(0);
+
+    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, this);
+    dialog->setBar(bar);
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
-    dialog->setValue(0);
 
-    connect(job, &ProgressiveJob::ProgressUpdated, this, [dialog](u64 current, u64 total) {
+    connect(job, &ProgressiveJob::ProgressUpdated, this, [bar, dialog](u64 current, u64 total) {
         // Try to map total to int range
         // This is equal to ceil(total / INT_MAX)
         const u64 multiplier =
             (total + std::numeric_limits<int>::max() - 1) / std::numeric_limits<int>::max();
-        dialog->setMaximum(static_cast<int>(total / multiplier));
-        dialog->setValue(static_cast<int>(current / multiplier));
+        bar->setMaximum(static_cast<int>(total / multiplier));
+        bar->setValue(static_cast<int>(current / multiplier));
         dialog->setLabelText(
             tr("%1 / %2").arg(ReadableByteSize(current)).arg(ReadableByteSize(total)));
     });
