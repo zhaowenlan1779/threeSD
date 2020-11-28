@@ -183,17 +183,26 @@ public:
      * @param decryptor Const reference to the SDMCDecryptor.
      */
     explicit SDExtdata(std::string data_path, const SDMCDecryptor& decryptor);
+
+    /**
+     * Loads an Extdata folder without encryption.
+     * @param data_path Path to the DECRYPTED extdata folder
+     */
+    explicit SDExtdata(std::string data_path);
+
     ~SDExtdata() override;
 
     bool Extract(std::string path) const override;
 
 private:
+    std::vector<u8> ReadFile(const std::string& path) const;
     bool Init();
     bool ExtractFile(const std::string& path, std::size_t index) const override;
     ArchiveFormatInfo GetFormatInfo() const override;
 
     std::string data_path;
-    const SDMCDecryptor& decryptor;
+    const SDMCDecryptor* decryptor = nullptr;
+    bool use_decryptor = true;
 };
 
 } // namespace Core

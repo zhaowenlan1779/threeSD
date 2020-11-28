@@ -253,20 +253,49 @@ ArchiveFormatInfo SDSavegame::GetFormatInfo() const {
 }
 
 SDExtdata::SDExtdata(std::string data_path_, const SDMCDecryptor& decryptor_)
-    : data_path(std::move(data_path_)), decryptor(decryptor_) {
+    : data_path(std::move(data_path_)), decryptor(&decryptor_) {
 
     if (data_path.back() != '/' && data_path.back() != '\\') {
         data_path += '/';
     }
 
+    use_decryptor = true;
+    is_good = Init();
+}
+
+SDExtdata::SDExtdata(std::string data_path_) : data_path(std::move(data_path_)) {
+    if (data_path.back() != '/' && data_path.back() != '\\') {
+        data_path += '/';
+    }
+
+    use_decryptor = false;
     is_good = Init();
 }
 
 SDExtdata::~SDExtdata() = default;
 
+std::vector<u8> SDExtdata::ReadFile(const std::string& path) const {
+    if (use_decryptor) {
+        return decryptor->DecryptFile(path);
+    } else {
+        FileUtil::IOFile file(path, "rb");
+        if (!file) {
+            LOG_ERROR(Core, "Failed to open {}", path);
+            return {};
+        }
+
+        std::vector<u8> data(file.GetSize());
+        if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+            LOG_ERROR(Core, "Failed to read from {}", path);
+            return {};
+        }
+        return data;
+    }
+}
+
 bool SDExtdata::Init() {
     // Read VSXE file
-    auto vsxe_raw = decryptor.DecryptFile(data_path + "00000000/00000001");
+    auto vsxe_raw = ReadFile(data_path + "00000000/00000001");
     if (vsxe_raw.empty()) {
         LOG_ERROR(Core, "Failed to load or decrypt VSXE");
         return false;
@@ -367,7 +396,7 @@ bool SDExtdata::ExtractFile(const std::string& path, std::size_t index) const {
     std::string device_file_path =
         fmt::format("{}{:08x}/{:08x}", data_path, sub_directory_id, sub_file_id);
 
-    auto container_data = decryptor.DecryptFile(device_file_path);
+    auto container_data = ReadFile(device_file_path);
     if (container_data.empty()) { // File does not exist?
         LOG_WARNING(Core, "Ignoring file {}", device_file_path);
         return true;

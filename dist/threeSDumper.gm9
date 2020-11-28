@@ -117,6 +117,24 @@ decrypt $[OUT]/sysarchives/000400db/00010302.app
 # === Config savegame
 cp -w -n 1:/data/$[SYSID0]/sysdata/00010017/00000000 $[OUT]/config.sav
 
+# === NAND data
+if not find $[OUT]/data NULL
+    mkdir $[OUT]/data
+end
+
+if not find $[OUT]/data/extdata NULL
+    mkdir $[OUT]/data/extdata
+end
+cp -w -n "1:/data/$[SYSID0]/extdata" $[OUT]/data/extdata
+
+if not find $[OUT]/data/sysdata NULL
+    mkdir $[OUT]/data/sysdata
+end
+cp -w -n "1:/data/$[SYSID0]/sysdata" $[OUT]/data/sysdata
+
+# Already dumped above
+rm $[OUT]/data/sysdata/00010017
+
 # === Other system titles
 if not find $[OUT]/title NULL
     mkdir $[OUT]/title
@@ -169,7 +187,7 @@ else
 end
 
 # === Write version
-dumptxt $[OUT]/version.txt 2
+dumptxt $[OUT]/version.txt 3
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."

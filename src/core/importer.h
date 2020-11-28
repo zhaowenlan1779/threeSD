@@ -83,12 +83,13 @@ struct Config {
 
     std::string system_archives_path; ///< Path to system archives.
     std::string system_titles_path;   ///< Path to system titles.
+    std::string nand_data_path;       ///< Path to NAND data. (Extdata and savedata)
 
     int version = 0; ///< Version of the dumper used.
 };
 
 // Version of the current dumper.
-constexpr int CurrentDumperVersion = 2;
+constexpr int CurrentDumperVersion = 3;
 
 class SDMCFile;
 class NCCHContainer;
@@ -170,12 +171,15 @@ private:
     bool ImportTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
     bool ImportNandTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
     bool ImportSavegame(u64 id, const ProgressCallback& callback);
+    bool ImportNandSavegame(u64 id, const ProgressCallback& callback);
     bool ImportExtdata(u64 id, const ProgressCallback& callback);
+    bool ImportNandExtdata(u64 id, const ProgressCallback& callback);
     bool ImportSystemArchive(u64 id, const ProgressCallback& callback);
     bool ImportSysdata(u64 id, const ProgressCallback& callback);
 
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListNandTitle(std::vector<ContentSpecifier>& out) const;
+    void ListNandSavegame(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
     void ListSystemArchive(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;

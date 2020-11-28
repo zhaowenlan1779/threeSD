@@ -76,9 +76,17 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
     case ContentType::DLC:
         return ImportTitle(specifier, callback);
     case ContentType::Savegame:
-        return ImportSavegame(specifier.id, callback);
+        if ((specifier.id >> 32) == 0) {
+            return ImportNandSavegame(specifier.id, callback);
+        } else {
+            return ImportSavegame(specifier.id, callback);
+        }
     case ContentType::Extdata:
-        return ImportExtdata(specifier.id, callback);
+        if ((specifier.id >> 32) == 0) {
+            return ImportExtdata(specifier.id, callback);
+        } else {
+            return ImportNandExtdata(specifier.id, callback);
+        }
     case ContentType::SystemArchive:
         return ImportSystemArchive(specifier.id, callback);
     case ContentType::Sysdata:
@@ -182,6 +190,37 @@ bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallbac
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
+bool SDMCImporter::ImportNandSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+    const auto path = fmt::format("sysdata/{:08x}/00000000", (id & 0xFFFFFFFF));
+
+    FileUtil::IOFile file(config.nand_data_path + path, "rb");
+    if (!file) {
+        LOG_ERROR(Core, "Could not open file {}", path);
+        return false;
+    }
+
+    std::vector<u8> data(file.GetSize());
+    if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+        LOG_ERROR(Core, "Failed to read from {}", path);
+        return false;
+    }
+
+    DataContainer container(std::move(data));
+    std::vector<std::vector<u8>> container_data;
+    if (!container.GetIVFCLevel4Data(container_data)) {
+        return false;
+    }
+
+    SDSavegame save(std::move(container_data));
+    if (!save.IsGood()) {
+        return false;
+    }
+
+    return save.ExtractDirectory(FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
+                                     "data/00000000000000000000000000000000/" + path + "/",
+                                 1);
+}
+
 bool SDMCImporter::ImportExtdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
     SDExtdata extdata("/" + path, *decryptor);
@@ -192,6 +231,17 @@ bool SDMCImporter::ImportExtdata(u64 id, [[maybe_unused]] const ProgressCallback
     return extdata.Extract(
         FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
+}
+
+bool SDMCImporter::ImportNandExtdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+    const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
+    SDExtdata extdata(config.nand_data_path + path);
+    if (!extdata.IsGood()) {
+        return false;
+    }
+
+    return extdata.Extract(FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
+                           "data/00000000000000000000000000000000/" + path);
 }
 
 bool SDMCImporter::ImportSystemArchive(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
@@ -364,6 +414,7 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
     std::vector<ContentSpecifier> content_list;
     ListTitle(content_list);
     ListNandTitle(content_list);
+    ListNandSavegame(content_list);
     ListExtdata(content_list);
     ListSystemArchive(content_list);
     ListSysdata(content_list);
@@ -740,9 +791,9 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
     ProcessDirectory(0x00040130);
 }
 
-void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
+void SDMCImporter::ListNandSavegame(std::vector<ContentSpecifier>& out) const {
     FileUtil::ForeachDirectoryEntry(
-        nullptr, fmt::format("{}extdata/00000000/", config.sdmc_path),
+        nullptr, fmt::format("{}sysdata/", config.nand_data_path),
         [&out](u64* /*num_entries_out*/, const std::string& directory,
                const std::string& virtual_name) {
             if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
@@ -753,16 +804,67 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
                 return true;
             }
 
+            const auto path = directory + virtual_name + "/00000000";
+
+            // Read the file to test.
+            FileUtil::IOFile file(path, "rb");
+            if (!file) {
+                LOG_ERROR(Core, "Could not open {}", path);
+                return false;
+            }
+
+            std::vector<u8> data(file.GetSize());
+            if (file.ReadBytes(data.data(), data.size()) != data.size()) {
+                LOG_ERROR(Core, "Could not read from {}", path);
+                return false;
+            }
+            DataContainer container(std::move(data));
+            if (!container.IsGood()) {
+                return true;
+            }
+
             const u64 id = std::stoull(virtual_name, nullptr, 16);
             const auto citra_path =
-                fmt::format("{}Nintendo "
-                            "3DS/00000000000000000000000000000000/00000000000000000000000000000000/"
-                            "extdata/00000000/{}",
-                            FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), virtual_name);
-            out.push_back({ContentType::Extdata, id, FileUtil::Exists(citra_path),
-                           FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/")});
+                fmt::format("{}data/00000000000000000000000000000000/sysdata/{}/00000000",
+                            FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), virtual_name);
+            out.push_back(
+                {ContentType::Savegame, id, FileUtil::Exists(citra_path), FileUtil::GetSize(path)});
             return true;
         });
+}
+
+void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
+    const auto ProcessDirectory = [this, &out](u64 id_high, const std::string& path,
+                                               const std::string& citra_path_template) {
+        FileUtil::ForeachDirectoryEntry(
+            nullptr, path,
+            [&out, id_high, citra_path_template](u64* /*num_entries_out*/,
+                                                 const std::string& directory,
+                                                 const std::string& virtual_name) {
+                if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                    return true;
+                }
+
+                if (!std::regex_match(virtual_name, title_regex)) {
+                    return true;
+                }
+
+                const u64 id = std::stoull(virtual_name, nullptr, 16);
+                const auto citra_path = fmt::format(citra_path_template, virtual_name);
+                out.push_back({ContentType::Extdata, (id_high << 32) | id,
+                               FileUtil::Exists(citra_path),
+                               FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/")});
+                return true;
+            });
+    };
+    ProcessDirectory(0, fmt::format("{}extdata/00000000/", config.sdmc_path),
+                     FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
+                         "Nintendo "
+                         "3DS/00000000000000000000000000000000/00000000000000000000000000000000/"
+                         "extdata/00000000/{}");
+    ProcessDirectory(0x00048000, fmt::format("{}extdata/00048000/", config.nand_data_path),
+                     FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
+                         "data/00000000000000000000000000000000/extdata/00048000/{}");
 }
 
 void SDMCImporter::ListSystemArchive(std::vector<ContentSpecifier>& out) const {
@@ -907,19 +1009,31 @@ void SDMCImporter::DeleteNandTitle(u64 id) const {
 }
 
 void SDMCImporter::DeleteSavegame(u64 id) const {
-    FileUtil::DeleteDirRecursively(fmt::format(
-        "{}Nintendo "
-        "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{:08x}/{:08x}/"
-        "data/",
-        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+    if ((id >> 32) == 0) { // NAND
+        FileUtil::DeleteDirRecursively(
+            fmt::format("{}data/00000000000000000000000000000000/sysdata/{:08x}/",
+                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id & 0xFFFFFFFF)));
+    } else { // SDMC
+        FileUtil::DeleteDirRecursively(fmt::format(
+            "{}Nintendo "
+            "3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/{:08x}/"
+            "{:08x}/data/",
+            FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+    }
 }
 
 void SDMCImporter::DeleteExtdata(u64 id) const {
-    FileUtil::DeleteDirRecursively(fmt::format(
-        "{}Nintendo "
-        "3DS/00000000000000000000000000000000/00000000000000000000000000000000/extdata/{:08x}/"
-        "{:08x}/",
-        FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+    if ((id >> 32) == 0) { // SDMC
+        FileUtil::DeleteDirRecursively(fmt::format(
+            "{}Nintendo "
+            "3DS/00000000000000000000000000000000/00000000000000000000000000000000/extdata/{:08x}/"
+            "{:08x}/",
+            FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir), (id >> 32), (id & 0xFFFFFFFF)));
+    } else { // NAND
+        FileUtil::DeleteDirRecursively(fmt::format(
+            "{}data/00000000000000000000000000000000/extdata/{:08x}/{:08x}/",
+            FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id >> 32), (id & 0xFFFFFFFF)));
+    }
 }
 
 void SDMCImporter::DeleteSystemArchive(u64 id) const {
@@ -989,6 +1103,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(config_savegame_path, "config.sav");
         LOAD_DATA(system_archives_path, "sysarchives/");
         LOAD_DATA(system_titles_path, "title/");
+        LOAD_DATA(nand_data_path, "data/");
 #undef LOAD_DATA
 
         // Load version
