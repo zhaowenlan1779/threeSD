@@ -1,5 +1,9 @@
-# CMake 3.8 required for 17 to be a valid value for CXX_STANDARD
-cmake_minimum_required(VERSION 3.8)
+# CMake 3.12.4 required for 20 to be a valid value for CXX_STANDARD
+cmake_minimum_required(VERSION 3.15)
+# Add MSVC runtime library selection flags automatically:
+cmake_policy(SET CMP0091 OLD)
+# Don't override the warning flags in MSVC:
+cmake_policy(SET CMP0092 NEW)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include(DownloadExternals)
 include(CMakeDependentOption)
@@ -73,8 +77,12 @@ message(STATUS "Target architecture: ${ARCHITECTURE}")
 
 # Configure C++ standard
 # ===========================
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if (MSVC)
+    add_compile_options(/std:c++latest)
+else()
+    set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
 
 # set up output paths for executable binaries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)

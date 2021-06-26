@@ -39,7 +39,7 @@ if (MSVC)
     # /Zc:externConstexpr        - Allow extern constexpr variables to have external linkage, like the standard mandates
     # /Zc:inline                 - Let codegen omit inline functions in object files
     # /Zc:throwingNew            - Let codegen assume `operator new` (without std::nothrow) will never return null
-    # /experimental:preprocessor - Work around bugs within MSVC's crappy preprocessor
+    # /Zc:preprocessor           - Use std-conforming MSVC preprocessor
     add_compile_options(
         /W4
         /w34263
@@ -60,7 +60,7 @@ if (MSVC)
         /Zc:externConstexpr
         /Zc:inline
         /Zc:throwingNew
-        /experimental:preprocessor
+        /Zc:preprocessor
     )
 
     # /GS- - No stack buffer overflow checks

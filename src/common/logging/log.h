@@ -15,12 +15,11 @@
 std::uint64_t GetLoggingTime();
 std::string StandardizeLogClass(const std::string& log_class);
 
-// TODO: Use a standard variant of ##__VA_ARGS__?
 #define LOG_PRINT(log_class, level, text_style, file, line, func, format, ...)                     \
     {                                                                                              \
         fmt::print(stderr, text_style, "[{:12.6f}] {} <{}> {}:{}:{}: " format "\n",                \
                    GetLoggingTime() / 1000000.0, StandardizeLogClass(log_class), level, file,      \
-                   line, func, ##__VA_ARGS__);                                                     \
+                   line, func __VA_OPT__(, ) __VA_ARGS__);                                         \
         fflush(stderr);                                                                            \
     }
 
