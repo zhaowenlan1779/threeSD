@@ -31,8 +31,9 @@ public:
      * @param destination Path to the destination file.
      * @return true on success, false otherwise
      */
-    bool DecryptAndWriteFile(const std::string& source, const std::string& destination,
-                             const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool DecryptAndWriteFile(
+        const std::string& source, const std::string& destination,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     void Abort();
 

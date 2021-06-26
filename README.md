@@ -25,4 +25,3 @@ Please refer to the [wiki](https://github.com/zhaowenlan1779/threeSD/wiki/Quicks
 * Clear all the `TODO`s in the code
 * Wireless transfer (probably FTP?)
     * but: slow, complex
-* MSVC build doesn't work for its crappy preprocessor, but this shouldn't really matter

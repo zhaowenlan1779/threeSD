@@ -10,7 +10,6 @@ environment:
   CHERE_INVOKING: 1
   matrix:
     - BUILD_TYPE: mingw
-    - BUILD_TYPE: msvc
 
 platform:
   - x64
@@ -21,71 +20,42 @@ configuration:
 install:
   - git submodule update --init --recursive
   - ps: |
-        if ($env:BUILD_TYPE -eq 'mingw') {
-          $dependencies = "mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-qt5-static"
-          C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S $dependencies"
-          # (HACK) Link these libs to really static link qt
-          C:\msys64\usr\bin\bash -lc "rm /mingw64/lib/libzstd.dll.a && link /mingw64/lib/libzstd.a /mingw64/lib/libzstd.dll.a"
-          C:\msys64\usr\bin\bash -lc "rm /mingw64/lib/libz.dll.a && link /mingw64/lib/libz.a /mingw64/lib/libz.dll.a"
-          # (HACK) ignore errors
-          0
-        }
-
+        $dependencies = "mingw64/mingw-w64-x86_64-cmake mingw64/mingw-w64-x86_64-qt5-static"
+        C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S $dependencies"
+        # (HACK) Link these libs to really static link qt
+        C:\msys64\usr\bin\bash -lc "rm /mingw64/lib/libzstd.dll.a && link /mingw64/lib/libzstd.a /mingw64/lib/libzstd.dll.a"
+        C:\msys64\usr\bin\bash -lc "rm /mingw64/lib/libz.dll.a && link /mingw64/lib/libz.a /mingw64/lib/libz.dll.a"
+        # (HACK) ignore errors
+        0
 before_build:
   - mkdir %BUILD_TYPE%_build
   - cd %BUILD_TYPE%_build
-  - ps: |
-        if ($env:BUILD_TYPE -eq 'msvc') {
-          # redirect stderr and change the exit code to prevent powershell from cancelling the build if cmake prints a warning
-          cmd /C 'cmake -G "Visual Studio 16 2019" -DUSE_BUNDLED_QT=OFF -DQt5_DIR=C:\Qt\5.14\msvc2017_64\lib\cmake\qt5 -DWARNINGS_AS_ERRORS=OFF .. 2>&1 && exit 0'
-        } else {
-          C:\msys64\usr\bin\bash.exe -lc "cmake -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Release -DMINGW_STATIC_BUILD=ON -DCOMPILE_WITH_DWARF=OFF .. 2>&1"
-        }
+  - C:\msys64\usr\bin\bash.exe -lc "cmake -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=Release -DMINGW_STATIC_BUILD=ON -DCOMPILE_WITH_DWARF=OFF .. 2>&1"
   - cd ..
 
 build_script:
-  - ps: |
-        if ($env:BUILD_TYPE -eq 'msvc') {
-          # https://www.appveyor.com/docs/build-phase
-          msbuild msvc_build/threeSD.sln /maxcpucount /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-        } else {
-          C:\msys64\usr\bin\bash.exe -lc 'mingw32-make -j4 -C mingw_build/ 2>&1'
-        }
-
+  - C:\msys64\usr\bin\bash.exe -lc 'mingw32-make -j4 -C mingw_build/ 2>&1'
 after_build:
   - ps: |
         mkdir release
         mkdir release\dist
         
-        if ($env:BUILD_TYPE -eq 'msvc') {
-          Remove-Item -Force .\msvc_build\bin\release\*.pdb
-          Remove-Item -Force .\msvc_build\bin\release\platforms\*.pdb
-          Remove-Item -Force .\msvc_build\bin\release\styles\*.pdb
-          Copy-Item .\msvc_build\bin\release\* -Destination release -Recurse
-        } else {
-          C:\msys64\usr\bin\bash.exe -lc 'strip ./mingw_build/bin/threeSD.exe'
-          Copy-Item .\mingw_build\bin\threeSD.exe -Destination release
-        }
-
+        C:\msys64\usr\bin\bash.exe -lc 'strip ./mingw_build/bin/threeSD.exe'
+        Copy-Item .\mingw_build\bin\threeSD.exe -Destination release
         Copy-Item .\license.txt -Destination release
         Copy-Item .\README.md -Destination release
         Copy-Item .\dist\threeSDumper.gm9 -Destination release\dist
-
         $GITDATE = $(git show -s --date=short --format='%ad') -replace "-",""
         $GITREV = $(git show -s --format='%h')
-
         if ($env:APPVEYOR_REPO_TAG_NAME) {
-          $BUILD_SEVENZIP = "threeSD-windows-$env:APPVEYOR_REPO_TAG_NAME.7z" -replace " ", ""
+          $BUILD_ZIP = "threeSD-windows-$env:APPVEYOR_REPO_TAG_NAME.zip" -replace " ", ""
         } else {
-          $BUILD_SEVENZIP = "threeSD-windows-$GITDATE-$GITREV.7z" -replace " ", ""
+          $BUILD_ZIP = "threeSD-windows-$GITDATE-$GITREV.zip" -replace " ", ""
         }
-        $env:BUILD_SEVENZIP = $BUILD_SEVENZIP
-
-        7z a $BUILD_SEVENZIP release
-
-
+        $env:BUILD_ZIP = $BUILD_SEVENZIP
+        7z a $BUILD_ZIP release
 artifacts:
-  - path: $(BUILD_SEVENZIP)
+  - path: $(BUILD_ZIP)
     name: build
 
 deploy:
@@ -93,7 +63,6 @@ deploy:
   auth_token:
     secure: 4xdt1ZdE/ZgP2amG5Jr073yvbitMmdV0ts48wKBKEWpR6PJwDG3bR0Attvm9Mgv8
   artifact: build
-  draft: true
   on:
     branch: master
     APPVEYOR_REPO_NAME: zhaowenlan1779/threeSD

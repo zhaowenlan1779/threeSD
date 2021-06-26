@@ -272,8 +272,9 @@ public:
      * Decrypts this NCCH and write to the destination file.
      * @return ResultStatus result of function.
      */
-    ResultStatus DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
-                               const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    ResultStatus DecryptToFile(
+        std::shared_ptr<FileUtil::IOFile> dest_file,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts DecryptToFile. Simply aborts the decryptor.

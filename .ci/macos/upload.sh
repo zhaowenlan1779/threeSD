@@ -1,19 +1,10 @@
 #!/bin/bash -ex
 
-. .travis/common/pre-upload.sh
+. .ci/common/pre-upload.sh
 
-# Find out what release we are building
-if [ -z $TRAVIS_TAG ]; then
-    REV_NAME="threeSD-macos-${GITDATE}-${GITREV}"
-else
-    REV_NAME="threeSD-macos-${TRAVIS_TAG}"
-fi
-
-ARCHIVE_NAME="${REV_NAME}.tar.gz"
-COMPRESSION_FLAGS="-czvf"
+REV_NAME="threeSD-macos-${GITNAME}"
 
 mkdir "$REV_NAME"
-
 cp -r build/bin/threeSD.app "$REV_NAME"
 
 # move libs into folder for deployment
@@ -29,4 +20,4 @@ find "$REV_NAME" -exec otool -L {} \;
 
 mkdir "$REV_NAME/dist"
 
-. .travis/common/post-upload.sh
+. .ci/common/post-upload.sh

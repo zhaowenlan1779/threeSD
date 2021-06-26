@@ -79,6 +79,7 @@ message(STATUS "Target architecture: ${ARCHITECTURE}")
 # ===========================
 if (MSVC)
     add_compile_options(/std:c++latest)
+    add_definitions(-D_HAS_DEPRECATED_RESULT_OF)
 else()
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)

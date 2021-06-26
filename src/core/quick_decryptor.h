@@ -38,11 +38,11 @@ public:
      * @param ctr AES CTR for decryption
      * @param aes_seek_pos The position to seek to for decryption.
      */
-    bool DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
-                             std::shared_ptr<FileUtil::IOFile> destination,
-                             const ProgressCallback& callback = [](std::size_t, std::size_t) {},
-                             bool decrypt = false, Core::Key::AESKey key = {},
-                             Core::Key::AESKey ctr = {}, std::size_t aes_seek_pos = 0);
+    bool DecryptAndWriteFile(
+        std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
+        std::shared_ptr<FileUtil::IOFile> destination,
+        const ProgressCallback& callback = [](std::size_t, std::size_t) {}, bool decrypt = false,
+        Core::Key::AESKey key = {}, Core::Key::AESKey ctr = {}, std::size_t aes_seek_pos = 0);
 
     void DataReadLoop();
     void DataDecryptLoop();
