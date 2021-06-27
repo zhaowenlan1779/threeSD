@@ -3,15 +3,17 @@
 // Refer to the license.txt file included.
 
 #include <chrono>
-#include "frontend/helpers/import_job.h"
+#include "frontend/helpers/multi_job.h"
 
-ImportJob::ImportJob(QObject* parent, Core::SDMCImporter& importer_,
-                     std::vector<Core::ContentSpecifier> contents_)
-    : QThread(parent), importer(importer_), contents(std::move(contents_)) {}
+MultiJob::MultiJob(QObject* parent, Core::SDMCImporter& importer_,
+                   std::vector<Core::ContentSpecifier> contents_, ExecuteFunc execute_func_,
+                   DeleteFunc delete_func_)
+    : QThread(parent), importer(importer_), contents(std::move(contents_)),
+      execute_func(std::move(execute_func_)), delete_func(std::move(delete_func_)) {}
 
-ImportJob::~ImportJob() = default;
+MultiJob::~MultiJob() = default;
 
-void ImportJob::run() {
+void MultiJob::run() {
     u64 total_size = 0;
     for (const auto& content : contents) {
         total_size += content.maximum_size;
@@ -38,7 +40,8 @@ void ImportJob::run() {
             UpdateETA(size_imported + current_size);
             emit ProgressUpdated(size_imported + current_size, current_size, eta);
         };
-        if (!importer.ImportContent(content, callback)) {
+        if (!execute_func(importer, content, callback)) {
+            delete_func(importer, content);
             importer.DeleteContent(content);
             if (!cancelled) {
                 failed_contents.emplace_back(content);
@@ -55,11 +58,11 @@ void ImportJob::run() {
     emit Completed();
 }
 
-void ImportJob::Cancel() {
+void MultiJob::Cancel() {
     cancelled.store(true);
     importer.AbortImporting();
 }
 
-std::vector<Core::ContentSpecifier> ImportJob::GetFailedContents() const {
+std::vector<Core::ContentSpecifier> MultiJob::GetFailedContents() const {
     return failed_contents;
 }

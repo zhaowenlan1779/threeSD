@@ -19,7 +19,7 @@
 #include "common/assert.h"
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
-#include "frontend/helpers/import_job.h"
+#include "frontend/helpers/multi_job.h"
 #include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
 #include "ui_import_dialog.h"
@@ -512,9 +512,17 @@ void ImportDialog::StartImporting() {
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
 
-    auto* job = new ImportJob(this, importer, std::move(to_import));
+    auto* job = new MultiJob(
+        this, importer, std::move(to_import),
+        [](Core::SDMCImporter& importer, const Core::ContentSpecifier& content,
+           const Core::SDMCImporter::ProgressCallback& callback) {
+            return importer.ImportContent(content, callback);
+        },
+        [](Core::SDMCImporter& importer, const Core::ContentSpecifier& content) {
+            return importer.DeleteContent(content);
+        });
 
-    connect(job, &ImportJob::NextContent, this,
+    connect(job, &MultiJob::NextContent, this,
             [this, bar, dialog, multiplier, total_count](
                 u64 size_imported, u64 count, Core::ContentSpecifier next_content, int eta) {
                 bar->setValue(static_cast<int>(size_imported / multiplier));
@@ -528,7 +536,7 @@ void ImportDialog::StartImporting() {
                 current_content = next_content;
                 current_count = count;
             });
-    connect(job, &ImportJob::ProgressUpdated, this,
+    connect(job, &MultiJob::ProgressUpdated, this,
             [this, bar, dialog, multiplier, total_count](u64 total_size_imported,
                                                          u64 current_size_imported, int eta) {
                 bar->setValue(static_cast<int>(total_size_imported / multiplier));
@@ -542,7 +550,7 @@ void ImportDialog::StartImporting() {
                                          .arg(ReadableByteSize(current_content.maximum_size))
                                          .arg(FormatETA(eta)));
             });
-    connect(job, &ImportJob::Completed, this, [this, dialog, job] {
+    connect(job, &MultiJob::Completed, this, [this, dialog, job] {
         dialog->setValue(dialog->maximum());
 
         const auto failed_contents = job->GetFailedContents();
@@ -570,7 +578,7 @@ void ImportDialog::StartImporting() {
         cancel_dialog->setCancelButton(nullptr);
         cancel_dialog->setMinimumDuration(0);
         cancel_dialog->setValue(0);
-        connect(job, &ImportJob::Completed, cancel_dialog, &QProgressDialog::hide);
+        connect(job, &MultiJob::Completed, cancel_dialog, &QProgressDialog::hide);
         job->Cancel();
     });
 

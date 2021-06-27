@@ -9,8 +9,8 @@ endif()
 file(GLOB_RECURSE THEMES ${PROJECT_SOURCE_DIR}/dist/themes/*)
 
 add_executable(threeSD
-  helpers/import_job.cpp
-  helpers/import_job.h
+  helpers/multi_job.cpp
+  helpers/multi_job.h
   helpers/simple_job.cpp
   helpers/simple_job.h
   import_dialog.cpp

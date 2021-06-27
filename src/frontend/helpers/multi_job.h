@@ -5,16 +5,22 @@
 #pragma once
 
 #include <atomic>
+#include <functional>
 #include <QThread>
 #include "core/importer.h"
 
-class ImportJob : public QThread {
+class MultiJob : public QThread {
     Q_OBJECT
 
 public:
-    explicit ImportJob(QObject* parent, Core::SDMCImporter& importer,
-                       std::vector<Core::ContentSpecifier> contents);
-    ~ImportJob() override;
+    using ExecuteFunc = std::function<bool(Core::SDMCImporter&, const Core::ContentSpecifier&,
+                                           const Core::SDMCImporter::ProgressCallback&)>;
+    using DeleteFunc = std::function<void(Core::SDMCImporter&, const Core::ContentSpecifier&)>;
+
+    explicit MultiJob(QObject* parent, Core::SDMCImporter& importer,
+                      std::vector<Core::ContentSpecifier> contents, ExecuteFunc execute_func,
+                      DeleteFunc delete_func);
+    ~MultiJob() override;
 
     void run() override;
     void Cancel();
@@ -41,6 +47,8 @@ private:
     Core::SDMCImporter& importer;
     std::vector<Core::ContentSpecifier> contents;
     std::vector<Core::ContentSpecifier> failed_contents;
+    ExecuteFunc execute_func;
+    DeleteFunc delete_func;
 };
 
 Q_DECLARE_METATYPE(Core::ContentSpecifier)
