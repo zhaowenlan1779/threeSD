@@ -11,7 +11,7 @@
 /**
  * Lightweight wrapper around QThread, for easy use with progressive jobs.
  */
-class ProgressiveJob : public QThread {
+class SimpleJob : public QThread {
     Q_OBJECT
 
 public:
@@ -19,8 +19,8 @@ public:
     using ExecuteFunc = std::function<bool(const ProgressCallback&)>;
     using AbortFunc = std::function<void()>;
 
-    explicit ProgressiveJob(QObject* parent, const ExecuteFunc& execute, const AbortFunc& abort);
-    ~ProgressiveJob() override;
+    explicit SimpleJob(QObject* parent, ExecuteFunc execute, AbortFunc abort);
+    ~SimpleJob() override;
 
     void run() override;
     void Cancel();

@@ -20,7 +20,7 @@
 #include "common/logging/log.h"
 #include "common/scope_exit.h"
 #include "frontend/helpers/import_job.h"
-#include "frontend/helpers/progressive_job.h"
+#include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
 #include "ui_import_dialog.h"
 
@@ -634,7 +634,7 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
 }
 
 // Runs the job, opening a dialog to report its progress.
-void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
+void ImportDialog::RunSimpleJob(SimpleJob* job) {
     // We need to create the bar ourselves to circumvent an issue caused by modal ProgressDialog's
     // event handling.
     auto* bar = new QProgressBar(this);
@@ -646,7 +646,7 @@ void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
 
-    connect(job, &ProgressiveJob::ProgressUpdated, this, [bar, dialog](u64 current, u64 total) {
+    connect(job, &SimpleJob::ProgressUpdated, this, [bar, dialog](u64 current, u64 total) {
         // Try to map total to int range
         // This is equal to ceil(total / INT_MAX)
         const u64 multiplier =
@@ -656,13 +656,12 @@ void ImportDialog::RunProgressiveJob(ProgressiveJob* job) {
         dialog->setLabelText(
             tr("%1 / %2").arg(ReadableByteSize(current)).arg(ReadableByteSize(total)));
     });
-    connect(job, &ProgressiveJob::ErrorOccured, this, [this, dialog] {
+    connect(job, &SimpleJob::ErrorOccured, this, [this, dialog] {
         QMessageBox::critical(this, tr("threeSD"),
                               tr("Operation failed. Please refer to the log."));
         dialog->hide();
     });
-    connect(job, &ProgressiveJob::Completed, this,
-            [dialog] { dialog->setValue(dialog->maximum()); });
+    connect(job, &SimpleJob::Completed, this, [dialog] { dialog->setValue(dialog->maximum()); });
     connect(dialog, &QProgressDialog::canceled, this, [job] { job->Cancel(); });
 
     job->start();
@@ -676,9 +675,9 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
     }
     last_dump_cxi_path = QFileInfo(path).path();
 
-    auto* job = new ProgressiveJob(
+    auto* job = new SimpleJob(
         this,
-        [this, specifier, path](const ProgressiveJob::ProgressCallback& callback) {
+        [this, specifier, path](const SimpleJob::ProgressCallback& callback) {
             if (!importer.DumpCXI(specifier, path.toStdString(), callback)) {
                 FileUtil::Delete(path.toStdString());
                 return false;
@@ -686,7 +685,7 @@ void ImportDialog::StartDumpingCXI(const Core::ContentSpecifier& specifier) {
             return true;
         },
         [this] { importer.AbortDumpCXI(); });
-    RunProgressiveJob(job);
+    RunSimpleJob(job);
 }
 
 void ImportDialog::StartBuildingCIA(const Core::ContentSpecifier& specifier) {
@@ -697,9 +696,9 @@ void ImportDialog::StartBuildingCIA(const Core::ContentSpecifier& specifier) {
     }
     last_build_cia_path = QFileInfo(path).path();
 
-    auto* job = new ProgressiveJob(
+    auto* job = new SimpleJob(
         this,
-        [this, specifier, path](const ProgressiveJob::ProgressCallback& callback) {
+        [this, specifier, path](const SimpleJob::ProgressCallback& callback) {
             if (!importer.BuildCIA(specifier, path.toStdString(), callback)) {
                 FileUtil::Delete(path.toStdString());
                 return false;
@@ -707,5 +706,5 @@ void ImportDialog::StartBuildingCIA(const Core::ContentSpecifier& specifier) {
             return true;
         },
         [this] { importer.AbortBuildCIA(); });
-    RunProgressiveJob(job);
+    RunSimpleJob(job);
 }

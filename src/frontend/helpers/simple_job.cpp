@@ -2,15 +2,14 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
-#include "frontend/helpers/progressive_job.h"
+#include "frontend/helpers/simple_job.h"
 
-ProgressiveJob::ProgressiveJob(QObject* parent, const ExecuteFunc& execute_,
-                               const AbortFunc& abort_)
-    : QThread(parent), execute(execute_), abort(abort_) {}
+SimpleJob::SimpleJob(QObject* parent, ExecuteFunc execute_, AbortFunc abort_)
+    : QThread(parent), execute(std::move(execute_)), abort(std::move(abort_)) {}
 
-ProgressiveJob::~ProgressiveJob() = default;
+SimpleJob::~SimpleJob() = default;
 
-void ProgressiveJob::run() {
+void SimpleJob::run() {
     const bool ret = execute(
         [this](std::size_t current, std::size_t total) { emit ProgressUpdated(current, total); });
 
@@ -21,7 +20,7 @@ void ProgressiveJob::run() {
     }
 }
 
-void ProgressiveJob::Cancel() {
+void SimpleJob::Cancel() {
     canceled = true;
     abort();
 }

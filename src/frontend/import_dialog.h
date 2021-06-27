@@ -12,7 +12,7 @@
 #include "core/importer.h"
 #include "core/ncch/ncch_container.h"
 
-class ProgressiveJob;
+class SimpleJob;
 class QTreeWidgetItem;
 
 namespace Ui {
@@ -43,7 +43,7 @@ private:
     Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
     void OnContextMenu(const QPoint& point);
 
-    void RunProgressiveJob(ProgressiveJob* job);
+    void RunSimpleJob(SimpleJob* job);
 
     void StartDumpingCXI(const Core::ContentSpecifier& content);
     QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXI
