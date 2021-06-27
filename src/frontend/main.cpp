@@ -5,6 +5,7 @@
 #include <regex>
 #include <string>
 #include <QApplication>
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QStorageInfo>
@@ -37,6 +38,9 @@ bool IsConfigGood(const Core::Config& config) {
 
 MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
     ui->setupUi(this);
+
+    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
+    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(false);
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));

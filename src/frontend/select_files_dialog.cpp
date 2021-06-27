@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QMessageBox>
 #include "frontend/select_files_dialog.h"
@@ -12,6 +13,9 @@ SelectFilesDialog::SelectFilesDialog(QWidget* parent, bool source_is_dir_, bool 
       destination_is_dir(destination_is_dir_) {
 
     ui->setupUi(this);
+
+    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
+    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, [this] {
         if (ui->source->text().isEmpty() || ui->destination->text().isEmpty()) {

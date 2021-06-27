@@ -6,6 +6,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <QCheckBox>
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QFutureWatcher>
 #include <QMenu>
@@ -94,6 +95,10 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     qRegisterMetaType<Core::ContentSpecifier>();
 
     ui->setupUi(this);
+
+    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
+    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
+
     if (!importer.IsGood()) {
         QMessageBox::critical(
             this, tr("Importer Error"),

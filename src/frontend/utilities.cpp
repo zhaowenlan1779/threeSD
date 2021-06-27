@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QFutureWatcher>
 #include <QMessageBox>
@@ -20,6 +21,9 @@ UtilitiesDialog::UtilitiesDialog(QWidget* parent)
     : QDialog(parent), ui(std::make_unique<Ui::UtilitiesDialog>()) {
 
     ui->setupUi(this);
+
+    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
+    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     connect(ui->useSdDecryption, &QCheckBox::clicked, [this] {
         const bool checked = ui->useSdDecryption->isChecked();
