@@ -35,14 +35,6 @@ private:
     void UpdateItemCheckState(QTreeWidgetItem* item);
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
 
-    void StartImporting();
-
-    void StartBatchDumpingCXI();
-    QString last_batch_dump_cxi_path; // Used for recording last path in StartBatchDumpingCXI
-
-    void StartBatchBuildingCIA();
-    QString last_batch_build_cia_path; // Used for recording last path in StartBatchBuildingCIA
-
     void InsertTopLevelItem(const QString& text, QPixmap icon = {});
     // When replace_name and replace_icon are present they are used instead of those in `content`.
     void InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
@@ -50,18 +42,24 @@ private:
                                QPixmap replace_icon = {});
 
     Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
-    void OnContextMenu(const QPoint& point);
 
+    void OnContextMenu(const QPoint& point);
     void ShowAdvancedMenu();
 
     void RunMultiJob(MultiJob* job, std::size_t total_count, u64 total_size);
     void RunSimpleJob(SimpleJob* job);
 
+    void StartImporting();
+
     void StartDumpingCXISingle(const Core::ContentSpecifier& content);
     QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXISingle
+    void StartBatchDumpingCXI();
+    QString last_batch_dump_cxi_path; // Used for recording last path in StartBatchDumpingCXI
 
     void StartBuildingCIASingle(const Core::ContentSpecifier& content);
     QString last_build_cia_path; // Used for recording last path in StartBuildingCIASingle
+    void StartBatchBuildingCIA();
+    QString last_batch_build_cia_path; // Used for recording last path in StartBatchBuildingCIA
 
     std::unique_ptr<Ui::ImportDialog> ui;
 

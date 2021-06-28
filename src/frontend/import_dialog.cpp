@@ -27,7 +27,7 @@
 #include "frontend/import_dialog.h"
 #include "ui_import_dialog.h"
 
-QString ReadableByteSize(qulonglong size) {
+static QString ReadableByteSize(qulonglong size) {
     static const std::array<const char*, 6> units = {QT_TR_NOOP("B"),   QT_TR_NOOP("KiB"),
                                                      QT_TR_NOOP("MiB"), QT_TR_NOOP("GiB"),
                                                      QT_TR_NOOP("TiB"), QT_TR_NOOP("PiB")};
@@ -63,24 +63,25 @@ static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTyp
     {Core::EncryptionType::NCCHSecure4, QT_TR_NOOP("Secure4")},
 }};
 
-QString GetContentName(const Core::ContentSpecifier& specifier) {
+static QString GetContentName(const Core::ContentSpecifier& specifier) {
     return specifier.name.empty()
                ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
                : QString::fromStdString(specifier.name);
 }
 
-QString GetContentTypeName(Core::ContentType type) {
+static QString GetContentTypeName(Core::ContentType type) {
     return QObject::tr(std::get<1>(ContentTypeMap.at(static_cast<std::size_t>(type))),
                        "ImportDialog");
 }
 
-QPixmap GetContentTypeIcon(Core::ContentType type) {
+static QPixmap GetContentTypeIcon(Core::ContentType type) {
     return QIcon::fromTheme(
                QString::fromUtf8(std::get<2>(ContentTypeMap.at(static_cast<std::size_t>(type)))))
         .pixmap(24);
 }
 
-QPixmap GetContentIcon(const Core::ContentSpecifier& specifier, bool use_category_icon = false) {
+static QPixmap GetContentIcon(const Core::ContentSpecifier& specifier,
+                              bool use_category_icon = false) {
     if (specifier.icon.empty()) {
         // Return a category icon, or a null icon
         return use_category_icon ? GetContentTypeIcon(specifier.type)
@@ -475,34 +476,6 @@ std::vector<Core::ContentSpecifier> ImportDialog::GetSelectedContentList() {
     return to_import;
 }
 
-static QString FormatETA(int eta) {
-    if (eta < 0) {
-        return QStringLiteral("&nbsp;");
-    }
-    return QCoreApplication::translate("ImportDialog", "ETA %1m%2s")
-        .arg(eta / 60, 2, 10, QLatin1Char('0'))
-        .arg(eta % 60, 2, 10, QLatin1Char('0'));
-}
-
-void ImportDialog::StartImporting() {
-    UpdateSizeDisplay();
-    if (!ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->isEnabled()) {
-        // Space is no longer enough
-        QMessageBox::warning(this, tr("Not Enough Space"),
-                             tr("Your disk does not have enough space to hold imported data."));
-        return;
-    }
-
-    auto to_import = GetSelectedContentList();
-    const std::size_t total_count = to_import.size();
-
-    auto* job =
-        new MultiJob(this, importer, std::move(to_import), &Core::SDMCImporter::ImportContent,
-                     &Core::SDMCImporter::DeleteContent, &Core::SDMCImporter::AbortImporting);
-
-    RunMultiJob(job, total_count, total_selected_size);
-}
-
 Core::ContentSpecifier ImportDialog::SpecifierFromItem(QTreeWidgetItem* item) const {
     const auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item, 0));
     return contents[checkBox->property("id").toInt()];
@@ -593,6 +566,15 @@ void ImportDialog::ShowAdvancedMenu() {
     connect(batch_build_cia, &QAction::triggered, this, &ImportDialog::StartBatchBuildingCIA);
 
     menu.exec(ui->advanced_button->mapToGlobal(ui->advanced_button->rect().bottomLeft()));
+}
+
+static QString FormatETA(int eta) {
+    if (eta < 0) {
+        return QStringLiteral("&nbsp;");
+    }
+    return QCoreApplication::translate("ImportDialog", "ETA %1m%2s")
+        .arg(eta / 60, 2, 10, QLatin1Char('0'))
+        .arg(eta % 60, 2, 10, QLatin1Char('0'));
 }
 
 // Runs the job, opening a dialog to report is progress.
@@ -713,6 +695,27 @@ void ImportDialog::RunSimpleJob(SimpleJob* job) {
     job->start();
 }
 
+void ImportDialog::StartImporting() {
+    UpdateSizeDisplay();
+    if (!ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->isEnabled()) {
+        // Space is no longer enough
+        QMessageBox::warning(this, tr("Not Enough Space"),
+                             tr("Your disk does not have enough space to hold imported data."));
+        return;
+    }
+
+    auto to_import = GetSelectedContentList();
+    const std::size_t total_count = to_import.size();
+
+    auto* job =
+        new MultiJob(this, importer, std::move(to_import), &Core::SDMCImporter::ImportContent,
+                     &Core::SDMCImporter::DeleteContent, &Core::SDMCImporter::AbortImporting);
+
+    RunMultiJob(job, total_count, total_selected_size);
+}
+
+// CXI dumping
+
 void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier) {
     const QString path = QFileDialog::getSaveFileName(this, tr("Dump CXI file"), last_dump_cxi_path,
                                                       tr("CTR Executable Image (*.cxi)"));
@@ -734,7 +737,7 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
     RunSimpleJob(job);
 }
 
-std::string GetCXIFileName(const Core::ContentSpecifier& specifier) {
+static std::string GetCXIFileName(const Core::ContentSpecifier& specifier) {
     return QStringLiteral("%1 (%2).cxi")
         .arg(QString::fromStdString(specifier.name))
         .arg(specifier.id, 16, 16, QLatin1Char('0'))
@@ -797,6 +800,8 @@ void ImportDialog::StartBatchDumpingCXI() {
     RunMultiJob(job, total_count, total_size);
 }
 
+// CIA building
+
 void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifier) {
     const QString path = QFileDialog::getSaveFileName(this, tr("Build CIA"), last_build_cia_path,
                                                       tr("CTR Importable Archive (*.cia)"));
@@ -818,7 +823,7 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
     RunSimpleJob(job);
 }
 
-std::string GetCIAFileName(const Core::ContentSpecifier& specifier) {
+static std::string GetCIAFileName(const Core::ContentSpecifier& specifier) {
     return QStringLiteral("%1 (%2).cia")
         .arg(QString::fromStdString(specifier.name))
         .arg(specifier.id, 16, 16, QLatin1Char('0'))
