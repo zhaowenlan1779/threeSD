@@ -52,7 +52,7 @@ after_build:
         } else {
           $BUILD_ZIP = "threeSD-windows-$GITDATE-$GITREV.zip" -replace " ", ""
         }
-        $env:BUILD_ZIP = $BUILD_SEVENZIP
+        $env:BUILD_ZIP = $BUILD_ZIP
         7z a $BUILD_ZIP release
 artifacts:
   - path: $(BUILD_ZIP)
