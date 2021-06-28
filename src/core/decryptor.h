@@ -33,7 +33,7 @@ public:
      */
     bool DecryptAndWriteFile(
         const std::string& source, const std::string& destination,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     void Abort();
 

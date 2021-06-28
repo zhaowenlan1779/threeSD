@@ -8,6 +8,7 @@
 #include <mutex>
 #include <string>
 #include "common/file_util.h"
+#include "common/progress_callback.h"
 #include "common/swap.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/title_metadata.h"
@@ -33,7 +34,7 @@ public:
      * @return true on success, false otherwise
      */
     bool Init(const std::string& destination, TitleMetadata tmd, const std::string& certs_db_path,
-              std::size_t total_size, const ProgressCallback& callback);
+              std::size_t total_size, const Common::ProgressCallback& callback);
 
     /**
      * Adds an NCCH content to the CIA.
@@ -103,7 +104,7 @@ private:
     std::shared_ptr<HashedFile> file;
     std::size_t written{}; // size written (with alignment)
     std::size_t total_size{};
-    ProgressCallback callback;
+    Common::ProgressCallback callback;
 
     // The NCCH to abort on
     std::mutex abort_ncch_mutex;

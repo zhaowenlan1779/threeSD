@@ -23,7 +23,7 @@ QuickDecryptor::~QuickDecryptor() = default;
 bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_,
                                          std::size_t size,
                                          std::shared_ptr<FileUtil::IOFile> destination_,
-                                         const ProgressCallback& callback_, bool decrypt_,
+                                         const Common::ProgressCallback& callback_, bool decrypt_,
                                          Core::Key::AESKey key_, Core::Key::AESKey ctr_,
                                          std::size_t aes_seek_pos_) {
     if (is_running) {

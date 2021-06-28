@@ -7,6 +7,7 @@
 #include <functional>
 #include <QThread>
 #include "common/common_types.h"
+#include "common/progress_callback.h"
 
 /**
  * Lightweight wrapper around QThread, for easy use with progressive jobs.
@@ -15,8 +16,7 @@ class SimpleJob : public QThread {
     Q_OBJECT
 
 public:
-    using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
-    using ExecuteFunc = std::function<bool(const ProgressCallback&)>;
+    using ExecuteFunc = std::function<bool(const Common::ProgressCallback&)>;
     using AbortFunc = std::function<void()>;
 
     explicit SimpleJob(QObject* parent, ExecuteFunc execute, AbortFunc abort);

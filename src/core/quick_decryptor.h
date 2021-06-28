@@ -9,13 +9,11 @@
 #include <memory>
 #include <string>
 #include "common/common_types.h"
+#include "common/progress_callback.h"
 #include "common/thread.h"
 #include "core/key/key.h"
 
 namespace Core {
-
-/// (current_size, total_size)
-using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
 
 /**
  * Helper that reads, decrypts and writes data. This uses three threads to process the data
@@ -41,8 +39,9 @@ public:
     bool DecryptAndWriteFile(
         std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
         std::shared_ptr<FileUtil::IOFile> destination,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {}, bool decrypt = false,
-        Core::Key::AESKey key = {}, Core::Key::AESKey ctr = {}, std::size_t aes_seek_pos = 0);
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {},
+        bool decrypt = false, Core::Key::AESKey key = {}, Core::Key::AESKey ctr = {},
+        std::size_t aes_seek_pos = 0);
 
     void DataReadLoop();
     void DataDecryptLoop();
@@ -79,7 +78,7 @@ private:
     std::unique_ptr<std::thread> decrypt_thread;
     std::unique_ptr<std::thread> write_thread;
 
-    ProgressCallback callback;
+    Common::ProgressCallback callback;
 
     Common::Event completion_event;
     bool is_good{true};

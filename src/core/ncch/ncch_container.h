@@ -11,6 +11,7 @@
 #include "common/bit_field.h"
 #include "common/common_types.h"
 #include "common/file_util.h"
+#include "common/progress_callback.h"
 #include "common/swap.h"
 #include "core/decryptor.h"
 #include "core/result_status.h"
@@ -274,7 +275,7 @@ public:
      */
     ResultStatus DecryptToFile(
         std::shared_ptr<FileUtil::IOFile> dest_file,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts DecryptToFile. Simply aborts the decryptor.

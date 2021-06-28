@@ -10,6 +10,7 @@ add_library(common STATIC
   logging/log.cpp
   logging/log.h
   misc.cpp
+  progress_callback.h
   scope_exit.h
   string_util.cpp
   string_util.h

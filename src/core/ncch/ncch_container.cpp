@@ -423,7 +423,7 @@ ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
 }
 
 ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
-                                          const ProgressCallback& callback) {
+                                          const Common::ProgressCallback& callback) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
         return result;

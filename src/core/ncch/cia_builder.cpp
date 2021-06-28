@@ -45,7 +45,7 @@ CIABuilder::~CIABuilder() = default;
 
 bool CIABuilder::Init(const std::string& destination, TitleMetadata tmd_,
                       const std::string& certs_db_path, std::size_t total_size_,
-                      const ProgressCallback& callback_) {
+                      const Common::ProgressCallback& callback_) {
 
     header = {};
     meta = {};

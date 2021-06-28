@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include "common/common_types.h"
+#include "common/progress_callback.h"
 
 namespace Core {
 
@@ -96,9 +97,6 @@ class NCCHContainer;
 
 class SDMCImporter {
 public:
-    /// (current_size, total_size)
-    using ProgressCallback = std::function<void(std::size_t, std::size_t)>;
-
     /**
      * Initializes the importer.
      * @param root_folder Path to the "Nintendo 3DS/<ID0>/<ID1>" folder.
@@ -114,7 +112,7 @@ public:
      */
     bool ImportContent(
         const ContentSpecifier& specifier,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current importing.
@@ -128,7 +126,7 @@ public:
      */
     bool DumpCXI(
         const ContentSpecifier& specifier, const std::string& destination,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current CXI dumping.
@@ -142,7 +140,7 @@ public:
      */
     bool BuildCIA(
         const ContentSpecifier& specifier, const std::string& destination,
-        const ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     /**
      * Aborts current CIA building
@@ -168,14 +166,15 @@ public:
 private:
     bool Init();
 
-    bool ImportTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
-    bool ImportNandTitle(const ContentSpecifier& specifier, const ProgressCallback& callback);
-    bool ImportSavegame(u64 id, const ProgressCallback& callback);
-    bool ImportNandSavegame(u64 id, const ProgressCallback& callback);
-    bool ImportExtdata(u64 id, const ProgressCallback& callback);
-    bool ImportNandExtdata(u64 id, const ProgressCallback& callback);
-    bool ImportSystemArchive(u64 id, const ProgressCallback& callback);
-    bool ImportSysdata(u64 id, const ProgressCallback& callback);
+    bool ImportTitle(const ContentSpecifier& specifier, const Common::ProgressCallback& callback);
+    bool ImportNandTitle(const ContentSpecifier& specifier,
+                         const Common::ProgressCallback& callback);
+    bool ImportSavegame(u64 id, const Common::ProgressCallback& callback);
+    bool ImportNandSavegame(u64 id, const Common::ProgressCallback& callback);
+    bool ImportExtdata(u64 id, const Common::ProgressCallback& callback);
+    bool ImportNandExtdata(u64 id, const Common::ProgressCallback& callback);
+    bool ImportSystemArchive(u64 id, const Common::ProgressCallback& callback);
+    bool ImportSysdata(u64 id, const Common::ProgressCallback& callback);
 
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListNandTitle(std::vector<ContentSpecifier>& out) const;

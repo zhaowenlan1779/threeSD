@@ -21,6 +21,7 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include "common/assert.h"
 #include "common/logging/log.h"
+#include "common/progress_callback.h"
 #include "common/scope_exit.h"
 #include "frontend/helpers/multi_job.h"
 #include "frontend/helpers/simple_job.h"
@@ -726,7 +727,7 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
 
     auto* job = new SimpleJob(
         this,
-        [this, specifier, path](const SimpleJob::ProgressCallback& callback) {
+        [this, specifier, path](const Common::ProgressCallback& callback) {
             if (!importer.DumpCXI(specifier, path.toStdString(), callback)) {
                 FileUtil::Delete(path.toStdString());
                 return false;
@@ -789,7 +790,7 @@ void ImportDialog::StartBatchDumpingCXI() {
     auto* job = new MultiJob(
         this, importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
-               const Core::SDMCImporter::ProgressCallback& callback) {
+               const Common::ProgressCallback& callback) {
             return importer.DumpCXI(specifier, path.toStdString() + GetCXIFileName(specifier),
                                     callback);
         },
@@ -812,7 +813,7 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
 
     auto* job = new SimpleJob(
         this,
-        [this, specifier, path](const SimpleJob::ProgressCallback& callback) {
+        [this, specifier, path](const Common::ProgressCallback& callback) {
             if (!importer.BuildCIA(specifier, path.toStdString(), callback)) {
                 FileUtil::Delete(path.toStdString());
                 return false;
@@ -878,7 +879,7 @@ void ImportDialog::StartBatchBuildingCIA() {
     auto* job = new MultiJob(
         this, importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
-               const Core::SDMCImporter::ProgressCallback& callback) {
+               const Common::ProgressCallback& callback) {
             return importer.BuildCIA(specifier, path.toStdString() + GetCIAFileName(specifier),
                                      callback);
         },

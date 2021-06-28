@@ -69,7 +69,7 @@ void SDMCImporter::AbortImporting() {
 }
 
 bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
-                                 const ProgressCallback& callback) {
+                                 const Common::ProgressCallback& callback) {
     switch (specifier.type) {
     case ContentType::Application:
     case ContentType::Update:
@@ -130,7 +130,7 @@ bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
 } // namespace
 
 bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
-                               const ProgressCallback& callback) {
+                               const Common::ProgressCallback& callback) {
     return ImportTitleGeneric(
         *decryptor, config.sdmc_path, specifier, [this, &callback](const std::string& filepath) {
             return decryptor->DecryptAndWriteFile(
@@ -144,7 +144,7 @@ bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
 }
 
 bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
-                                   const ProgressCallback& callback) {
+                                   const Common::ProgressCallback& callback) {
 
     const auto base_path =
         config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
@@ -167,7 +167,8 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
         });
 }
 
-bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportSavegame(u64 id,
+                                  [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("title/{:08x}/{:08x}/data/", (id >> 32), (id & 0xFFFFFFFF));
 
     DataContainer container(decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
@@ -190,7 +191,8 @@ bool SDMCImporter::ImportSavegame(u64 id, [[maybe_unused]] const ProgressCallbac
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportNandSavegame(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportNandSavegame(u64 id,
+                                      [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("sysdata/{:08x}/00000000", (id & 0xFFFFFFFF));
 
     FileUtil::IOFile file(config.nand_data_path + path, "rb");
@@ -216,7 +218,8 @@ bool SDMCImporter::ImportNandSavegame(u64 id, [[maybe_unused]] const ProgressCal
                                  1);
 }
 
-bool SDMCImporter::ImportExtdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportExtdata(u64 id,
+                                 [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
     SDExtdata extdata("/" + path, *decryptor);
     if (!extdata.IsGood()) {
@@ -228,7 +231,8 @@ bool SDMCImporter::ImportExtdata(u64 id, [[maybe_unused]] const ProgressCallback
         "Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportNandExtdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportNandExtdata(u64 id,
+                                     [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
     SDExtdata extdata(config.nand_data_path + path);
     if (!extdata.IsGood()) {
@@ -239,7 +243,8 @@ bool SDMCImporter::ImportNandExtdata(u64 id, [[maybe_unused]] const ProgressCall
                            "data/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportSystemArchive(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportSystemArchive(u64 id,
+                                       [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("{}{:08x}/{:08x}.app", config.system_archives_path, (id >> 32),
                                   (id & 0xFFFFFFFF));
     FileUtil::IOFile file(path, "rb");
@@ -273,7 +278,8 @@ bool SDMCImporter::ImportSystemArchive(u64 id, [[maybe_unused]] const ProgressCa
     return true;
 }
 
-bool SDMCImporter::ImportSysdata(u64 id, [[maybe_unused]] const ProgressCallback& callback) {
+bool SDMCImporter::ImportSysdata(u64 id,
+                                 [[maybe_unused]] const Common::ProgressCallback& callback) {
     switch (id) {
     case 0: { // boot9.bin
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9;
@@ -500,7 +506,7 @@ TitleData LoadTitleData(NCCHContainer& ncch) {
 }
 
 bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string& destination,
-                           const ProgressCallback& callback) {
+                           const Common::ProgressCallback& callback) {
 
     if (specifier.type != ContentType::Application) {
         LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
@@ -534,7 +540,7 @@ void SDMCImporter::AbortDumpCXI() {
 }
 
 bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string& destination,
-                            const ProgressCallback& callback) {
+                            const Common::ProgressCallback& callback) {
 
     if (config.certs_db_path.empty()) {
         LOG_ERROR(Core, "Missing certs.db");

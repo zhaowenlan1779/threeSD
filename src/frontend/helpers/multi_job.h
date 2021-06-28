@@ -7,6 +7,7 @@
 #include <atomic>
 #include <functional>
 #include <QThread>
+#include "common/progress_callback.h"
 #include "core/importer.h"
 
 class MultiJob : public QThread {
@@ -14,7 +15,7 @@ class MultiJob : public QThread {
 
 public:
     using ExecuteFunc = std::function<bool(Core::SDMCImporter&, const Core::ContentSpecifier&,
-                                           const Core::SDMCImporter::ProgressCallback&)>;
+                                           const Common::ProgressCallback&)>;
     using DeleteFunc = std::function<void(Core::SDMCImporter&, const Core::ContentSpecifier&)>;
     using AbortFunc = std::function<void(Core::SDMCImporter&)>;
 

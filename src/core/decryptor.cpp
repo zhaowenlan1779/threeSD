@@ -53,7 +53,7 @@ void SDMCDecryptor::Reset(std::size_t total_size) {
 }
 
 bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
-                                        const ProgressCallback& callback) {
+                                        const Common::ProgressCallback& callback) {
     if (!FileUtil::CreateFullPath(destination)) {
         LOG_ERROR(Core, "Could not create path {}", destination);
         return false;
