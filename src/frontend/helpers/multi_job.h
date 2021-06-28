@@ -16,10 +16,11 @@ public:
     using ExecuteFunc = std::function<bool(Core::SDMCImporter&, const Core::ContentSpecifier&,
                                            const Core::SDMCImporter::ProgressCallback&)>;
     using DeleteFunc = std::function<void(Core::SDMCImporter&, const Core::ContentSpecifier&)>;
+    using AbortFunc = std::function<void(Core::SDMCImporter&)>;
 
     explicit MultiJob(QObject* parent, Core::SDMCImporter& importer,
                       std::vector<Core::ContentSpecifier> contents, ExecuteFunc execute_func,
-                      DeleteFunc delete_func);
+                      DeleteFunc delete_func, AbortFunc abort_func);
     ~MultiJob() override;
 
     void run() override;
@@ -49,6 +50,7 @@ private:
     std::vector<Core::ContentSpecifier> failed_contents;
     ExecuteFunc execute_func;
     DeleteFunc delete_func;
+    AbortFunc abort_func;
 };
 
 Q_DECLARE_METATYPE(Core::ContentSpecifier)

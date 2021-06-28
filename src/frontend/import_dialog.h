@@ -12,6 +12,8 @@
 #include "core/importer.h"
 #include "core/ncch/ncch_container.h"
 
+class AdvancedMenu;
+class MultiJob;
 class SimpleJob;
 class QTreeWidgetItem;
 
@@ -32,7 +34,14 @@ private:
     void UpdateSizeDisplay();
     void UpdateItemCheckState(QTreeWidgetItem* item);
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
+
     void StartImporting();
+
+    void StartBatchDumpingCXI();
+    QString last_batch_dump_cxi_path; // Used for recording last path in StartBatchDumpingCXI
+
+    void StartBatchBuildingCIA();
+    QString last_batch_build_cia_path; // Used for recording last path in StartBatchBuildingCIA
 
     void InsertTopLevelItem(const QString& text, QPixmap icon = {});
     // When replace_name and replace_icon are present they are used instead of those in `content`.
@@ -43,13 +52,16 @@ private:
     Core::ContentSpecifier SpecifierFromItem(QTreeWidgetItem* item) const;
     void OnContextMenu(const QPoint& point);
 
+    void ShowAdvancedMenu();
+
+    void RunMultiJob(MultiJob* job, std::size_t total_count, u64 total_size);
     void RunSimpleJob(SimpleJob* job);
 
-    void StartDumpingCXI(const Core::ContentSpecifier& content);
-    QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXI
+    void StartDumpingCXISingle(const Core::ContentSpecifier& content);
+    QString last_dump_cxi_path; // Used for recording last path in StartDumpingCXISingle
 
-    void StartBuildingCIA(const Core::ContentSpecifier& content);
-    QString last_build_cia_path; // Used for recording last path in StartBuildingCIA
+    void StartBuildingCIASingle(const Core::ContentSpecifier& content);
+    QString last_build_cia_path; // Used for recording last path in StartBuildingCIASingle
 
     std::unique_ptr<Ui::ImportDialog> ui;
 
@@ -57,11 +69,15 @@ private:
     bool has_cert_db = false;
     Core::SDMCImporter importer;
     std::vector<Core::ContentSpecifier> contents;
-    u64 total_size = 0;
+    u64 total_selected_size = 0;
 
     // HACK: To tell whether the checkbox state change is a programmatic trigger
     // TODO: Is there a more elegant way of doing the same?
     bool program_trigger = false;
+
+    // HACK: Block advanced menu trigger once.
+    bool block_advanced_menu = false;
+    friend class AdvancedMenu;
 
     // Whether the System Archive / System Data warning has been shown
     bool system_warning_shown = false;
