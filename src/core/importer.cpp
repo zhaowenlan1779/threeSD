@@ -566,9 +566,10 @@ static std::string NormalizeFilename(std::string filename) {
         {':', '/', '\\', '"', '*', '?', '\n', '\r'}};
 
     const auto pred = [](char c) {
-        return std::ranges::find(IllegalCharacters, c) != IllegalCharacters.end();
+        return std::find(IllegalCharacters.begin(), IllegalCharacters.end(), c) !=
+               IllegalCharacters.end();
     };
-    std::ranges::replace_if(filename, pred, ' ');
+    std::replace_if(filename.begin(), filename.end(), pred, ' ');
 
     std::string result;
     for (std::size_t i = 0; i < filename.size(); ++i) {

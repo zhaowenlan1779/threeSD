@@ -79,11 +79,11 @@ bool CheckedMemcpy(void* dest, T& container, std::ptrdiff_t offset, std::size_t 
     return true;
 }
 
-consteval u32 MakeMagic(char a, char b, char c, char d) {
+constexpr u32 MakeMagic(char a, char b, char c, char d) {
     return a | b << 8 | c << 16 | d << 24;
 }
 
-consteval u64 MakeMagic(char a, char b, char c, char d, char e, char f, char g, char h) {
+constexpr u64 MakeMagic(char a, char b, char c, char d, char e, char f, char g, char h) {
     return u64(a) | u64(b) << 8 | u64(c) << 16 | u64(d) << 24 | u64(e) << 32 | u64(f) << 40 |
            u64(g) << 48 | u64(h) << 56;
 }
