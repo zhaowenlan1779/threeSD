@@ -40,3 +40,4 @@
 #define SEED_DB "seeddb.bin"
 #define AES_KEYS "aes_keys.txt"
 #define CERTS_DB "certs.db"
+#define TITLE_DB "title.db"

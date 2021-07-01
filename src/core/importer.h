@@ -15,6 +15,8 @@ namespace Core {
 
 class CIABuilder;
 class SDMCDecryptor;
+class TitleDB;
+class TitleMetadata;
 
 /**
  * Type of an importable content.
@@ -71,7 +73,8 @@ struct Config {
     std::string movable_sed_path; ///< Path to movable.sed
     std::string bootrom_path;     ///< Path to bootrom (boot9.bin) (Sysdata 0)
 
-    std::string certs_db_path; ///< Path to certs.db. Used while building CIA.
+    std::string certs_db_path;      ///< Path to certs.db. Used while building CIA.
+    std::string nand_title_db_path; ///< Path to NAND title.db. Entirely optional.
 
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
@@ -90,7 +93,7 @@ struct Config {
 };
 
 // Version of the current dumper.
-constexpr int CurrentDumperVersion = 3;
+constexpr int CurrentDumperVersion = 4;
 
 class SDMCFile;
 class NCCHContainer;
@@ -190,6 +193,8 @@ private:
     void DeleteSystemArchive(u64 id) const;
     void DeleteSysdata(u64 id) const;
 
+    bool LoadTMD(ContentType type, u64 id, TitleMetadata& out) const;
+
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> decryptor;
@@ -197,6 +202,9 @@ private:
 
     // The NCCH used to dump CXIs.
     std::unique_ptr<NCCHContainer> dump_cxi_ncch;
+
+    std::unique_ptr<TitleDB> sdmc_title_db{};
+    std::unique_ptr<TitleDB> nand_title_db{};
 };
 
 /**

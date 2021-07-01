@@ -207,6 +207,13 @@ const TitleMetadata::ContentChunk& TitleMetadata::GetContentChunkByID(u32 conten
     return *it;
 }
 
+bool TitleMetadata::HasContentID(u32 content_id) const {
+    const auto it =
+        std::find_if(tmd_chunks.begin(), tmd_chunks.end(),
+                     [content_id](const ContentChunk& chunk) { return chunk.id == content_id; });
+    return it != tmd_chunks.end();
+}
+
 void TitleMetadata::AddContentChunk(const ContentChunk& chunk) {
     tmd_chunks.push_back(chunk);
 }

@@ -12,10 +12,6 @@
 
 namespace Core {
 
-constexpr u32 MakeMagic(char a, char b, char c, char d) {
-    return a | b << 8 | c << 16 | d << 24;
-}
-
 InnerFAT::~InnerFAT() = default;
 
 bool InnerFAT::IsGood() const {

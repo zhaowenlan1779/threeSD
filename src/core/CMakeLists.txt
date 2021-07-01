@@ -26,6 +26,8 @@ add_library(core STATIC
   quick_decryptor.cpp
   quick_decryptor.h
   result_status.h
+  title_db.cpp
+  title_db.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

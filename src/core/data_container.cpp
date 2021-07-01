@@ -9,10 +9,6 @@
 
 namespace Core {
 
-constexpr u32 MakeMagic(char a, char b, char c, char d) {
-    return a | b << 8 | c << 16 | d << 24;
-}
-
 DPFSContainer::DPFSContainer(DPFSDescriptor descriptor_, u8 level1_selector_,
                              std::vector<u32_le> data_)
     : descriptor(descriptor_), level1_selector(level1_selector_), data(std::move(data_)) {

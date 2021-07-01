@@ -17,6 +17,7 @@
 #include "core/ncch/seed_db.h"
 #include "core/ncch/smdh.h"
 #include "core/ncch/title_metadata.h"
+#include "core/title_db.h"
 
 namespace Core {
 
@@ -55,6 +56,33 @@ bool SDMCImporter::Init() {
 
     decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
     cia_builder = std::make_unique<CIABuilder>();
+
+    // Load SDMC Title DB
+    {
+        DataContainer container(decryptor->DecryptFile("/dbs/title.db"));
+        std::vector<std::vector<u8>> data;
+        if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
+            sdmc_title_db = std::make_unique<TitleDB>(std::move(data[0]));
+        }
+    }
+    if (!sdmc_title_db || !sdmc_title_db->IsGood()) {
+        LOG_WARNING(Core, "SDMC title.db invalid");
+        sdmc_title_db.reset();
+    }
+
+    // Load NAND Title DB
+    if (!config.nand_title_db_path.empty()) {
+        FileUtil::IOFile file(config.nand_title_db_path, "rb");
+        DataContainer container(file.GetData());
+        std::vector<std::vector<u8>> data;
+        if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
+            nand_title_db = std::make_unique<TitleDB>(std::move(data[0]));
+        }
+    }
+    if (!nand_title_db || !nand_title_db->IsGood()) {
+        LOG_WARNING(Core, "NAND title.db invalid");
+        nand_title_db.reset();
+    }
 
     FileUtil::SetUserPath(config.user_path);
     return true;
@@ -426,17 +454,22 @@ static std::string FindTMD(const std::string& path) {
                 return true;
             }
 
-            if (virtual_name.substr(virtual_name.size() - 3) == "tmd" &&
+            if (virtual_name.size() == 12 &&
+                virtual_name.substr(virtual_name.size() - 4) == ".tmd" &&
                 std::regex_match(virtual_name.substr(0, 8), title_regex)) {
 
-                title_metadata = virtual_name;
-                return false;
+                // We would like to find the TMD with the smallest content ID,
+                // as that would be the finalized version, not the version
+                // pending installation
+                title_metadata =
+                    title_metadata.empty() ? virtual_name : std::min(title_metadata, virtual_name);
+                return true;
             }
 
             return true;
         });
 
-    if (ret) { // TMD not found
+    if (title_metadata.empty()) { // TMD not found
         return {};
     }
 
@@ -447,16 +480,39 @@ static std::string FindTMD(const std::string& path) {
     return path + title_metadata;
 }
 
-static bool LoadTMD(const std::string& sdmc_path, const std::string& path, SDMCDecryptor& decryptor,
-                    TitleMetadata& out) {
+bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
+    const bool is_nand = type == ContentType::SystemTitle;
 
-    const auto tmd = FindTMD(sdmc_path + path.substr(1));
-    if (tmd.empty()) {
-        return false;
+    auto& title_db = is_nand ? nand_title_db : sdmc_title_db;
+    const auto physical_path =
+        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path, (id >> 32),
+                              (id & 0xFFFFFFFF))
+                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path, (id >> 32),
+                              (id & 0xFFFFFFFF));
+
+    std::string tmd_path;
+    if (title_db && title_db->titles.count(id)) {
+        tmd_path =
+            fmt::format("{}{:08x}.tmd", physical_path, title_db->titles.at(id).tmd_content_id);
+    } else {
+        LOG_WARNING(Core, "Title {:016x} does not exist in title.db", id);
+        tmd_path = FindTMD(physical_path);
+        if (tmd_path.empty()) {
+            return false;
+        }
     }
 
-    return out.Load(decryptor.DecryptFile(tmd.substr(sdmc_path.size() - 1))) ==
-           ResultStatus::Success;
+    if (is_nand) {
+        FileUtil::IOFile file(tmd_path, "rb");
+        if (!file || file.GetSize() > 1024 * 1024) {
+            LOG_ERROR(Core, "Could not open {} or file too big", tmd_path);
+            return false;
+        }
+        return out.Load(file.GetData()) == ResultStatus::Success;
+    } else {
+        return out.Load(decryptor->DecryptFile(tmd_path.substr(config.sdmc_path.size() - 1))) ==
+               ResultStatus::Success;
+    }
 }
 
 // English short title name, extdata id, encryption, seed, icon
@@ -513,16 +569,14 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
         return false;
     }
 
-    const auto content_path = fmt::format("/title/{:08x}/{:08x}/content/", specifier.id >> 32,
-                                          (specifier.id & 0xFFFFFFFF));
     TitleMetadata tmd;
-    if (!LoadTMD(config.sdmc_path, content_path, *decryptor, tmd)) {
-        LOG_ERROR(Core, "Could not load tmd");
+    if (!LoadTMD(specifier.type, specifier.id, tmd)) {
         return false;
     }
 
     const auto boot_content_path =
-        fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
+        fmt::format("/title/{:08x}/{:08x}/content/{:08x}.app", specifier.id >> 32,
+                    (specifier.id & 0xFFFFFFFF), tmd.GetBootContentID());
     dump_cxi_ncch = std::make_unique<NCCHContainer>(
         std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
 
@@ -548,32 +602,35 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string
     }
 
     if (specifier.type != ContentType::Application && specifier.type != ContentType::Update &&
-        specifier.type != ContentType::DLC) {
+        specifier.type != ContentType::DLC && specifier.type != ContentType::SystemTitle) {
 
         LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
         return false;
     }
 
     // Load TMD
-    const auto path = fmt::format("/title/{:08x}/{:08x}/content/", (specifier.id >> 32),
-                                  (specifier.id & 0xFFFFFFFF));
     TitleMetadata tmd;
-    if (!LoadTMD(config.sdmc_path, path, *decryptor, tmd)) {
-        LOG_ERROR(Core, "Failed to load TMD from {}", path);
+    if (!LoadTMD(specifier.type, specifier.id, tmd)) {
         return false;
     }
 
-    const auto physical_path = config.sdmc_path + path.substr(1);
-    bool ret = cia_builder->Init(destination, std::move(tmd), config.certs_db_path,
+    const bool is_nand = specifier.type == ContentType::SystemTitle;
+    const auto physical_path =
+        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
+                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
+                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
+                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
+
+    bool ret = cia_builder->Init(destination, tmd, config.certs_db_path,
                                  FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
         return false;
     }
 
     const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
-        [this, specifier, path, &DirectoryEntryCallback](u64* /*num_entries_out*/,
-                                                         const std::string& directory,
-                                                         const std::string& virtual_name) {
+        [this, tmd, is_nand, specifier, &DirectoryEntryCallback](u64* /*num_entries_out*/,
+                                                                 const std::string& directory,
+                                                                 const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
                 if (virtual_name == "cmd") {
                     return true; // Skip cmd (not used in Citra)
@@ -592,9 +649,22 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string
             ASSERT(match.size() >= 2);
 
             const u32 id = static_cast<u32>(std::stoul(match[1], nullptr, 16));
-            const auto relative_path = directory.substr(config.sdmc_path.size() - 1) + virtual_name;
-            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
-            return cia_builder->AddContent(id, ncch);
+            if (!tmd.HasContentID(id)) {
+                LOG_WARNING(Core, "Ignoring content {} (not in TMD)", directory + virtual_name);
+                return true;
+            }
+
+            if (is_nand) {
+                NCCHContainer ncch(
+                    std::make_shared<FileUtil::IOFile>(directory + virtual_name, "rb"));
+                return cia_builder->AddContent(id, ncch);
+            } else {
+                const auto relative_path =
+                    directory.substr(config.sdmc_path.size() - 1) + virtual_name;
+                NCCHContainer ncch(
+                    std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
+                return cia_builder->AddContent(id, ncch);
+            }
         };
 
     if (!FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback)) {
@@ -633,12 +703,8 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
 
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
                     do {
-                        const auto content_path =
-                            fmt::format("/title/{:08x}/{}/content/", high_id, virtual_name);
-
                         TitleMetadata tmd;
-                        if (!LoadTMD(sdmc_path, content_path, *decryptor, tmd)) {
-                            LOG_WARNING(Core, "Could not load tmd from {}", content_path);
+                        if (!LoadTMD(type, id, tmd)) {
                             out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(directory + virtual_name +
                                                                           "/content/")});
@@ -646,7 +712,8 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                         }
 
                         const auto boot_content_path =
-                            fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
+                            fmt::format("/title/{:08x}/{}/content/{:08x}.app", high_id,
+                                        virtual_name, tmd.GetBootContentID());
                         NCCHContainer ncch(
                             std::make_shared<SDMCFile>(sdmc_path, boot_content_path, "rb"));
                         if (ncch.Load() != ResultStatus::Success) {
@@ -692,39 +759,14 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
     ProcessDirectory(ContentType::DLC, 0x0004008c);
 }
 
-static bool LoadNandTMD(const std::string& path, TitleMetadata& out) {
-
-    const auto tmd = FindTMD(path);
-    if (tmd.empty()) {
-        return false;
-    }
-
-    FileUtil::IOFile file(tmd, "rb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open file {}", tmd);
-        return false;
-    }
-    if (file.GetSize() >= 1024 * 1024) { // Too big
-        LOG_ERROR(Core, "TMD {} too big", tmd);
-        return false;
-    }
-
-    std::vector<u8> data(file.GetSize());
-    if (file.ReadBytes(data.data(), data.size()) != data.size()) {
-        LOG_ERROR(Core, "Could not read from {}", tmd);
-        return false;
-    }
-    return out.Load(std::move(data)) == ResultStatus::Success;
-}
-
 // TODO: Simplify.
 void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [&out,
+    const auto ProcessDirectory = [this, &out,
                                    &system_titles_path = config.system_titles_path](u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, fmt::format("{}{:08x}/", system_titles_path, high_id),
-            [high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
-                            const std::string& virtual_name) {
+            [this, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
+                                  const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
@@ -742,8 +784,7 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(content_path)) {
                     do {
                         TitleMetadata tmd;
-                        if (!LoadNandTMD(content_path, tmd)) {
-                            LOG_WARNING(Core, "Could not load tmd from {}", content_path);
+                        if (!LoadTMD(ContentType::SystemTitle, id, tmd)) {
                             out.push_back({ContentType::SystemTitle, id,
                                            FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(content_path)});
@@ -1085,6 +1126,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(movable_sed_path, MOVABLE_SED);
         LOAD_DATA(bootrom_path, BOOTROM9);
         LOAD_DATA(certs_db_path, CERTS_DB);
+        LOAD_DATA(nand_title_db_path, TITLE_DB);
         LOAD_DATA(safe_mode_firm_path, "firm/");
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);

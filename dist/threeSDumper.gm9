@@ -39,6 +39,9 @@ end
 # === ticket.db
 cp -w -n "1:/dbs/ticket.db" $[OUT]/ticket.db
 
+# === title.db
+cp -w -n "1:/dbs/title.db" $[OUT]/title.db
+
 # === Safe mode firm
 if not find $[OUT]/firm NULL
     mkdir $[OUT]/firm
@@ -187,7 +190,7 @@ else
 end
 
 # === Write version
-dumptxt $[OUT]/version.txt 3
+dumptxt $[OUT]/version.txt 4
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
 echo "Successfully dumped necessary\nfiles for threeSD."

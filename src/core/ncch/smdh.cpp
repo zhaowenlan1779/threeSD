@@ -4,14 +4,11 @@
 
 #include <cstring>
 #include <vector>
+#include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "core/ncch/smdh.h"
 
 namespace Core {
-
-constexpr u32 MakeMagic(char a, char b, char c, char d) {
-    return a | b << 8 | c << 16 | d << 24;
-}
 
 // 8x8 Z-Order coordinate from 2D coordinates
 static constexpr u32 MortonInterleave(u32 x, u32 y) {

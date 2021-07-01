@@ -127,6 +127,7 @@ public:
 
     ContentChunk& GetContentChunkByID(u32 content_id);
     const ContentChunk& GetContentChunkByID(u32 content_id) const;
+    bool HasContentID(u32 content_id) const;
 
     void SetTitleID(u64 title_id);
     void SetTitleType(u32 type);

@@ -175,7 +175,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     file->SetHashEnabled(false);
 
     // DLCs do not have a meta
-    if (tmd_chunk.index != TMDContentIndex::Main || (tmd.GetTitleID() & 0x0004008c'00000000)) {
+    if (tmd_chunk.index != TMDContentIndex::Main || (tmd.GetTitleID() >> 32) == 0x0004008c) {
         return true;
     }
 

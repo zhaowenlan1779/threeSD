@@ -843,19 +843,20 @@ void ImportDialog::StartBatchBuildingCIA() {
         to_import.begin(), to_import.end(), [](const Core::ContentSpecifier& specifier) {
             return specifier.type != Core::ContentType::Application &&
                    specifier.type != Core::ContentType::Update &&
-                   specifier.type != Core::ContentType::DLC;
+                   specifier.type != Core::ContentType::DLC &&
+                   specifier.type != Core::ContentType::SystemTitle;
         });
     if (removed_iter == to_import.begin()) { // No Titles selected
         QMessageBox::critical(this, tr("threeSD"),
                               tr("The contents selected are not supported.<br>You can only build "
-                                 "CIAs from Applications, Updates and DLCs."));
+                                 "CIAs from Applications, Updates, DLCs and System Titles."));
         return;
     }
     if (removed_iter != to_import.end()) { // Some non-Titles selected
         QMessageBox::warning(
             this, tr("threeSD"),
             tr("Some contents selected are not supported and will be ignored.<br>Only "
-               "Applications, Updates and DLCs will be built as CIAs."));
+               "Applications, Updates, DLCs and System Titles will be built as CIAs."));
     }
 
     to_import.erase(removed_iter, to_import.end());
