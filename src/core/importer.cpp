@@ -561,8 +561,53 @@ TitleData LoadTitleData(NCCHContainer& ncch) {
             encryption, seed_crypto, smdh.GetIcon(false)};
 }
 
-bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string& destination,
-                           const Common::ProgressCallback& callback) {
+static std::string NormalizeFilename(std::string filename) {
+    static constexpr std::array<char, 8> IllegalCharacters{
+        {':', '/', '\\', '"', '*', '?', '\n', '\r'}};
+
+    const auto pred = [](char c) {
+        return std::ranges::find(IllegalCharacters, c) != IllegalCharacters.end();
+    };
+    std::ranges::replace_if(filename, pred, ' ');
+
+    std::string result;
+    for (std::size_t i = 0; i < filename.size(); ++i) {
+        if (i < filename.size() - 1 && filename[i] == ' ' && filename[i + 1] == ' ') {
+            continue;
+        }
+        result.push_back(filename[i]);
+    }
+    return result;
+}
+
+static std::string GetTitleFileName(NCCHContainer& ncch) {
+    std::string codeset_name;
+    ncch.ReadCodesetName(codeset_name);
+
+    std::string product_code;
+    ncch.ReadProductCode(product_code);
+
+    u64 program_id{};
+    ncch.ReadProgramId(program_id);
+
+    std::vector<u8> smdh_buffer;
+    if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success ||
+        smdh_buffer.size() != sizeof(SMDH)) {
+        LOG_WARNING(Core, "Failed to load icon in ExeFS or size incorrect");
+        return NormalizeFilename(
+            fmt::format("{:016x} {} ({})", program_id, codeset_name, product_code));
+    } else {
+        SMDH smdh;
+        std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
+        const auto short_title =
+            Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+        return NormalizeFilename(fmt::format("{:016x} {} ({}) ({})", program_id, short_title,
+                                             product_code, smdh.GetRegionString()));
+    }
+}
+
+bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destination,
+                           const Common::ProgressCallback& callback, bool auto_filename) {
 
     if (specifier.type != ContentType::Application) {
         LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
@@ -580,6 +625,13 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, const std::string&
     dump_cxi_ncch = std::make_unique<NCCHContainer>(
         std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
 
+    if (auto_filename) {
+        if (destination.back() != '/' && destination.back() != '\\') {
+            destination.push_back('/');
+        }
+        destination.append(GetTitleFileName(*dump_cxi_ncch)).append(".cxi");
+    }
+
     if (!FileUtil::CreateFullPath(destination)) {
         LOG_ERROR(Core, "Failed to create path {}", destination);
         return false;
@@ -593,8 +645,8 @@ void SDMCImporter::AbortDumpCXI() {
     dump_cxi_ncch->AbortDecryptToFile();
 }
 
-bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string& destination,
-                            const Common::ProgressCallback& callback) {
+bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string destination,
+                            const Common::ProgressCallback& callback, bool auto_filename) {
 
     if (config.certs_db_path.empty()) {
         LOG_ERROR(Core, "Missing certs.db");
@@ -620,6 +672,22 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, const std::string
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
                 : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
+
+    if (auto_filename) {
+        if (destination.back() != '/' && destination.back() != '\\') {
+            destination.push_back('/');
+        }
+        const auto boot_content_path =
+            fmt::format("{}{:08x}.app", physical_path, tmd.GetBootContentID());
+        if (is_nand) {
+            NCCHContainer ncch(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
+            destination.append(GetTitleFileName(ncch)).append(".cia");
+        } else {
+            const auto relative_path = boot_content_path.substr(config.sdmc_path.size() - 1);
+            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
+            destination.append(GetTitleFileName(ncch)).append(".cia");
+        }
+    }
 
     bool ret = cia_builder->Init(destination, tmd, config.certs_db_path,
                                  FileUtil::GetDirectoryTreeSize(physical_path), callback);

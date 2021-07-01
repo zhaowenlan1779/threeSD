@@ -62,17 +62,6 @@ struct SMDH {
         TraditionalChinese = 11
     };
 
-    enum class GameRegion {
-        Japan = 0,
-        NorthAmerica = 1,
-        Europe = 2,
-        Australia = 3,
-        China = 4,
-        Korea = 5,
-        Taiwan = 6,
-        RegionFree = 7,
-    };
-
     /**
      * Gets game icon from SMDH
      * @param large If true, returns large icon (48x48), otherwise returns small icon (24x24)
@@ -87,7 +76,8 @@ struct SMDH {
      */
     std::array<u16, 0x40> GetShortTitle(Core::SMDH::TitleLanguage language) const;
 
-    std::vector<GameRegion> GetRegions() const;
+    /// Gets a string representing the supported regions.
+    std::string GetRegionString() const;
 };
 static_assert(sizeof(SMDH) == 0x36C0, "SMDH structure size is wrong");
 

@@ -258,6 +258,12 @@ public:
     ResultStatus ReadCodesetName(std::string& name);
 
     /**
+     * Reads the product code.
+     * @return ResultStatus result of function.
+     */
+    ResultStatus ReadProductCode(std::string& name);
+
+    /**
      * Gets encryption type (which key is used).
      * @return ResultStatus result of function.
      */

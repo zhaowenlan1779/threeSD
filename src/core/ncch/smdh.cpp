@@ -88,20 +88,25 @@ std::array<u16, 0x40> SMDH::GetShortTitle(Core::SMDH::TitleLanguage language) co
     return titles[static_cast<int>(language)].short_title;
 }
 
-std::vector<SMDH::GameRegion> SMDH::GetRegions() const {
-    if (region_lockout == 0x7fffffff) {
-        return std::vector<GameRegion>{GameRegion::RegionFree};
-    }
-
+std::string SMDH::GetRegionString() const {
     constexpr u32 REGION_COUNT = 7;
-    std::vector<GameRegion> result;
+
+    // JPN/USA/EUR/Australia/CHN/KOR/TWN
+    // Australia does not have a symbol because it's practically the same as Europe
+    static const std::array<std::string, REGION_COUNT> RegionSymbols{
+        {"J", "U", "E", "", "C", "K", "T"}};
+
+    std::string region_string;
     for (u32 region = 0; region < REGION_COUNT; ++region) {
         if (region_lockout & (1 << region)) {
-            result.push_back(static_cast<GameRegion>(region));
+            region_string.append(RegionSymbols[region]);
         }
     }
 
-    return result;
+    if (region_string == "JUECKT") {
+        return "W";
+    }
+    return region_string;
 }
 
 } // namespace Core

@@ -127,9 +127,8 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool DumpCXI(
-        const ContentSpecifier& specifier, const std::string& destination,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool DumpCXI(const ContentSpecifier& specifier, std::string destination,
+                 const Common::ProgressCallback& callback, bool auto_filename = false);
 
     /**
      * Aborts current CXI dumping.
@@ -141,9 +140,8 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool BuildCIA(
-        const ContentSpecifier& specifier, const std::string& destination,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+    bool BuildCIA(const ContentSpecifier& specifier, std::string destination,
+                  const Common::ProgressCallback& callback, bool auto_filename = false);
 
     /**
      * Aborts current CIA building

@@ -738,13 +738,6 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
     RunSimpleJob(job);
 }
 
-static std::string GetCXIFileName(const Core::ContentSpecifier& specifier) {
-    return QStringLiteral("%1 (%2).cxi")
-        .arg(QString::fromStdString(specifier.name))
-        .arg(specifier.id, 16, 16, QLatin1Char('0'))
-        .toStdString();
-}
-
 void ImportDialog::StartBatchDumpingCXI() {
     auto to_import = GetSelectedContentList();
     if (to_import.empty()) {
@@ -791,11 +784,10 @@ void ImportDialog::StartBatchDumpingCXI() {
         this, importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
                const Common::ProgressCallback& callback) {
-            return importer.DumpCXI(specifier, path.toStdString() + GetCXIFileName(specifier),
-                                    callback);
+            return importer.DumpCXI(specifier, path.toStdString(), callback, true);
         },
         [path](Core::SDMCImporter& /*importer*/, const Core::ContentSpecifier& specifier) {
-            FileUtil::Delete(path.toStdString() + GetCXIFileName(specifier));
+            // TODO: FileUtil::Delete(path.toStdString() + GetCXIFileName(specifier));
         },
         &Core::SDMCImporter::AbortDumpCXI);
     RunMultiJob(job, total_count, total_size);
@@ -822,13 +814,6 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
         },
         [this] { importer.AbortBuildCIA(); });
     RunSimpleJob(job);
-}
-
-static std::string GetCIAFileName(const Core::ContentSpecifier& specifier) {
-    return QStringLiteral("%1 (%2).cia")
-        .arg(QString::fromStdString(specifier.name))
-        .arg(specifier.id, 16, 16, QLatin1Char('0'))
-        .toStdString();
 }
 
 void ImportDialog::StartBatchBuildingCIA() {
@@ -881,11 +866,10 @@ void ImportDialog::StartBatchBuildingCIA() {
         this, importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
                const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(specifier, path.toStdString() + GetCIAFileName(specifier),
-                                     callback);
+            return importer.BuildCIA(specifier, path.toStdString(), callback, true);
         },
         [path](Core::SDMCImporter& /*importer*/, const Core::ContentSpecifier& specifier) {
-            FileUtil::Delete(path.toStdString() + GetCIAFileName(specifier));
+            // TODO: FileUtil::Delete(path.toStdString() + GetCIAFileName(specifier));
         },
         &Core::SDMCImporter::AbortBuildCIA);
     RunMultiJob(job, total_count, total_size);

@@ -371,6 +371,17 @@ ResultStatus NCCHContainer::ReadCodesetName(std::string& name) {
     return ResultStatus::Success;
 }
 
+ResultStatus NCCHContainer::ReadProductCode(std::string& product_code) {
+    ResultStatus result = Load();
+    if (result != ResultStatus::Success)
+        return result;
+
+    std::array<char, 17> data{};
+    std::memcpy(data.data(), ncch_header.product_code, 16);
+    product_code = data.data();
+    return ResultStatus::Success;
+}
+
 ResultStatus NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
     ResultStatus result = Load();
     if (result != ResultStatus::Success)
