@@ -130,7 +130,7 @@ struct FullHeaderInternal2<void> {
 } // namespace detail
 
 template <typename Preheader = void>
-using FullHeader = detail::FullHeaderInternal2<Preheader>::Type;
+using FullHeader = typename detail::FullHeaderInternal2<Preheader>::Type;
 
 template <typename T, typename Preheader = void,
           typename DirectoryEntryType = DirectoryEntryTableEntry,
