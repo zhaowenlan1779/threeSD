@@ -288,12 +288,8 @@ void UtilitiesDialog::RomFSExtractionTool() {
         }
 
         const auto& shared_romfs = Core::LoadSharedRomFS(data);
-        FileUtil::IOFile dest_file(destination.toStdString(), "wb");
-        if (dest_file.WriteBytes(shared_romfs.data(), shared_romfs.size()) != shared_romfs.size()) {
-            return false;
-        }
-
-        return true;
+        return FileUtil::WriteBytesToFile(destination.toStdString(), shared_romfs.data(),
+                                          shared_romfs.size());
     });
 }
 

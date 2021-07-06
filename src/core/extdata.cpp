@@ -92,12 +92,6 @@ bool Extdata::ExtractFile(const std::string& path, std::size_t index) const {
     /// Maximum amount of device files a device directory can hold.
     constexpr u32 DeviceDirCapacity = 126;
 
-    FileUtil::IOFile file(path, "wb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open file {}", path);
-        return false;
-    }
-
     u32 file_index = index + 1;
     u32 sub_directory_id = file_index / DeviceDirCapacity;
     u32 sub_file_id = file_index % DeviceDirCapacity;
@@ -120,12 +114,7 @@ bool Extdata::ExtractFile(const std::string& path, std::size_t index) const {
         return false;
     }
 
-    if (file.WriteBytes(data[0].data(), data[0].size()) != data[0].size()) {
-        LOG_ERROR(Core, "Write data failed (file: {})", path);
-        return false;
-    }
-
-    return true;
+    return FileUtil::WriteBytesToFile(path, data[0].data(), data[0].size());
 }
 
 ArchiveFormatInfo Extdata::GetFormatInfo() const {

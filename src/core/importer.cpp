@@ -293,18 +293,7 @@ bool SDMCImporter::ImportSystemArchive(u64 id,
         return false;
     }
 
-    FileUtil::IOFile target(target_path, "wb");
-    if (!target) {
-        LOG_ERROR(Core, "Could not open {}", target_path);
-        return false;
-    }
-
-    if (target.WriteBytes(romfs.data(), romfs.size()) != romfs.size()) {
-        LOG_ERROR(Core, "Failed to write to {}", target_path);
-        return false;
-    }
-
-    return true;
+    return FileUtil::WriteBytesToFile(target_path, romfs.data(), romfs.size());
 }
 
 bool SDMCImporter::ImportSysdata(u64 id,
