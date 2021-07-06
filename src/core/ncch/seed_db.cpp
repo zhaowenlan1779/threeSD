@@ -14,14 +14,7 @@ namespace Core {
 bool SeedDB::Load(const std::string& path) {
     seeds.clear();
     if (!FileUtil::Exists(path)) {
-        if (!FileUtil::CreateFullPath(path)) {
-            LOG_ERROR(Service_FS, "Failed to create seed database");
-            return false;
-        }
-        if (!Save(path)) {
-            LOG_ERROR(Service_FS, "Failed to save seed database");
-            return false;
-        }
+        LOG_WARNING(Service_FS, "Seed database does not exist");
         return true;
     }
     FileUtil::IOFile file{path, "rb"};
