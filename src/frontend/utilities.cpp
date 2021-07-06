@@ -10,9 +10,10 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include "core/data_container.h"
 #include "core/decryptor.h"
-#include "core/inner_fat.h"
+#include "core/extdata.h"
 #include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
+#include "core/savegame.h"
 #include "frontend/select_files_dialog.h"
 #include "frontend/utilities.h"
 #include "ui_utilities.h"
@@ -211,7 +212,7 @@ void UtilitiesDialog::SaveDataExtractionTool() {
                 return false;
             }
 
-            Core::SDSavegame save(std::move(container_data));
+            Core::Savegame save(std::move(container_data));
             if (!save.IsGood()) {
                 return false;
             }
@@ -237,7 +238,7 @@ void UtilitiesDialog::SaveDataExtractionTool() {
                 return false;
             }
 
-            Core::SDSavegame save(std::move(container_data));
+            Core::Savegame save(std::move(container_data));
             if (!save.IsGood()) {
                 return false;
             }
@@ -264,7 +265,7 @@ void UtilitiesDialog::ExtdataExtractionTool() {
     ShowProgressDialog(
         [sdmc_root = sdmc_root, relative_source = relative_source, destination = destination] {
             Core::SDMCDecryptor decryptor(sdmc_root);
-            Core::SDExtdata extdata(relative_source, decryptor);
+            Core::Extdata extdata(relative_source, decryptor);
             if (!extdata.IsGood()) {
                 return false;
             }

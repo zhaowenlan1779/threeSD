@@ -9,14 +9,15 @@
 #include "common/string_util.h"
 #include "core/data_container.h"
 #include "core/decryptor.h"
+#include "core/extdata.h"
 #include "core/importer.h"
-#include "core/inner_fat.h"
 #include "core/key/key.h"
 #include "core/ncch/cia_builder.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/seed_db.h"
 #include "core/ncch/smdh.h"
 #include "core/ncch/title_metadata.h"
+#include "core/savegame.h"
 #include "core/title_db.h"
 
 namespace Core {
@@ -209,7 +210,7 @@ bool SDMCImporter::ImportSavegame(u64 id,
         return false;
     }
 
-    SDSavegame save(std::move(container_data));
+    Savegame save(std::move(container_data));
     if (!save.IsGood()) {
         return false;
     }
@@ -236,7 +237,7 @@ bool SDMCImporter::ImportNandSavegame(u64 id,
         return false;
     }
 
-    SDSavegame save(std::move(container_data));
+    Savegame save(std::move(container_data));
     if (!save.IsGood()) {
         return false;
     }
@@ -249,7 +250,7 @@ bool SDMCImporter::ImportNandSavegame(u64 id,
 bool SDMCImporter::ImportExtdata(u64 id,
                                  [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
-    SDExtdata extdata("/" + path, *decryptor);
+    Extdata extdata("/" + path, *decryptor);
     if (!extdata.IsGood()) {
         return false;
     }
@@ -262,7 +263,7 @@ bool SDMCImporter::ImportExtdata(u64 id,
 bool SDMCImporter::ImportNandExtdata(u64 id,
                                      [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
-    SDExtdata extdata(config.nand_data_path + path);
+    Extdata extdata(config.nand_data_path + path);
     if (!extdata.IsGood()) {
         return false;
     }
@@ -412,7 +413,7 @@ bool SDMCImporter::ImportSysdata(u64 id,
             return false;
         }
 
-        SDSavegame save(std::move(container_data));
+        Savegame save(std::move(container_data));
         if (!save.IsGood()) {
             return false;
         }

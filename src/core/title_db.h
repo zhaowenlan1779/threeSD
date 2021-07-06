@@ -10,22 +10,28 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/swap.h"
-#include "core/inner_fat.h"
+#include "core/inner_fat.hpp"
 
 namespace Core {
 
-struct TitleDBHeader {
+struct TitleDBPreheader {
     u64_le db_magic;
     INSERT_PADDING_BYTES(0x78);
-    FATHeader fat_header;
-    FileSystemInformation fs_info;
 };
-constexpr std::size_t TitleDBPreheaderSize = 0x80;
-static_assert(sizeof(TitleDBHeader) ==
-                  TitleDBPreheaderSize + sizeof(FATHeader) + sizeof(FileSystemInformation),
-              "TitleDB preheader has incorrect size");
+static_assert(sizeof(TitleDBPreheader) == 0x80, "TitleDB pre-header has incorrect size");
 
 #pragma pack(push, 1)
+struct TitleDBDirectoryEntryTableEntry {
+    u32_le parent_directory_index;
+    u32_le next_sibling_index;
+    u32_le first_subdirectory_index;
+    u32_le first_file_index;
+    INSERT_PADDING_BYTES(12);
+    u32_le next_hash_bucket_entry;
+};
+static_assert(sizeof(TitleDBDirectoryEntryTableEntry) == 0x20,
+              "TitleDBDirectoryEntryTableEntry has incorrect size");
+
 struct TitleDBFileEntryTableEntry {
     u32_le parent_directory_index;
     u64_le title_id;
@@ -56,7 +62,11 @@ struct TitleInfoEntry {
 };
 static_assert(sizeof(TitleInfoEntry) == 0x80, "TitleInfoEntry has incorrect size");
 
-class TitleDB {
+class TitleDB;
+using InnerFAT_TitleDB = InnerFAT<TitleDB, TitleDBPreheader, TitleDBDirectoryEntryTableEntry,
+                                  TitleDBFileEntryTableEntry>;
+
+class TitleDB final : public InnerFAT_TitleDB {
 public:
     explicit TitleDB(std::vector<u8> data);
     bool IsGood() const;
@@ -65,11 +75,12 @@ public:
 
 private:
     bool Init(std::vector<u8> data);
-    bool LoadTitleInfo(const std::vector<u8>& data, u32 index);
+    bool CheckMagic() const;
+    bool LoadTitleInfo(u32 index);
 
     bool is_good = false;
-    TitleDBHeader header;
-    std::vector<TitleDBFileEntryTableEntry> file_entry_table;
+
+    friend InnerFAT_TitleDB;
 };
 
 } // namespace Core

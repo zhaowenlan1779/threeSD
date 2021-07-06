@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <vector>
 #include "common/common_types.h"
+#include "common/logging/log.h"
 #ifdef _MSC_VER
 #include "common/string_util.h"
 #endif
@@ -250,6 +251,25 @@ private:
     std::FILE* m_file = nullptr;
     bool m_good = true;
 };
+
+template <typename T>
+bool WriteBytesToFile(const std::string& path, T* data, std::size_t length) {
+    if (!CreateFullPath(path)) {
+        LOG_ERROR(Core, "Could not create path {}", path);
+        return false;
+    }
+
+    IOFile file(path, "wb");
+    if (!file.IsOpen()) {
+        LOG_ERROR(Core, "Could not open file {}", path);
+        return false;
+    }
+    if (file.WriteBytes(data, length) != length) {
+        LOG_ERROR(Core, "Write data failed (file: {})", path);
+        return false;
+    }
+    return true;
+}
 
 } // namespace FileUtil
 
