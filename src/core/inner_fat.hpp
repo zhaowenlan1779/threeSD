@@ -169,7 +169,8 @@ protected:
             }
             const auto offset = PreheaderSize + fs_info.data_region_offset;
             ASSERT(partitions[0].size() > offset);
-            const auto to_copy = std::min(data_region.size(), partitions[0].size() - offset);
+            const auto to_copy =
+                std::min<std::size_t>(data_region.size(), partitions[0].size() - offset);
             std::memcpy(data_region.data(), partitions[0].data() + offset, to_copy);
         } else {
             data_region = std::move(partitions[1]);
