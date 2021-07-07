@@ -77,11 +77,12 @@ bool CIABuilder::Init(const std::string& destination, TitleMetadata tmd_,
 
     // Ticket
     ticket_offset = Common::AlignUp(cert_offset + header.cert_size, CIA_ALIGNMENT);
-    header.tik_size = sizeof(Ticket);
 
-    Ticket fake_ticket = BuildFakeTicket(tmd.GetTitleID());
+    const auto fake_ticket = BuildFakeTicket(tmd.GetTitleID()).GetData();
+    header.tik_size = fake_ticket.size();
+
     file->Seek(ticket_offset, SEEK_SET);
-    if (file->WriteBytes(&fake_ticket, sizeof(fake_ticket)) != sizeof(fake_ticket)) {
+    if (file->WriteBytes(fake_ticket.data(), fake_ticket.size()) != fake_ticket.size()) {
         LOG_ERROR(Core, "Could not write ticket to file {}", destination);
         file.reset();
         return false;

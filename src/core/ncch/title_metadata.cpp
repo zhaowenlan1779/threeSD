@@ -9,6 +9,7 @@
 #include "common/assert.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
+#include "core/ncch/cia_common.h"
 #include "core/ncch/title_metadata.h"
 
 namespace Core {

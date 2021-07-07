@@ -14,6 +14,7 @@ add_library(core STATIC
   key/key.h
   ncch/cia_builder.cpp
   ncch/cia_builder.h
+  ncch/cia_common.h
   ncch/ncch_container.cpp
   ncch/ncch_container.h
   ncch/seed_db.cpp
