@@ -22,7 +22,7 @@ constexpr std::size_t CIA_HEADER_SIZE = 0x2020;
 constexpr std::size_t CIA_CERT_SIZE = 0xA00;
 constexpr std::size_t CIA_METADATA_SIZE = 0x3AC0;
 
-class Config;
+struct Config;
 class HashedFile;
 
 class CIABuilder {
