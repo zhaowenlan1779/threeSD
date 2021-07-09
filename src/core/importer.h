@@ -72,9 +72,12 @@ struct Config {
     // Necessary system files keys are loaded from.
     std::string movable_sed_path; ///< Path to movable.sed
     std::string bootrom_path;     ///< Path to bootrom (boot9.bin) (Sysdata 0)
+    std::string certs_db_path;    ///< Path to certs.db. Used while building CIA.
 
-    std::string certs_db_path;      ///< Path to certs.db. Used while building CIA.
-    std::string nand_title_db_path; ///< Path to NAND title.db. Entirely optional.
+    // Optional, used while building CIA, but usually missing these files won't hinder CIA building.
+    std::string nand_title_db_path;      ///< Path to NAND title.db. Entirely optional.
+    std::string ticket_db_path;          ///< Path to ticket.db. Entirely optional.
+    std::string enc_title_keys_bin_path; ///< Path to encTitleKeys.bin. Entireley optional.
 
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.

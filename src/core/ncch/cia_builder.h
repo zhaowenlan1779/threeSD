@@ -22,6 +22,7 @@ constexpr std::size_t CIA_HEADER_SIZE = 0x2020;
 constexpr std::size_t CIA_CERT_SIZE = 0xA00;
 constexpr std::size_t CIA_METADATA_SIZE = 0x3AC0;
 
+class Config;
 class HashedFile;
 
 class CIABuilder {
@@ -33,7 +34,7 @@ public:
      * Initializes the building of the CIA.
      * @return true on success, false otherwise
      */
-    bool Init(const std::string& destination, TitleMetadata tmd, const std::string& certs_db_path,
+    bool Init(const std::string& destination, TitleMetadata tmd, const Config& config,
               std::size_t total_size, const Common::ProgressCallback& callback);
 
     /**
@@ -90,6 +91,7 @@ private:
     static_assert(sizeof(Metadata) == CIA_METADATA_SIZE, "CIA Metadata structure size is wrong");
 
     bool WriteCert(const std::string& certs_db_path);
+    bool WriteTicket(const std::string& ticket_db_path, const std::string& enc_title_keys_bin_path);
 
     Header header{};
     Metadata meta{};

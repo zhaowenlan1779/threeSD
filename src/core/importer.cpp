@@ -73,12 +73,7 @@ bool SDMCImporter::Init() {
 
     // Load NAND Title DB
     if (!config.nand_title_db_path.empty()) {
-        FileUtil::IOFile file(config.nand_title_db_path, "rb");
-        DataContainer container(file.GetData());
-        std::vector<std::vector<u8>> data;
-        if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
-            nand_title_db = std::make_unique<TitleDB>(std::move(data[0]));
-        }
+        nand_title_db = std::make_unique<TitleDB>(config.nand_title_db_path);
     }
     if (!nand_title_db || !nand_title_db->IsGood()) {
         LOG_WARNING(Core, "NAND title.db invalid");
@@ -680,7 +675,7 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string desti
         }
     }
 
-    bool ret = cia_builder->Init(destination, tmd, config.certs_db_path,
+    bool ret = cia_builder->Init(destination, tmd, config,
                                  FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
         return false;
@@ -1186,6 +1181,7 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(bootrom_path, BOOTROM9);
         LOAD_DATA(certs_db_path, CERTS_DB);
         LOAD_DATA(nand_title_db_path, TITLE_DB);
+        LOAD_DATA(ticket_db_path, TICKET_DB);
         LOAD_DATA(safe_mode_firm_path, "firm/");
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);
@@ -1194,6 +1190,12 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(system_titles_path, "title/");
         LOAD_DATA(nand_data_path, "data/");
 #undef LOAD_DATA
+
+        // encTitleKeys.bin
+        if (FileUtil::Exists(mount_point + "gm9/support/" ENC_TITLE_KEYS_BIN)) {
+            config_template.enc_title_keys_bin_path =
+                mount_point + "gm9/support/" ENC_TITLE_KEYS_BIN;
+        }
 
         // Load version
         if (FileUtil::Exists(mount_point + "threeSD/version.txt")) {

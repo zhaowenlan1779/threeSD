@@ -69,6 +69,7 @@ Ticket BuildFakeTicket(u64 title_id) {
     Ticket ticket{};
     ticket.signature_type = 0x10004; // RSA_2048 SHA256
 
+    ticket.signature.resize(GetSignatureSize(ticket.signature_type));
     std::memset(ticket.signature.data(), 0xFF, ticket.signature.size());
 
     auto& body = ticket.body;
@@ -80,18 +81,8 @@ Ticket BuildFakeTicket(u64 title_id) {
     body.common_key_index = 0x00;
     body.audit = 0x01;
     std::memcpy(body.content_index.data(), TicketContentIndex.data(), TicketContentIndex.size());
-    // GodMode9 by default sets all remaining 0x80 bytes to 0xFF, but legit tickets only set 0x20
-    std::memset(body.content_index.data() + TicketContentIndex.size(), 0xFF, 0x20);
-    return ticket;
-}
-
-Ticket BuildStandardTicket(u64 title_id, Ticket legit_ticket) {
-    Ticket ticket = BuildFakeTicket(title_id);
-
-    // Put in the title key from the legit ticket
-    ticket.body.title_key.swap(legit_ticket.body.title_key);
-    ticket.body.common_key_index = legit_ticket.body.common_key_index;
-
+    // GodMode9 by default sets all remaining 0x80 bytes to 0xFF
+    std::memset(body.content_index.data() + TicketContentIndex.size(), 0xFF, 0x80);
     return ticket;
 }
 

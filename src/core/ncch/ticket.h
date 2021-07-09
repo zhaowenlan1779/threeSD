@@ -51,6 +51,5 @@ public:
 };
 
 Ticket BuildFakeTicket(u64 title_id);
-Ticket BuildStandardTicket(u64 title_id, Ticket legit_ticket);
 
 } // namespace Core

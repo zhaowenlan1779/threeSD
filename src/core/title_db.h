@@ -11,6 +11,7 @@
 #include "common/common_types.h"
 #include "common/swap.h"
 #include "core/inner_fat.hpp"
+#include "core/ncch/ticket.h"
 
 namespace Core {
 
@@ -69,6 +70,9 @@ using InnerFAT_TitleDB = InnerFAT<TitleDB, TitleDBPreheader, TitleDBDirectoryEnt
 class TitleDB final : public InnerFAT_TitleDB {
 public:
     explicit TitleDB(std::vector<u8> data);
+    explicit TitleDB(const std::string& path);
+    ~TitleDB();
+
     bool IsGood() const;
 
     std::unordered_map<u64, TitleInfoEntry> titles;
@@ -81,6 +85,34 @@ private:
     bool is_good = false;
 
     friend InnerFAT_TitleDB;
+};
+
+struct TicketDBPreheader {
+    u32_le db_magic;
+    INSERT_PADDING_BYTES(0x0C);
+};
+static_assert(sizeof(TicketDBPreheader) == 0x10, "TicketDB pre-header has incorrect size");
+
+class TicketDB;
+using InnerFAT_TicketDB = InnerFAT<TicketDB, TicketDBPreheader, TitleDBDirectoryEntryTableEntry,
+                                   TitleDBFileEntryTableEntry>;
+class TicketDB final : public InnerFAT_TicketDB {
+public:
+    explicit TicketDB(std::vector<u8> data);
+    explicit TicketDB(const std::string& path);
+    ~TicketDB();
+
+    bool IsGood() const;
+
+    std::unordered_map<u64, Ticket> tickets;
+
+private:
+    bool Init(std::vector<u8> data);
+    bool CheckMagic() const;
+    bool LoadTicket(u32 index);
+
+    bool is_good = false;
+    friend InnerFAT_TicketDB;
 };
 
 } // namespace Core

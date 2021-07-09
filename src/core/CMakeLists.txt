@@ -32,6 +32,8 @@ add_library(core STATIC
   savegame.h
   title_db.cpp
   title_db.h
+  title_keys_bin.cpp
+  title_keys_bin.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

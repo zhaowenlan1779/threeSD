@@ -41,3 +41,5 @@
 #define AES_KEYS "aes_keys.txt"
 #define CERTS_DB "certs.db"
 #define TITLE_DB "title.db"
+#define TICKET_DB "ticket.db"
+#define ENC_TITLE_KEYS_BIN "encTitleKeys.bin"
