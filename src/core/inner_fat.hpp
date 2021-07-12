@@ -245,12 +245,13 @@ protected:
                 last_block = fat[block + 2].v.index - 1;
             }
 
-            const std::size_t size =
+            // offset & size of the data chunk represented by the FAT node
+            const auto offset = static_cast<std::ptrdiff_t>(fs_info.data_region_block_size) * block;
+            const auto size =
                 static_cast<std::size_t>(fs_info.data_region_block_size) * (last_block - block + 1);
-            const std::size_t to_write = std::min<std::size_t>(file_size, size);
 
-            TRY(CheckedMemcpy(out.data() + written, data_region,
-                              fs_info.data_region_block_size * block, to_write),
+            const auto to_write = std::min<std::size_t>(file_size, size);
+            TRY(CheckedMemcpy(out.data() + written, data_region, offset, to_write),
                 LOG_ERROR(Core, "File data out of bound"));
             file_size -= to_write;
             written += to_write;
@@ -301,7 +302,7 @@ public:
         std::array<char, 17> name_data = {}; // Append a null terminator
         std::memcpy(name_data.data(), entry.name.data(), entry.name.size());
 
-        std::string name = name_data.data();
+        const std::string name = name_data.data();
         std::string new_path = name.empty() ? path : path + name + "/"; // Name is empty for root
 
         if (!FileUtil::CreateFullPath(new_path)) {
@@ -317,13 +318,12 @@ public:
                 return false;
             }
             const auto& file_entry = this->file_entry_table[cur];
-
-            std::array<char, 17> name_data = {}; // Append a null terminator
             std::memcpy(name_data.data(), file_entry.name.data(), file_entry.name.size());
 
             if (!static_cast<const T*>(this)->ExtractFile(new_path + std::string{name_data.data()},
-                                                          cur))
+                                                          cur)) {
                 return false;
+            }
             cur = this->file_entry_table[cur].next_sibling_index;
         }
 

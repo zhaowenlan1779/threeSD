@@ -39,7 +39,8 @@ signals:
     void ProgressUpdated(u64 total_size_imported, u64 current_size_imported, int eta);
 
     /// Dumping of a content has been finished, go on to the next. Called at start as well.
-    void NextContent(u64 size_imported, u64 count, Core::ContentSpecifier next_content, int eta);
+    void NextContent(u64 size_imported, u64 count, const Core::ContentSpecifier& next_content,
+                     int eta);
 
     void Completed();
 

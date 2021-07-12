@@ -11,7 +11,8 @@ namespace Core {
 
 DPFSContainer::DPFSContainer(DPFSDescriptor descriptor_, u8 level1_selector_,
                              std::vector<u32_le> data_)
-    : descriptor(descriptor_), level1_selector(level1_selector_), data(std::move(data_)) {
+    : descriptor(std::move(descriptor_)), level1_selector(level1_selector_),
+      data(std::move(data_)) {
 
     ASSERT_MSG(descriptor.magic == MakeMagic('D', 'P', 'F', 'S'), "DPFS Magic is not correct");
     ASSERT_MSG(descriptor.version == 0x10000, "DPFS Version is not correct");

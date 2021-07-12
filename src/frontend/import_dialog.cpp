@@ -601,20 +601,20 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
 
-    connect(
-        job, &MultiJob::NextContent, this,
-        [this, bar, dialog, multiplier, total_count](u64 size_imported, u64 count,
-                                                     Core::ContentSpecifier next_content, int eta) {
-            bar->setValue(static_cast<int>(size_imported / multiplier));
-            dialog->setLabelText(tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
-                                     .arg(count)
-                                     .arg(total_count)
-                                     .arg(GetContentName(next_content))
-                                     .arg(GetContentTypeName(next_content.type))
-                                     .arg(FormatETA(eta)));
-            current_content = next_content;
-            current_count = count;
-        });
+    connect(job, &MultiJob::NextContent, this,
+            [this, bar, dialog, multiplier, total_count](
+                u64 size_imported, u64 count, const Core::ContentSpecifier& next_content, int eta) {
+                bar->setValue(static_cast<int>(size_imported / multiplier));
+                dialog->setLabelText(
+                    tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
+                        .arg(count)
+                        .arg(total_count)
+                        .arg(GetContentName(next_content))
+                        .arg(GetContentTypeName(next_content.type))
+                        .arg(FormatETA(eta)));
+                current_content = next_content;
+                current_count = count;
+            });
     connect(job, &MultiJob::ProgressUpdated, this,
             [this, bar, dialog, multiplier, total_count](u64 total_size_imported,
                                                          u64 current_size_imported, int eta) {
