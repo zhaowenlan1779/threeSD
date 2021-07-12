@@ -94,6 +94,15 @@ void SDMCImporter::AbortImporting() {
 
 bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
                                  const Common::ProgressCallback& callback) {
+    if (!ImportContentImpl(specifier, callback)) {
+        DeleteContent(specifier);
+        return false;
+    }
+    return true;
+}
+
+bool SDMCImporter::ImportContentImpl(const ContentSpecifier& specifier,
+                                     const Common::ProgressCallback& callback) {
     switch (specifier.type) {
     case ContentType::Application:
     case ContentType::Update:
@@ -623,8 +632,13 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destin
         return false;
     }
 
-    return dump_cxi_ncch->DecryptToFile(std::make_shared<FileUtil::IOFile>(destination, "wb"),
-                                        callback) == ResultStatus::Success;
+    if (dump_cxi_ncch->DecryptToFile(std::make_shared<FileUtil::IOFile>(destination, "wb"),
+                                     callback) == ResultStatus::Success) {
+        return true;
+    }
+
+    FileUtil::Delete(destination);
+    return false;
 }
 
 void SDMCImporter::AbortDumpCXI() {
@@ -675,9 +689,10 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string desti
         }
     }
 
-    bool ret = cia_builder->Init(destination, tmd, config,
-                                 FileUtil::GetDirectoryTreeSize(physical_path), callback);
+    const bool ret = cia_builder->Init(destination, tmd, config,
+                                       FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
+        FileUtil::Delete(destination);
         return false;
     }
 
@@ -721,11 +736,14 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string desti
             }
         };
 
-    if (!FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback)) {
-        return false;
+    if (FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback) &&
+        cia_builder->Finalize()) {
+
+        return true;
     }
 
-    return cia_builder->Finalize();
+    FileUtil::Delete(destination);
+    return false;
 }
 
 void SDMCImporter::AbortBuildCIA() {
@@ -1055,7 +1073,7 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
         {ContentType::Sysdata, 2, exists, FileUtil::GetSize(config.seed_db_path), SEED_DB});
 }
 
-void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) {
+void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
     switch (specifier.type) {
     case ContentType::Application:
     case ContentType::Update:

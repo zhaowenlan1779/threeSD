@@ -112,7 +112,7 @@ public:
     ~SDMCImporter();
 
     /**
-     * Imports a specific content by its specifier.
+     * Imports a specific content by its specifier, deleting it when failed.
      * Blocks, but can be aborted on another thread if needed.
      * @return true on success, false otherwise
      */
@@ -152,12 +152,6 @@ public:
     void AbortBuildCIA();
 
     /**
-     * Deletes/Cleans up a content. Used for deleting contents that have
-     * not been fully imported.
-     */
-    void DeleteContent(const ContentSpecifier& specifier);
-
-    /**
      * Gets a list of dumpable content specifiers.
      */
     std::vector<ContentSpecifier> ListContent() const;
@@ -170,6 +164,10 @@ public:
 private:
     bool Init();
 
+    // Impl of ImportContent without deleting mechanism.
+    bool ImportContentImpl(
+        const ContentSpecifier& specifier,
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
     bool ImportTitle(const ContentSpecifier& specifier, const Common::ProgressCallback& callback);
     bool ImportNandTitle(const ContentSpecifier& specifier,
                          const Common::ProgressCallback& callback);
@@ -187,6 +185,7 @@ private:
     void ListSystemArchive(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
 
+    void DeleteContent(const ContentSpecifier& specifier) const;
     void DeleteTitle(u64 id) const;
     void DeleteNandTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;

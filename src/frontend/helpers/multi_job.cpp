@@ -7,10 +7,9 @@
 
 MultiJob::MultiJob(QObject* parent, Core::SDMCImporter& importer_,
                    std::vector<Core::ContentSpecifier> contents_, ExecuteFunc execute_func_,
-                   DeleteFunc delete_func_, AbortFunc abort_func_)
+                   AbortFunc abort_func_)
     : QThread(parent), importer(importer_), contents(std::move(contents_)),
-      execute_func(std::move(execute_func_)), delete_func(std::move(delete_func_)),
-      abort_func(abort_func_) {}
+      execute_func(std::move(execute_func_)), abort_func(abort_func_) {}
 
 MultiJob::~MultiJob() = default;
 
@@ -42,8 +41,6 @@ void MultiJob::run() {
             emit ProgressUpdated(size_imported + current_size, current_size, eta);
         };
         if (!execute_func(importer, content, callback)) {
-            delete_func(importer, content);
-            importer.DeleteContent(content);
             if (!cancelled) {
                 failed_contents.emplace_back(content);
             }

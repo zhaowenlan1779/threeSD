@@ -710,7 +710,7 @@ void ImportDialog::StartImporting() {
 
     auto* job =
         new MultiJob(this, importer, std::move(to_import), &Core::SDMCImporter::ImportContent,
-                     &Core::SDMCImporter::DeleteContent, &Core::SDMCImporter::AbortImporting);
+                     &Core::SDMCImporter::AbortImporting);
 
     RunMultiJob(job, total_count, total_selected_size);
 }
@@ -728,11 +728,7 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
     auto* job = new SimpleJob(
         this,
         [this, specifier, path](const Common::ProgressCallback& callback) {
-            if (!importer.DumpCXI(specifier, path.toStdString(), callback)) {
-                FileUtil::Delete(path.toStdString());
-                return false;
-            }
-            return true;
+            return importer.DumpCXI(specifier, path.toStdString(), callback);
         },
         [this] { importer.AbortDumpCXI(); });
     RunSimpleJob(job);
@@ -786,9 +782,6 @@ void ImportDialog::StartBatchDumpingCXI() {
                const Common::ProgressCallback& callback) {
             return importer.DumpCXI(specifier, path.toStdString(), callback, true);
         },
-        [path](Core::SDMCImporter& /*importer*/, const Core::ContentSpecifier& specifier) {
-            // TODO: FileUtil::Delete(path.toStdString() + GetCXIFileName(specifier));
-        },
         &Core::SDMCImporter::AbortDumpCXI);
     RunMultiJob(job, total_count, total_size);
 }
@@ -806,11 +799,7 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
     auto* job = new SimpleJob(
         this,
         [this, specifier, path](const Common::ProgressCallback& callback) {
-            if (!importer.BuildCIA(specifier, path.toStdString(), callback)) {
-                FileUtil::Delete(path.toStdString());
-                return false;
-            }
-            return true;
+            return importer.BuildCIA(specifier, path.toStdString(), callback);
         },
         [this] { importer.AbortBuildCIA(); });
     RunSimpleJob(job);
@@ -867,9 +856,6 @@ void ImportDialog::StartBatchBuildingCIA() {
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
                const Common::ProgressCallback& callback) {
             return importer.BuildCIA(specifier, path.toStdString(), callback, true);
-        },
-        [path](Core::SDMCImporter& /*importer*/, const Core::ContentSpecifier& specifier) {
-            // TODO: FileUtil::Delete(path.toStdString() + GetCIAFileName(specifier));
         },
         &Core::SDMCImporter::AbortBuildCIA);
     RunMultiJob(job, total_count, total_size);
