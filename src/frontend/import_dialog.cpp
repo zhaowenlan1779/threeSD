@@ -256,9 +256,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         encryption.clear();
     }
 
-    auto* item = new QTreeWidgetItem{
-        {QString{}, name, ReadableByteSize(content.maximum_size), encryption,
-         content.already_exists ? QStringLiteral("Yes") : QStringLiteral("No")}};
+    auto* item = new QTreeWidgetItem{{QString{}, name, ReadableByteSize(content.maximum_size),
+                                      encryption, content.already_exists ? tr("Yes") : tr("No")}};
 
     QPixmap icon;
     if (replace_icon.isNull()) {

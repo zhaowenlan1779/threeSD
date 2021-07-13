@@ -11,6 +11,7 @@
 #include <QStorageInfo>
 #include <QTreeWidgetItem>
 #include <qdevicewatcher.h>
+#include "common/assert.h"
 #include "common/file_util.h"
 #include "frontend/import_dialog.h"
 #include "frontend/main.h"
@@ -60,10 +61,22 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
         }
     });
 
-    ui->importDestination->setText(tr("Import Destination: %1")
-                                       .arg(FileUtil::IsPortableUserDirectory()
-                                                ? tr("Portable Citra Install")
-                                                : tr("User-wide Citra Install")));
+    QString destination_text{};
+    const auto destination = FileUtil::GetUserPathType();
+    if (destination == FileUtil::UserPathType::Normal) {
+#ifdef __linux__
+        destination_text = tr("Non-Flatpak Citra Install");
+#else
+        destination_text = tr("User-wide Citra Install");
+#endif
+    } else if (destination == FileUtil::UserPathType::Portable) {
+        destination_text = tr("Portable Citra Install");
+    } else if (destination == FileUtil::UserPathType::Flatpak) {
+        destination_text = tr("Flatpak Citra Install");
+    } else {
+        UNREACHABLE();
+    }
+    ui->importDestination->setText(tr("Import Destination: %1").arg(destination_text));
 
     connect(ui->main, &QTreeWidget::itemSelectionChanged, [this] {
         ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)

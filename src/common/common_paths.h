@@ -23,6 +23,7 @@
 #define EMU_DATA_DIR "citra-emu"
 #endif
 #endif
+#define CITRA_EXECUTABLE "citra-qt"
 
 // Subdirs in the User dir returned by GetUserPath(UserPath::UserDir)
 #define CONFIG_DIR "config"

@@ -129,6 +129,15 @@ void CopyDir(const std::string& source_path, const std::string& dest_path);
 // Set the current directory to given directory
 bool SetCurrentDir(const std::string& directory);
 
+enum class UserPathType {
+    Normal,   /// user-wide normal install
+    Portable, /// portable install
+    Flatpak,  /// Flatpak install (Linux only)
+};
+
+// Determine type of the user path that should be used.
+UserPathType GetUserPathType();
+
 // User paths are not directly used by us, and are only preserved here to match Citra's
 // user folder and tell where to copy the files to.
 
@@ -137,9 +146,6 @@ void SetUserPath(const std::string& path = "");
 // Returns a pointer to a string with a Citra data dir in the user's home
 // directory. To be used in "multi-user" mode (that is, installed).
 const std::string& GetUserPath(UserPath path);
-
-// Whetehr we are using the portable user directory.
-bool IsPortableUserDirectory();
 
 // Returns the path to where the sys file are
 std::string GetSysDirectory();

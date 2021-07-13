@@ -694,8 +694,35 @@ std::string GetSysDirectory() {
 
 namespace {
 std::unordered_map<UserPath, std::string> g_paths;
-bool g_portable_user_directory = false;
 } // namespace
+
+UserPathType GetUserPathType() {
+#ifdef _WIN32
+    const auto user_path = GetExeDirectory() + DIR_SEP USERDATA_DIR DIR_SEP;
+    if (FileUtil::Exists(user_path)) {
+        return UserPathType::Portable;
+    } else {
+        return UserPathType::Normal;
+    }
+#elif ANDROID
+    UNREACHABLE_MSG("Android is not supported (yet)");
+#else
+    if (FileUtil::Exists(ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP)) {
+        return UserPathType::Portable;
+    } else if (FileUtil::Exists(ROOT_DIR DIR_SEP CITRA_EXECUTABLE)) {
+        return UserPathType::Normal;
+    }
+
+    const bool normal_exists =
+        FileUtil::Exists(GetUserDirectory("XDG_DATA_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
+    const bool flatpak_exists = FileUtil::Exists(
+        GetHomeDirectory() + "/.var/app/org.citra_emu.citra/data" + DIR_SEP EMU_DATA_DIR DIR_SEP);
+    if (!normal_exists || flatpak_exists) { // Flatpak takes precedence
+        return UserPathType::Flatpak;
+    }
+    return UserPathType::Normal;
+#endif
+}
 
 void SetUserPath(const std::string& path) {
     if (!g_paths.empty()) {
@@ -711,27 +738,26 @@ void SetUserPath(const std::string& path) {
         g_paths.emplace(UserPath::CacheDir, user_path + CACHE_DIR DIR_SEP);
     } else {
 #ifdef _WIN32
-        user_path = GetExeDirectory() + DIR_SEP USERDATA_DIR DIR_SEP;
-        if (!FileUtil::IsDirectory(user_path)) {
-            user_path = AppDataRoamingDirectory() + DIR_SEP EMU_DATA_DIR DIR_SEP;
-        } else {
+        if (GetUserPathType() == UserPathType::Portable) {
             LOG_INFO(Common_Filesystem, "Using the local user directory");
-            g_portable_user_directory = true;
+            user_path = GetExeDirectory() + DIR_SEP USERDATA_DIR DIR_SEP;
+        } else {
+            user_path = AppDataRoamingDirectory() + DIR_SEP EMU_DATA_DIR DIR_SEP;
         }
 
         g_paths.emplace(UserPath::ConfigDir, user_path + CONFIG_DIR DIR_SEP);
         g_paths.emplace(UserPath::CacheDir, user_path + CACHE_DIR DIR_SEP);
 #elif ANDROID
-        ASSERT_MSG(false, "Specified path {} is not valid", path);
+        UNREACHABLE_MSG("Android is not supported (yet)");
 #else
-        if (FileUtil::Exists(ROOT_DIR DIR_SEP USERDATA_DIR)) {
+        switch (GetUserPathType()) {
+        case UserPathType::Portable: {
             user_path = ROOT_DIR DIR_SEP USERDATA_DIR DIR_SEP;
             g_paths.emplace(UserPath::ConfigDir, user_path + CONFIG_DIR DIR_SEP);
             g_paths.emplace(UserPath::CacheDir, user_path + CACHE_DIR DIR_SEP);
-
-            LOG_INFO(Common_Filesystem, "Using the local user directory");
-            g_portable_user_directory = true;
-        } else {
+            break;
+        }
+        case UserPathType::Normal: {
             std::string data_dir = GetUserDirectory("XDG_DATA_HOME");
             std::string config_dir = GetUserDirectory("XDG_CONFIG_HOME");
             std::string cache_dir = GetUserDirectory("XDG_CACHE_HOME");
@@ -739,6 +765,16 @@ void SetUserPath(const std::string& path) {
             user_path = data_dir + DIR_SEP EMU_DATA_DIR DIR_SEP;
             g_paths.emplace(UserPath::ConfigDir, config_dir + DIR_SEP EMU_DATA_DIR DIR_SEP);
             g_paths.emplace(UserPath::CacheDir, cache_dir + DIR_SEP EMU_DATA_DIR DIR_SEP);
+            break;
+        }
+        case UserPathType::Flatpak: {
+            const auto base_path = GetHomeDirectory() + "/.var/app/org.citra_emu.citra/";
+            user_path = base_path + "data/citra-emu/";
+
+            g_paths.emplace(UserPath::ConfigDir, base_path + "config/citra-emu/");
+            g_paths.emplace(UserPath::CacheDir, base_path + "cache/citra-emu/");
+            break;
+        }
         }
 #endif
     }
@@ -756,10 +792,6 @@ const std::string& GetUserPath(UserPath path) {
     if (g_paths.empty())
         SetUserPath();
     return g_paths[path];
-}
-
-bool IsPortableUserDirectory() {
-    return g_portable_user_directory;
 }
 
 std::size_t WriteStringToFile(bool text_file, const std::string& filename, std::string_view str) {
