@@ -18,4 +18,4 @@ add_library(common STATIC
   thread.h
 )
 
-target_link_libraries(common PUBLIC fmt)
+target_link_libraries(common PUBLIC fmt inih)

@@ -7,3 +7,6 @@
 [submodule "qdevicewatcher"]
 	path = externals/qdevicewatcher/qdevicewatcher
 	url = https://github.com/wang-bin/qdevicewatcher.git
+[submodule "inih"]
+	path = externals/inih/inih
+	url = https://github.com/benhoyt/inih.git

@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <unordered_map>
+#include <inih/cpp/INIReader.h>
 #include "common/assert.h"
 #include "common/common_funcs.h"
 #include "common/common_paths.h"
@@ -724,6 +725,32 @@ UserPathType GetUserPathType() {
 #endif
 }
 
+static void UpdateUserPathFromConfig() {
+    // Locate config file. Choose one that exists, or, if both don't exist, quit.
+    std::string config_path = g_paths[UserPath::ConfigDir] + "qt-config.ini";
+    std::string section_name = "Data%20Storage"; // For whatever reason they're different
+    if (!Exists(config_path)) {
+        config_path = g_paths[UserPath::ConfigDir] + "sdl2-config.ini";
+        section_name = "Data Storage";
+        if (!Exists(config_path)) {
+            return;
+        }
+    }
+
+    INIReader ini(config_path);
+    const auto nand_dir = ini.GetString(section_name, "nand_directory", "");
+    if (!nand_dir.empty()) {
+        LOG_INFO(Common_Filesystem, "Using NAND directory {}", nand_dir);
+        g_paths[UserPath::NANDDir] = nand_dir + DIR_SEP;
+    }
+
+    const auto sdmc_dir = ini.GetString(section_name, "sdmc_directory", "");
+    if (!sdmc_dir.empty()) {
+        LOG_INFO(Common_Filesystem, "Using SDMC directory {}", sdmc_dir);
+        g_paths[UserPath::SDMCDir] = sdmc_dir + DIR_SEP;
+    }
+}
+
 void SetUserPath(const std::string& path) {
     if (!g_paths.empty()) {
         g_paths.clear();
@@ -780,6 +807,8 @@ void SetUserPath(const std::string& path) {
     }
     g_paths.emplace(UserPath::SDMCDir, user_path + SDMC_DIR DIR_SEP);
     g_paths.emplace(UserPath::NANDDir, user_path + NAND_DIR DIR_SEP);
+    UpdateUserPathFromConfig();
+
     g_paths.emplace(UserPath::SysDataDir, user_path + SYSDATA_DIR DIR_SEP);
     // TODO: Put the logs in a better location for each OS
     g_paths.emplace(UserPath::LogDir, user_path + LOG_DIR DIR_SEP);
