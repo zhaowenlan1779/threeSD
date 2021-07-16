@@ -94,8 +94,7 @@ bool DataContainer::IsGood() const {
 
 bool DataContainer::InitAsDISA() {
     DISAHeader header;
-    TRY(CheckedMemcpy(&header, data, 0x100, sizeof(header)),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(&header, data, 0x100, sizeof(header));
 
     if (header.version != 0x40000) {
         LOG_ERROR(Core, "DISA Version {:x} is not correct", header.version);
@@ -123,8 +122,7 @@ bool DataContainer::InitAsDISA() {
 
 bool DataContainer::InitAsDIFF() {
     DIFFHeader header;
-    TRY(CheckedMemcpy(&header, data, 0x100, sizeof(header)),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(&header, data, 0x100, sizeof(header));
 
     if (header.version != 0x30000) {
         LOG_ERROR(Core, "DIFF Version {:x} is not correct", header.version);
@@ -148,8 +146,7 @@ bool DataContainer::GetPartitionData(std::vector<u8>& out, u8 index) const {
     auto partition_descriptor_offset = partition_table_offset + partition_descriptors[index].offset;
 
     DIFIHeader difi;
-    TRY(CheckedMemcpy(&difi, data, partition_descriptor_offset, sizeof(difi)),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(&difi, data, partition_descriptor_offset, sizeof(difi));
 
     if (difi.magic != MakeMagic('D', 'I', 'F', 'I') || difi.version != 0x10000) {
         LOG_ERROR(Core, "Invalid magic {:08x} or version {}", difi.magic, difi.version);
@@ -158,9 +155,8 @@ bool DataContainer::GetPartitionData(std::vector<u8>& out, u8 index) const {
 
     ASSERT_MSG(difi.ivfc.size >= sizeof(IVFCDescriptor), "IVFC descriptor size is too small");
     IVFCDescriptor ivfc_descriptor;
-    TRY(CheckedMemcpy(&ivfc_descriptor, data, partition_descriptor_offset + difi.ivfc.offset,
-                      sizeof(ivfc_descriptor)),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(&ivfc_descriptor, data, partition_descriptor_offset + difi.ivfc.offset,
+               sizeof(ivfc_descriptor));
 
     if (difi.enable_external_IVFC_level_4) {
         if (data.size() < partitions[index].offset + difi.external_IVFC_level_4_offset +
@@ -178,14 +174,11 @@ bool DataContainer::GetPartitionData(std::vector<u8>& out, u8 index) const {
     // Unwrap DPFS Tree
     ASSERT_MSG(difi.dpfs.size >= sizeof(DPFSDescriptor), "DPFS descriptor size is too small");
     DPFSDescriptor dpfs_descriptor;
-    TRY(CheckedMemcpy(&dpfs_descriptor, data, partition_descriptor_offset + difi.dpfs.offset,
-                      sizeof(dpfs_descriptor)),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(&dpfs_descriptor, data, partition_descriptor_offset + difi.dpfs.offset,
+               sizeof(dpfs_descriptor));
 
     std::vector<u32_le> partition_data(partitions[index].size / 4);
-    TRY(CheckedMemcpy(partition_data.data(), data, partitions[index].offset,
-                      partitions[index].size),
-        LOG_ERROR(Core, "File size is too small"));
+    TRY_MEMCPY(partition_data.data(), data, partitions[index].offset, partitions[index].size);
 
     DPFSContainer dpfs_container(std::move(dpfs_descriptor), difi.dpfs_level1_selector,
                                  std::move(partition_data));

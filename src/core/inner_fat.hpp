@@ -142,8 +142,7 @@ protected:
         const auto& header_vector = partitions[0];
 
         // Read header
-        TRY(CheckedMemcpy(&header, header_vector, 0, sizeof(header)),
-            LOG_ERROR(Core, "File size is too small"));
+        TRY_MEMCPY(&header, header_vector, 0, sizeof(header));
 
         if (!static_cast<const T*>(this)->CheckMagic()) {
             LOG_ERROR(Core, "File is invalid, decryption errors may have happened.");
@@ -153,10 +152,9 @@ protected:
         static constexpr std::size_t PreheaderSize = FullHeader<Preheader>::PreheaderSize;
 
         // Read filesystem information
-        TRY(CheckedMemcpy(&fs_info, header_vector,
-                          PreheaderSize + header.fat_header.filesystem_information_offset,
-                          sizeof(fs_info)),
-            LOG_ERROR(Core, "File size is too small"));
+        TRY_MEMCPY(&fs_info, header_vector,
+                   PreheaderSize + header.fat_header.filesystem_information_offset,
+                   sizeof(fs_info));
 
         // Read data region
         if (duplicate_data) {
@@ -189,9 +187,8 @@ protected:
                                      static_cast<std::size_t>(fs_info.data_region_block_size)
                            : PreheaderSize + fs_info.directory_entry_table.non_duplicate;
 
-        TRY(CheckedMemcpy(directory_entry_table.data(), header_vector, directory_entry_table_pos,
-                          directory_entry_table.size() * sizeof(DirectoryEntryType)),
-            LOG_ERROR(Core, "File is too small"));
+        TRY_MEMCPY(directory_entry_table.data(), header_vector, directory_entry_table_pos,
+                   directory_entry_table.size() * sizeof(DirectoryEntryType));
 
         // Read file entry table
         file_entry_table.resize(fs_info.maximum_file_count + 1); // including head
@@ -202,16 +199,13 @@ protected:
                                      static_cast<std::size_t>(fs_info.data_region_block_size)
                            : PreheaderSize + fs_info.file_entry_table.non_duplicate;
 
-        TRY(CheckedMemcpy(file_entry_table.data(), header_vector, file_entry_table_pos,
-                          file_entry_table.size() * sizeof(FileEntryType)),
-            LOG_ERROR(Core, "File is too small"));
+        TRY_MEMCPY(file_entry_table.data(), header_vector, file_entry_table_pos,
+                   file_entry_table.size() * sizeof(FileEntryType));
 
         // Read file allocation table
         fat.resize(fs_info.file_allocation_table_entry_count);
-        TRY(CheckedMemcpy(fat.data(), header_vector,
-                          PreheaderSize + fs_info.file_allocation_table_offset,
-                          fat.size() * sizeof(FATNode)),
-            LOG_ERROR(Core, "File size is too small"));
+        TRY_MEMCPY(fat.data(), header_vector, PreheaderSize + fs_info.file_allocation_table_offset,
+                   fat.size() * sizeof(FATNode));
 
         return true;
     }
@@ -251,8 +245,7 @@ protected:
                 static_cast<std::size_t>(fs_info.data_region_block_size) * (last_block - block + 1);
 
             const auto to_write = std::min<std::size_t>(file_size, size);
-            TRY(CheckedMemcpy(out.data() + written, data_region, offset, to_write),
-                LOG_ERROR(Core, "File data out of bound"));
+            TRY_MEMCPY(out.data() + written, data_region, offset, to_write);
             file_size -= to_write;
             written += to_write;
 
