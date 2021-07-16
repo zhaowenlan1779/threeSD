@@ -13,6 +13,7 @@
 #include "common/common_types.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
+#include "common/string_util.h"
 #include "common/swap.h"
 
 namespace Core {
@@ -292,10 +293,8 @@ public:
         }
         const auto& entry = this->directory_entry_table[index];
 
-        std::array<char, 17> name_data = {}; // Append a null terminator
-        std::memcpy(name_data.data(), entry.name.data(), entry.name.size());
-
-        const std::string name = name_data.data();
+        const std::string name =
+            Common::StringFromFixedZeroTerminatedBuffer(entry.name.data(), entry.name.size());
         std::string new_path = name.empty() ? path : path + name + "/"; // Name is empty for root
 
         if (!FileUtil::CreateFullPath(new_path)) {
@@ -311,10 +310,10 @@ public:
                 return false;
             }
             const auto& file_entry = this->file_entry_table[cur];
-            std::memcpy(name_data.data(), file_entry.name.data(), file_entry.name.size());
+            const std::string file_name = Common::StringFromFixedZeroTerminatedBuffer(
+                file_entry.name.data(), file_entry.name.size());
 
-            if (!static_cast<const T*>(this)->ExtractFile(new_path + std::string{name_data.data()},
-                                                          cur)) {
+            if (!static_cast<const T*>(this)->ExtractFile(new_path + file_name, cur)) {
                 return false;
             }
             cur = this->file_entry_table[cur].next_sibling_index;
