@@ -88,4 +88,5 @@ constexpr u64 MakeMagic(char a, char b, char c, char d, char e, char f, char g, 
            u64(g) << 48 | u64(h) << 56;
 }
 
-#define TRY_MEMCPY(...) TRY(CheckedMemcpy(__VA_ARGS__), LOG_ERROR(Core, "File size is too small"))
+#define TRY_MEMCPY(dest, container, offset, size)                                                  \
+    TRY(CheckedMemcpy(dest, container, offset, size), LOG_ERROR(Core, "File size is too small"))
