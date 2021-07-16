@@ -154,10 +154,11 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
         ticket.body.common_key_index = legit_ticket.body.common_key_index;
         ticket.body.title_key = legit_ticket.body.title_key;
 
-    } else if (TitleKeysBin enc_title_keys(enc_title_keys_bin_path);
-               enc_title_keys.IsGood() && enc_title_keys.entries.count(title_id)) { // support files
+    } else if (TitleKeysMap enc_title_keys;
+               LoadTitleKeysBin(enc_title_keys, enc_title_keys_bin_path) &&
+               enc_title_keys.count(title_id)) { // support files
 
-        const auto& entry = enc_title_keys.entries.at(title_id);
+        const auto& entry = enc_title_keys.at(title_id);
         ticket.body.common_key_index = entry.common_key_index;
         ticket.body.title_key = entry.title_key;
     } else {

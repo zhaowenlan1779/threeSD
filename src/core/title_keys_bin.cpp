@@ -7,17 +7,7 @@
 
 namespace Core {
 
-TitleKeysBin::TitleKeysBin(const std::string& path) {
-    is_good = Load(path);
-}
-
-TitleKeysBin::~TitleKeysBin() = default;
-
-bool TitleKeysBin::IsGood() const {
-    return is_good;
-}
-
-bool TitleKeysBin::Load(const std::string& path) {
+bool LoadTitleKeysBin(TitleKeysMap& out, const std::string& path) {
     FileUtil::IOFile file(path, "rb");
     if (!file) {
         LOG_ERROR(Core, "Could not open file {}", path);
@@ -36,7 +26,7 @@ bool TitleKeysBin::Load(const std::string& path) {
             LOG_ERROR(Core, "Could not read entry {} from {}", i, path);
             return false;
         }
-        entries.emplace(entry.title_id, entry);
+        out.emplace(entry.title_id, entry);
     }
 
     if (file.Tell() != file.GetSize()) {

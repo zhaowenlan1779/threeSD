@@ -26,19 +26,9 @@ struct TitleKeysBinEntry {
 };
 static_assert(sizeof(TitleKeysBinEntry) == 32);
 
+using TitleKeysMap = std::unordered_map<u64, TitleKeysBinEntry>;
+
 // GM9 support files encTitleKeys.bin and decTitleKeys.bin.
-class TitleKeysBin {
-public:
-    explicit TitleKeysBin(const std::string& path);
-    ~TitleKeysBin();
-
-    bool IsGood() const;
-
-    std::unordered_map<u64, TitleKeysBinEntry> entries;
-
-private:
-    bool Load(const std::string& path);
-    bool is_good = false;
-};
+bool LoadTitleKeysBin(TitleKeysMap& out, const std::string& path);
 
 } // namespace Core
