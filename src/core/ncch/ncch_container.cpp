@@ -500,8 +500,20 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
             return false;
         }
         ASSERT_MSG(written <= offset, "Offsets are not in increasing order");
+
+        // Zero out the gap manually to ensure correct hashes when used with CIAs, etc.
+        const std::array<u8, 1024> zeroes{};
+        std::size_t zeroes_left = offset - written;
+        while (zeroes_left > 0) {
+            const auto to_write = std::min(zeroes.size(), zeroes_left);
+            if (dest_file->WriteBytes(zeroes.data(), to_write) != to_write) {
+                LOG_ERROR(Core, "Could not write zeroes before {}", name);
+                return false;
+            }
+            zeroes_left -= to_write;
+        }
+
         file->Seek(offset, SEEK_SET);
-        dest_file->Seek(offset, SEEK_SET);
 
         if (aborted.exchange(false)) {
             return false;
