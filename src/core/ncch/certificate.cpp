@@ -3,6 +3,8 @@
 // Refer to the license.txt file included.
 
 #include <cstring>
+#include <unordered_map>
+#include <cryptopp/sha.h>
 #include "common/alignment.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
@@ -64,7 +66,42 @@ std::size_t Certificate::Load(std::vector<u8> file_data, std::size_t offset) {
     return body_end + public_key.size();
 }
 
-bool LoadCertsDB(CertsMap& out, const std::string& path) {
+bool Certificate::Save(FileUtil::IOFile& file) const {
+    // signature
+    if (file.WriteBytes(&signature_type, sizeof(signature_type)) != sizeof(signature_type) ||
+        file.WriteBytes(signature.data(), signature.size()) != signature.size()) {
+
+        LOG_ERROR(Core, "Failed to write signature");
+        return false;
+    }
+
+    // body
+    const std::size_t body_start = Common::AlignUp(signature.size() + sizeof(u32), 0x40);
+    const std::size_t body_end = body_start + sizeof(body);
+    if (!file.Seek(body_start - signature.size() - sizeof(u32), SEEK_CUR) ||
+        file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
+
+        LOG_ERROR(Core, "Failed to write body");
+        return false;
+    }
+
+    // public key
+    if (file.WriteBytes(public_key.data(), public_key.size()) != public_key.size()) {
+        LOG_ERROR(Core, "Failed to write public key");
+        return false;
+    }
+
+    return true;
+}
+
+namespace Certs {
+
+static std::unordered_map<std::string, Certificate> g_certs;
+static bool g_is_loaded = false;
+
+bool Load(const std::string& path) {
+    g_certs.clear();
+
     FileUtil::IOFile file(path, "rb");
     DataContainer container(file.GetData());
     std::vector<std::vector<u8>> data;
@@ -96,12 +133,30 @@ bool LoadCertsDB(CertsMap& out, const std::string& path) {
 
         const auto name = Common::StringFromFixedZeroTerminatedBuffer(cert.body.name.data(),
                                                                       cert.body.name.size());
-        out.emplace(name, cert);
+        g_certs.emplace(name, std::move(cert));
 
         pos += size;
     }
 
+    for (const auto& cert : CIACertNames) {
+        if (!g_certs.count(cert)) {
+            LOG_ERROR(Core, "Cert {} required for CIA building but does not exist", cert);
+            return false;
+        }
+    }
+
+    g_is_loaded = true;
     return true;
 }
+
+bool IsLoaded() {
+    return g_is_loaded;
+}
+
+const Certificate& Get(const std::string& name) {
+    return g_certs.at(name);
+}
+
+} // namespace Certs
 
 } // namespace Core

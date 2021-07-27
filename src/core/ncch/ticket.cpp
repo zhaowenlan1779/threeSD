@@ -6,6 +6,7 @@
 #include <string_view>
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/file_util.h"
 #include "core/ncch/cia_common.h"
 #include "core/ncch/ticket.h"
 
@@ -39,18 +40,30 @@ bool Ticket::Load(const std::vector<u8> file_data, std::size_t offset) {
     return true;
 }
 
-std::vector<u8> Ticket::GetData() const {
-    u32 signature_size = GetSignatureSize(signature_type);
-    ASSERT(signature_size != 0);
+bool Ticket::Save(FileUtil::IOFile& file) const {
+    // signature
+    if (file.WriteBytes(&signature_type, sizeof(signature_type)) != sizeof(signature_type) ||
+        file.WriteBytes(signature.data(), signature.size()) != signature.size()) {
 
-    const std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    const std::size_t body_end = body_start + sizeof(Body);
+        LOG_ERROR(Core, "Failed to write signature");
+        return false;
+    }
 
-    std::vector<u8> out(body_end);
-    std::memcpy(out.data(), &signature_type, sizeof(signature_type));
-    std::memcpy(out.data() + sizeof(signature_type), signature.data(), signature.size());
-    std::memcpy(out.data() + body_start, &body, sizeof(Body));
-    return out;
+    // body
+    const std::size_t body_start = Common::AlignUp(signature.size() + sizeof(u32), 0x40);
+    const std::size_t body_end = body_start + sizeof(body);
+    if (!file.Seek(body_start - signature.size() - sizeof(u32), SEEK_CUR) ||
+        file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
+
+        LOG_ERROR(Core, "Failed to write body");
+        return false;
+    }
+
+    return true;
+}
+
+std::size_t Ticket::GetSize() const {
+    return Common::AlignUp(signature.size() + sizeof(u32), 0x40) + sizeof(body);
 }
 
 constexpr std::string_view TicketIssuer = "Root-CA00000003-XS0000000c";

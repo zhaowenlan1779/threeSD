@@ -12,6 +12,7 @@
 #include "core/extdata.h"
 #include "core/importer.h"
 #include "core/key/key.h"
+#include "core/ncch/certificate.h"
 #include "core/ncch/cia_builder.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/seed_db.h"
@@ -53,6 +54,9 @@ bool SDMCImporter::Init() {
 
     if (!config.seed_db_path.empty()) {
         Seeds::Load(config.seed_db_path);
+    }
+    if (!config.certs_db_path.empty()) {
+        Certs::Load(config.certs_db_path);
     }
 
     decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);

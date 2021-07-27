@@ -5,7 +5,9 @@
 #include <cryptopp/sha.h>
 #include "common/alignment.h"
 #include "core/importer.h"
+#include "core/ncch/certificate.h"
 #include "core/ncch/cia_builder.h"
+#include "core/ncch/cia_common.h"
 #include "core/ncch/ticket.h"
 #include "core/ncch/title_metadata.h"
 #include "core/title_db.h"
@@ -103,39 +105,16 @@ bool CIABuilder::Init(const std::string& destination, TitleMetadata tmd_, const 
 }
 
 bool CIABuilder::WriteCert(const std::string& certs_db_path) {
-    FileUtil::IOFile certs_db(certs_db_path, "rb");
-    if (!certs_db) {
-        LOG_ERROR(Core, "Could not open {}", certs_db_path);
+    if (!Certs::IsLoaded()) {
         return false;
     }
 
-    std::array<u8, CIA_CERT_SIZE> cert;
-    // Read CIA cert
-    certs_db.Seek(0x0C10, SEEK_SET);
-    if (certs_db.ReadBytes(cert.data(), 0x1F0) != 0x1F0) {
-        return false;
-    }
-
-    certs_db.Seek(0x3A00, SEEK_SET);
-    if (certs_db.ReadBytes(cert.data() + 0x1F0, 0x210) != 0x210) {
-        return false;
-    }
-
-    certs_db.Seek(0x3F10, SEEK_SET);
-    if (certs_db.ReadBytes(cert.data() + 0x400, 0x300) != 0x300) {
-        return false;
-    }
-
-    certs_db.Seek(0x3C10, SEEK_SET);
-    if (certs_db.ReadBytes(cert.data() + 0x700, 0x300) != 0x300) {
-        return false;
-    }
-
-    // Write CIA cert to file
     file->Seek(cert_offset, SEEK_SET);
-    if (file->WriteBytes(cert.data(), cert.size()) != cert.size()) {
-        LOG_ERROR(Core, "Could not write cert");
-        return false;
+    for (const auto& cert : CIACertNames) {
+        if (!Certs::Get(cert).Save(*file)) {
+            LOG_ERROR(Core, "Failed to write cert");
+            return false;
+        }
     }
     return true;
 }
@@ -165,11 +144,10 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
         LOG_WARNING(Core, "Could not find title key for {:016x}", title_id);
     }
 
-    const auto ticket_data = ticket.GetData();
-    header.tik_size = ticket_data.size();
+    header.tik_size = ticket.GetSize();
 
     file->Seek(ticket_offset, SEEK_SET);
-    if (file->WriteBytes(ticket_data.data(), ticket_data.size()) != ticket_data.size()) {
+    if (!ticket.Save(*file)) {
         LOG_ERROR(Core, "Could not write ticket");
         file.reset();
         return false;

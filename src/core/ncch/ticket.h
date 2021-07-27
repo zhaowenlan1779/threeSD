@@ -10,6 +10,10 @@
 #include "common/common_types.h"
 #include "common/swap.h"
 
+namespace FileUtil {
+class IOFile;
+}
+
 namespace Core {
 
 class Ticket {
@@ -43,7 +47,8 @@ public:
 #pragma pack(pop)
 
     bool Load(const std::vector<u8> file_data, std::size_t offset = 0);
-    std::vector<u8> GetData() const;
+    bool Save(FileUtil::IOFile& file) const;
+    std::size_t GetSize() const;
 
     Body body;
     u32_be signature_type;

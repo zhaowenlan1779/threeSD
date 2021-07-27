@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include "common/common_types.h"
 
 namespace Core {
@@ -35,5 +36,11 @@ inline u32 GetSignatureSize(u32 signature_type) {
     LOG_ERROR(Common_Filesystem, "Tried to read ticket with bad signature {}", signature_type);
     return 0;
 }
+
+constexpr std::array<const char*, 3> CIACertNames{{
+    "CA00000003",
+    "XS0000000c",
+    "CP0000000b",
+}};
 
 } // namespace Core

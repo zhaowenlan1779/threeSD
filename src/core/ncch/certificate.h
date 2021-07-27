@@ -6,9 +6,13 @@
 
 #include <array>
 #include <string>
-#include <unordered_map>
 #include <vector>
+#include "common/common_funcs.h"
 #include "common/swap.h"
+
+namespace FileUtil {
+class IOFile;
+}
 
 namespace Core {
 
@@ -30,6 +34,7 @@ public:
 
     // Returns: 0 on failure, size of the cert on success
     std::size_t Load(std::vector<u8> file_data, std::size_t offset = 0);
+    bool Save(FileUtil::IOFile& file) const;
 
     u32_be signature_type;
     std::vector<u8> signature;
@@ -45,7 +50,12 @@ struct CertsDBHeader {
 };
 static_assert(sizeof(CertsDBHeader) == 0x10);
 
-using CertsMap = std::unordered_map<std::string, Certificate>;
-bool LoadCertsDB(CertsMap& out, const std::string& path);
+namespace Certs {
+
+bool Load(const std::string& path);
+bool IsLoaded();
+const Certificate& Get(const std::string& name);
+
+} // namespace Certs
 
 } // namespace Core
