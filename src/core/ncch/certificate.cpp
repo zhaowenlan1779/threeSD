@@ -4,8 +4,9 @@
 
 #include <cstring>
 #include <unordered_map>
-#include <cryptopp/sha.h>
+#include <cryptopp/integer.h>
 #include "common/alignment.h"
+#include "common/assert.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
 #include "common/string_util.h"
@@ -94,6 +95,18 @@ bool Certificate::Save(FileUtil::IOFile& file) const {
     return true;
 }
 
+std::pair<CryptoPP::Integer, CryptoPP::Integer> Certificate::GetRSAPublicKey() const {
+    if (body.key_type == PublicKeyType::RSA_2048) {
+        return {CryptoPP::Integer(public_key.data(), 0x100),
+                CryptoPP::Integer(public_key.data() + 0x100, 0x4)};
+    } else if (body.key_type == PublicKeyType::RSA_4096) {
+        return {CryptoPP::Integer(public_key.data(), 0x200),
+                CryptoPP::Integer(public_key.data() + 0x200, 0x4)};
+    } else {
+        UNREACHABLE_MSG("Certificate is not RSA");
+    }
+}
+
 namespace Certs {
 
 static std::unordered_map<std::string, Certificate> g_certs;
@@ -131,9 +144,12 @@ bool Load(const std::string& path) {
             return false;
         }
 
+        const auto issuer = Common::StringFromFixedZeroTerminatedBuffer(cert.body.issuer.data(),
+                                                                        cert.body.issuer.size());
         const auto name = Common::StringFromFixedZeroTerminatedBuffer(cert.body.name.data(),
                                                                       cert.body.name.size());
-        g_certs.emplace(name, std::move(cert));
+        const auto full_name = issuer + "-" + name;
+        g_certs.emplace(full_name, std::move(cert));
 
         pos += size;
     }
@@ -155,6 +171,10 @@ bool IsLoaded() {
 
 const Certificate& Get(const std::string& name) {
     return g_certs.at(name);
+}
+
+bool Exists(const std::string& name) {
+    return g_certs.count(name);
 }
 
 } // namespace Certs

@@ -4,11 +4,14 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <cryptopp/rsa.h>
 #include <cryptopp/sha.h>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
+#include "common/string_util.h"
+#include "core/ncch/certificate.h"
 #include "core/ncch/cia_common.h"
 #include "core/ncch/title_metadata.h"
 
@@ -118,6 +121,39 @@ ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
 ResultStatus TitleMetadata::Save(const std::string& file_path) {
     FileUtil::IOFile file(file_path, "wb");
     return Save(file);
+}
+
+bool TitleMetadata::ValidateSignature() const {
+    if (!Certs::IsLoaded()) {
+        LOG_ERROR(Core, "Certificates not available");
+        return false;
+    }
+
+    const auto cert_name =
+        Common::StringFromFixedZeroTerminatedBuffer(tmd_body.issuer.data(), tmd_body.issuer.size());
+    if (!Certs::Exists(cert_name)) {
+        LOG_ERROR(Core, "Cert {} does not exist", cert_name);
+        return false;
+    }
+
+    const auto& cert = Certs::Get(cert_name);
+    if (signature_type != TMDSignatureType::Rsa2048Sha256 ||
+        cert.body.key_type != PublicKeyType::RSA_2048) {
+
+        LOG_ERROR(Core, "Unsupported TMD signature type or cert public key type");
+        return false;
+    }
+
+    const auto [modulus, exponent] = Certs::Get(cert_name).GetRSAPublicKey();
+    CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA256>::Verifier verifier(modulus, exponent);
+
+    auto* message = verifier.NewVerificationAccumulator();
+    message->Update(reinterpret_cast<const u8*>(&tmd_body), sizeof(tmd_body));
+    message->Update(reinterpret_cast<const u8*>(tmd_chunks.data()),
+                    tmd_chunks.size() * sizeof(ContentChunk));
+    verifier.InputSignature(*message, tmd_signature.data(), tmd_signature.size());
+
+    return verifier.Verify(message);
 }
 
 std::size_t TitleMetadata::GetSize() const {

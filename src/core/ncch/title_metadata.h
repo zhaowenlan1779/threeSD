@@ -51,7 +51,7 @@ public:
 #pragma pack(push, 1)
 
     struct Body {
-        std::array<u8, 0x40> issuer;
+        std::array<char, 0x40> issuer;
         u8 version;
         u8 ca_crl_version;
         u8 signer_crl_version;
@@ -82,8 +82,9 @@ public:
     ResultStatus Save(FileUtil::IOFile& file);
     ResultStatus Save(const std::string& file_path);
 
-    std::size_t GetSize() const;
+    bool ValidateSignature() const;
 
+    std::size_t GetSize() const;
     u64 GetTitleID() const;
     u32 GetTitleType() const;
     u16 GetTitleVersion() const;

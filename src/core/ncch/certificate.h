@@ -10,6 +10,10 @@
 #include "common/common_funcs.h"
 #include "common/swap.h"
 
+namespace CryptoPP {
+class Integer;
+}
+
 namespace FileUtil {
 class IOFile;
 }
@@ -36,6 +40,9 @@ public:
     std::size_t Load(std::vector<u8> file_data, std::size_t offset = 0);
     bool Save(FileUtil::IOFile& file) const;
 
+    /// (modulus, exponent)
+    std::pair<CryptoPP::Integer, CryptoPP::Integer> GetRSAPublicKey() const;
+
     u32_be signature_type;
     std::vector<u8> signature;
     Body body;
@@ -55,6 +62,7 @@ namespace Certs {
 bool Load(const std::string& path);
 bool IsLoaded();
 const Certificate& Get(const std::string& name);
+bool Exists(const std::string& name);
 
 } // namespace Certs
 

@@ -37,10 +37,11 @@ inline u32 GetSignatureSize(u32 signature_type) {
     return 0;
 }
 
+/// Full names of the certificates contained in a CIA.
 constexpr std::array<const char*, 3> CIACertNames{{
-    "CA00000003",
-    "XS0000000c",
-    "CP0000000b",
+    "Root-CA00000003",
+    "Root-CA00000003-XS0000000c",
+    "Root-CA00000003-CP0000000b",
 }};
 
 } // namespace Core
