@@ -48,9 +48,11 @@ private:
 CIABuilder::CIABuilder() = default;
 CIABuilder::~CIABuilder() = default;
 
-bool CIABuilder::Init(const std::string& destination, TitleMetadata tmd_, const Config& config,
-                      std::size_t total_size_, const Common::ProgressCallback& callback_) {
+bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleMetadata tmd_,
+                      const Config& config, std::size_t total_size_,
+                      const Common::ProgressCallback& callback_) {
 
+    type = type_;
     header = {};
     meta = {};
 
@@ -119,9 +121,19 @@ bool CIABuilder::WriteCert(const std::string& certs_db_path) {
     return true;
 }
 
-bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
-                             const std::string& enc_title_keys_bin_path) {
-    const auto title_id = tmd.GetTitleID();
+static bool FindLegitTicket(Ticket& out, u64 title_id, const std::string& ticket_db_path) {
+    TicketDB ticket_db(ticket_db_path);
+    if (ticket_db.IsGood() && ticket_db.tickets.count(title_id)) {
+        out = ticket_db.tickets.at(title_id);
+        return true;
+    }
+
+    LOG_ERROR(Core, "Could not find legit ticket for {:016x}", title_id);
+    return false;
+}
+
+static Ticket BuildStandardTicket(u64 title_id, const std::string& ticket_db_path,
+                                  const std::string& enc_title_keys_bin_path) {
     Ticket ticket = BuildFakeTicket(title_id);
 
     // Fill in common_key_index and title_key from either ticket.db (installed tickets)
@@ -142,6 +154,22 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
         ticket.body.title_key = entry.title_key;
     } else {
         LOG_WARNING(Core, "Could not find title key for {:016x}", title_id);
+    }
+    return ticket;
+}
+
+bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
+                             const std::string& enc_title_keys_bin_path) {
+
+    const auto title_id = tmd.GetTitleID();
+
+    Ticket ticket;
+    if (type == CIABuildType::Legit) {
+        if (!FindLegitTicket(ticket, title_id, ticket_db_path)) {
+            return false;
+        }
+    } else {
+        ticket = BuildStandardTicket(title_id, ticket_db_path, enc_title_keys_bin_path);
     }
 
     header.tik_size = ticket.GetSize();

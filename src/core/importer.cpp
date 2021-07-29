@@ -693,7 +693,7 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string desti
         }
     }
 
-    const bool ret = cia_builder->Init(destination, tmd, config,
+    const bool ret = cia_builder->Init(CIABuildType::Standard, destination, tmd, config,
                                        FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
         FileUtil::Delete(destination);
