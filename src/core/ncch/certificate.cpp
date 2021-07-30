@@ -7,6 +7,7 @@
 #include <cryptopp/integer.h>
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/common_funcs.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
 #include "common/string_util.h"
@@ -31,57 +32,36 @@ inline std::size_t GetPublicKeySize(u32 public_key_type) {
     return 0;
 }
 
-std::size_t Certificate::Load(std::vector<u8> file_data, std::size_t offset) {
-    std::size_t total_size = static_cast<std::size_t>(file_data.size() - offset);
-    if (total_size < sizeof(u32))
-        return 0;
+bool Certificate::Load(std::vector<u8> file_data, std::size_t offset) {
+    const auto total_size = static_cast<std::size_t>(file_data.size() - offset);
 
-    std::memcpy(&signature_type, &file_data[offset], sizeof(u32));
-
-    // Signature lengths are variable, and the body follows the signature
-    u32 signature_size = GetSignatureSize(signature_type);
-    if (signature_size == 0) {
-        return 0;
+    if (!signature.Load(file_data, offset)) {
+        return false;
     }
-
-    // The certificate body start position is rounded to the nearest 0x40 after the signature
-    std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    std::size_t body_end = body_start + sizeof(Body);
-
-    if (total_size < body_end)
-        return 0;
-
-    // Read signature + certificate body
-    signature.resize(signature_size);
-    std::memcpy(signature.data(), &file_data[offset + sizeof(u32)], signature_size);
-    std::memcpy(&body, &file_data[offset + body_start], sizeof(Body));
+    // certificate body
+    const auto signature_size = signature.GetSize();
+    TRY_MEMCPY(&body, file_data, offset + signature_size, sizeof(Body));
 
     // Public key lengths are variable
-    std::size_t public_key_size = GetPublicKeySize(body.key_type);
+    const auto public_key_size = GetPublicKeySize(body.key_type);
     if (public_key_size == 0) {
-        return 0;
+        return false;
     }
     public_key.resize(public_key_size);
-    std::memcpy(public_key.data(), &file_data[offset + body_end], public_key.size());
 
-    return body_end + public_key.size();
+    const auto public_key_offset = offset + signature_size + sizeof(Body);
+    TRY_MEMCPY(public_key.data(), file_data, public_key_offset, public_key.size());
+    return true;
 }
 
 bool Certificate::Save(FileUtil::IOFile& file) const {
     // signature
-    if (file.WriteBytes(&signature_type, sizeof(signature_type)) != sizeof(signature_type) ||
-        file.WriteBytes(signature.data(), signature.size()) != signature.size()) {
-
-        LOG_ERROR(Core, "Failed to write signature");
+    if (!signature.Save(file)) {
         return false;
     }
 
     // body
-    const std::size_t body_start = Common::AlignUp(signature.size() + sizeof(u32), 0x40);
-    const std::size_t body_end = body_start + sizeof(body);
-    if (!file.Seek(body_start - signature.size() - sizeof(u32), SEEK_CUR) ||
-        file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
-
+    if (file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
         LOG_ERROR(Core, "Failed to write body");
         return false;
     }
@@ -93,6 +73,10 @@ bool Certificate::Save(FileUtil::IOFile& file) const {
     }
 
     return true;
+}
+
+std::size_t Certificate::GetSize() const {
+    return signature.GetSize() + sizeof(Body) + public_key.size();
 }
 
 std::pair<CryptoPP::Integer, CryptoPP::Integer> Certificate::GetRSAPublicKey() const {
@@ -139,10 +123,10 @@ bool Load(const std::string& path) {
     std::size_t pos = sizeof(header);
     while (pos < total_size) {
         Certificate cert;
-        const auto size = cert.Load(data[0], pos);
-        if (!size) { // Failed to load
+        if (!cert.Load(data[0], pos)) { // Failed to load
             return false;
         }
+        pos += cert.GetSize();
 
         const auto issuer = Common::StringFromFixedZeroTerminatedBuffer(cert.body.issuer.data(),
                                                                         cert.body.issuer.size());
@@ -150,8 +134,6 @@ bool Load(const std::string& path) {
                                                                       cert.body.name.size());
         const auto full_name = issuer + "-" + name;
         g_certs.emplace(full_name, std::move(cert));
-
-        pos += size;
     }
 
     for (const auto& cert : CIACertNames) {

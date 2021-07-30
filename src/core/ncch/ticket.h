@@ -9,6 +9,7 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/swap.h"
+#include "core/ncch/signature.h"
 
 namespace FileUtil {
 class IOFile;
@@ -50,9 +51,8 @@ public:
     bool Save(FileUtil::IOFile& file) const;
     std::size_t GetSize() const;
 
+    Signature signature;
     Body body;
-    u32_be signature_type;
-    std::vector<u8> signature;
 };
 
 Ticket BuildFakeTicket(u64 title_id);

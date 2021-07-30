@@ -6,6 +6,7 @@
 #include <string_view>
 #include "common/alignment.h"
 #include "common/assert.h"
+#include "common/common_funcs.h"
 #include "common/file_util.h"
 #include "core/ncch/cia_common.h"
 #include "core/ncch/ticket.h"
@@ -13,48 +14,21 @@
 namespace Core {
 
 bool Ticket::Load(const std::vector<u8> file_data, std::size_t offset) {
-    std::size_t total_size = static_cast<std::size_t>(file_data.size() - offset);
-    if (total_size < sizeof(u32))
-        return false;
-
-    std::memcpy(&signature_type, &file_data[offset], sizeof(u32));
-
-    // Signature lengths are variable, and the body follows the signature
-    u32 signature_size = GetSignatureSize(signature_type);
-    if (signature_size == 0) {
+    if (!signature.Load(file_data, offset)) {
         return false;
     }
-
-    // The ticket body start position is rounded to the nearest 0x40 after the signature
-    std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    std::size_t body_end = body_start + sizeof(Body);
-
-    if (total_size < body_end)
-        return false;
-
-    // Read signature + ticket body
-    signature.resize(signature_size);
-    memcpy(signature.data(), &file_data[offset + sizeof(u32)], signature_size);
-    memcpy(&body, &file_data[offset + body_start], sizeof(Body));
-
+    TRY_MEMCPY(&body, file_data, offset + signature.GetSize(), sizeof(Body));
     return true;
 }
 
 bool Ticket::Save(FileUtil::IOFile& file) const {
     // signature
-    if (file.WriteBytes(&signature_type, sizeof(signature_type)) != sizeof(signature_type) ||
-        file.WriteBytes(signature.data(), signature.size()) != signature.size()) {
-
-        LOG_ERROR(Core, "Failed to write signature");
+    if (!signature.Save(file)) {
         return false;
     }
 
     // body
-    const std::size_t body_start = Common::AlignUp(signature.size() + sizeof(u32), 0x40);
-    const std::size_t body_end = body_start + sizeof(body);
-    if (!file.Seek(body_start - signature.size() - sizeof(u32), SEEK_CUR) ||
-        file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
-
+    if (file.WriteBytes(&body, sizeof(body)) != sizeof(body)) {
         LOG_ERROR(Core, "Failed to write body");
         return false;
     }
@@ -63,7 +37,7 @@ bool Ticket::Save(FileUtil::IOFile& file) const {
 }
 
 std::size_t Ticket::GetSize() const {
-    return Common::AlignUp(signature.size() + sizeof(u32), 0x40) + sizeof(body);
+    return signature.GetSize() + sizeof(body);
 }
 
 constexpr std::string_view TicketIssuer = "Root-CA00000003-XS0000000c";
@@ -80,10 +54,10 @@ constexpr std::array<u8, 44> TicketContentIndex{
 // Values taken from GodMode9
 Ticket BuildFakeTicket(u64 title_id) {
     Ticket ticket{};
-    ticket.signature_type = 0x10004; // RSA_2048 SHA256
 
-    ticket.signature.resize(GetSignatureSize(ticket.signature_type));
-    std::memset(ticket.signature.data(), 0xFF, ticket.signature.size());
+    ticket.signature.type = 0x10004;     // RSA_2048 SHA256
+    ticket.signature.data.resize(0x100); // Size of RSA_2048 signature
+    std::memset(ticket.signature.data.data(), 0xFF, ticket.signature.data.size());
 
     auto& body = ticket.body;
     std::memcpy(body.issuer.data(), TicketIssuer.data(), TicketIssuer.size());

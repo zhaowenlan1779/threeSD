@@ -22,28 +22,19 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
     if (total_size < sizeof(u32_be))
         return ResultStatus::Error;
 
-    memcpy(&signature_type, &file_data[offset], sizeof(u32_be));
-
-    // Signature lengths are variable, and the body follows the signature
-    u32 signature_size = GetSignatureSize(signature_type);
-    if (signature_size == 0) {
+    if (!signature.Load(file_data, offset)) {
         return ResultStatus::Error;
     }
-
-    // The TMD body start position is rounded to the nearest 0x40 after the signature
-    std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    std::size_t body_end = body_start + sizeof(Body);
-
+    const auto signature_size = signature.GetSize();
+    std::size_t body_end = signature_size + sizeof(Body);
     if (total_size < body_end)
         return ResultStatus::Error;
 
-    // Read signature + TMD body, then load the amount of ContentChunks specified
-    tmd_signature.resize(signature_size);
-    memcpy(tmd_signature.data(), &file_data[offset + sizeof(u32_be)], signature_size);
-    memcpy(&tmd_body, &file_data[offset + body_start], sizeof(TitleMetadata::Body));
+    // Read TMD body, then load the amount of ContentChunks specified
+    std::memcpy(&tmd_body, &file_data[offset + signature_size], sizeof(TitleMetadata::Body));
 
-    std::size_t expected_size =
-        body_start + sizeof(Body) + static_cast<u16>(tmd_body.content_count) * sizeof(ContentChunk);
+    std::size_t expected_size = signature_size + sizeof(Body) +
+                                static_cast<u16>(tmd_body.content_count) * sizeof(ContentChunk);
     if (total_size < expected_size) {
         LOG_ERROR(Service_FS, "Malformed TMD, expected size 0x{:x}, got 0x{:x}!", expected_size,
                   total_size);
@@ -53,8 +44,8 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
     for (u16 i = 0; i < tmd_body.content_count; i++) {
         ContentChunk chunk;
 
-        memcpy(&chunk, &file_data[offset + body_end + (i * sizeof(ContentChunk))],
-               sizeof(ContentChunk));
+        std::memcpy(&chunk, &file_data[offset + body_end + (i * sizeof(ContentChunk))],
+                    sizeof(ContentChunk));
         tmd_chunks.push_back(chunk);
     }
 
@@ -67,21 +58,9 @@ ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
     if (!file.IsOpen())
         return ResultStatus::Error;
 
-    if (!file.WriteBytes(&signature_type, sizeof(u32_be)))
-        return ResultStatus::Error;
-
-    // Signature lengths are variable, and the body follows the signature
-    u32 signature_size = GetSignatureSize(signature_type);
-    if (signature_size == 0) {
+    if (!signature.Save(file)) {
         return ResultStatus::Error;
     }
-
-    if (!file.WriteBytes(tmd_signature.data(), signature_size))
-        return ResultStatus::Error;
-
-    // The TMD body start position is rounded to the nearest 0x40 after the signature
-    std::size_t body_start = Common::AlignUp(signature_size + sizeof(u32), 0x40);
-    file.Seek(offset + body_start, SEEK_SET);
 
     // Update our TMD body values and hashes
     tmd_body.content_count = static_cast<u16>(tmd_chunks.size());
@@ -124,42 +103,18 @@ ResultStatus TitleMetadata::Save(const std::string& file_path) {
 }
 
 bool TitleMetadata::ValidateSignature() const {
-    if (!Certs::IsLoaded()) {
-        LOG_ERROR(Core, "Certificates not available");
-        return false;
-    }
-
-    const auto cert_name =
+    const auto issuer =
         Common::StringFromFixedZeroTerminatedBuffer(tmd_body.issuer.data(), tmd_body.issuer.size());
-    if (!Certs::Exists(cert_name)) {
-        LOG_ERROR(Core, "Cert {} does not exist", cert_name);
-        return false;
-    }
-
-    const auto& cert = Certs::Get(cert_name);
-    if (signature_type != TMDSignatureType::Rsa2048Sha256 ||
-        cert.body.key_type != PublicKeyType::RSA_2048) {
-
-        LOG_ERROR(Core, "Unsupported TMD signature type or cert public key type");
-        return false;
-    }
-
-    const auto [modulus, exponent] = Certs::Get(cert_name).GetRSAPublicKey();
-    CryptoPP::RSASS<CryptoPP::PKCS1v15, CryptoPP::SHA256>::Verifier verifier(modulus, exponent);
-
-    auto* message = verifier.NewVerificationAccumulator();
-    message->Update(reinterpret_cast<const u8*>(&tmd_body), sizeof(tmd_body));
-    message->Update(reinterpret_cast<const u8*>(tmd_chunks.data()),
-                    tmd_chunks.size() * sizeof(ContentChunk));
-    verifier.InputSignature(*message, tmd_signature.data(), tmd_signature.size());
-
-    return verifier.Verify(message);
+    return signature.Verify(issuer, [this](auto* message) {
+        message->Update(reinterpret_cast<const u8*>(&tmd_body), sizeof(tmd_body));
+        message->Update(reinterpret_cast<const u8*>(tmd_chunks.data()),
+                        tmd_chunks.size() * sizeof(ContentChunk));
+    });
 }
 
 std::size_t TitleMetadata::GetSize() const {
-    const std::size_t body_start =
-        Common::AlignUp(GetSignatureSize(signature_type) + sizeof(u32), 0x40);
-    return body_start + sizeof(TitleMetadata::Body) + sizeof(ContentChunk) * tmd_chunks.size();
+    return signature.GetSize() + sizeof(TitleMetadata::Body) +
+           sizeof(ContentChunk) * tmd_chunks.size();
 }
 
 u64 TitleMetadata::GetTitleID() const {

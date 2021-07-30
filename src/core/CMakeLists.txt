@@ -19,6 +19,8 @@ add_library(core STATIC
   ncch/cia_common.h
   ncch/ncch_container.cpp
   ncch/ncch_container.h
+  ncch/signature.cpp
+  ncch/signature.h
   ncch/seed_db.cpp
   ncch/seed_db.h
   ncch/smdh.cpp

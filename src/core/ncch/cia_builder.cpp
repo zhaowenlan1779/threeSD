@@ -64,9 +64,11 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     }
 
     tmd = std::move(tmd_);
-    // Remove encrypted flag from TMD chunks
-    for (auto& chunk : tmd.tmd_chunks) {
-        chunk.type &= ~0x01;
+    if (type == CIABuildType::Standard) {
+        // Remove encrypted flag from TMD chunks
+        for (auto& chunk : tmd.tmd_chunks) {
+            chunk.type &= ~0x01;
+        }
     }
 
     header.header_size = sizeof(header);
@@ -114,7 +116,7 @@ bool CIABuilder::WriteCert(const std::string& certs_db_path) {
     file->Seek(cert_offset, SEEK_SET);
     for (const auto& cert : CIACertNames) {
         if (!Certs::Get(cert).Save(*file)) {
-            LOG_ERROR(Core, "Failed to write cert");
+            LOG_ERROR(Core, "Failed to write cert {}", cert);
             return false;
         }
     }

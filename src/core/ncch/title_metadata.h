@@ -9,6 +9,7 @@
 #include <vector>
 #include "common/common_types.h"
 #include "common/swap.h"
+#include "core/ncch/signature.h"
 #include "core/result_status.h"
 
 namespace Core {
@@ -110,9 +111,8 @@ public:
 
     void Print() const;
 
+    Signature signature;
     Body tmd_body;
-    u32_be signature_type;
-    std::vector<u8> tmd_signature;
     std::vector<ContentChunk> tmd_chunks;
 };
 

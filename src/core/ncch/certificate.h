@@ -9,6 +9,7 @@
 #include <vector>
 #include "common/common_funcs.h"
 #include "common/swap.h"
+#include "core/ncch/signature.h"
 
 namespace CryptoPP {
 class Integer;
@@ -36,15 +37,14 @@ public:
     };
     static_assert(sizeof(Body) == 0x88);
 
-    // Returns: 0 on failure, size of the cert on success
-    std::size_t Load(std::vector<u8> file_data, std::size_t offset = 0);
+    bool Load(std::vector<u8> file_data, std::size_t offset = 0);
     bool Save(FileUtil::IOFile& file) const;
+    std::size_t GetSize() const;
 
     /// (modulus, exponent)
     std::pair<CryptoPP::Integer, CryptoPP::Integer> GetRSAPublicKey() const;
 
-    u32_be signature_type;
-    std::vector<u8> signature;
+    Signature signature;
     Body body;
     std::vector<u8> public_key;
 };
