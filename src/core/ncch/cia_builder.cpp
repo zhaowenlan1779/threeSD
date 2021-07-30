@@ -2,6 +2,8 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
 #include <cryptopp/sha.h>
 #include "common/alignment.h"
 #include "core/importer.h"
@@ -32,6 +34,10 @@ public:
 
     void GetHash(u8* out) {
         sha.Final(out);
+    }
+
+    bool VerifyHash(u8* out) {
+        sha.Verify(out);
     }
 
     std::size_t Write(const char* data, std::size_t length) override {
@@ -68,6 +74,13 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
         // Remove encrypted flag from TMD chunks
         for (auto& chunk : tmd.tmd_chunks) {
             chunk.type &= ~0x01;
+        }
+    }
+    if (type == CIABuildType::Legit || type == CIABuildType::PirateLegit) {
+        // Check for legit TMD
+        if (!tmd.VerifyHashes() || !tmd.ValidateSignature()) {
+            LOG_ERROR(Core, "TMD is not legit");
+            return false;
         }
     }
 
@@ -123,14 +136,18 @@ bool CIABuilder::WriteCert(const std::string& certs_db_path) {
     return true;
 }
 
-static bool FindLegitTicket(Ticket& out, u64 title_id, const std::string& ticket_db_path) {
+static bool FindLegitTicket(Ticket& ticket, u64 title_id, const std::string& ticket_db_path) {
     TicketDB ticket_db(ticket_db_path);
     if (ticket_db.IsGood() && ticket_db.tickets.count(title_id)) {
-        out = ticket_db.tickets.at(title_id);
+        ticket = ticket_db.tickets.at(title_id);
+        if (!ticket.ValidateSignature()) {
+            LOG_ERROR(Core, "Ticket in ticket.db for {:016x} is not legit", title_id);
+            return false;
+        }
         return true;
     }
 
-    LOG_ERROR(Core, "Could not find legit ticket for {:016x}", title_id);
+    LOG_ERROR(Core, "Ticket for {:016x} does not exist in ticket.db", title_id);
     return false;
 }
 
@@ -160,6 +177,25 @@ static Ticket BuildStandardTicket(u64 title_id, const std::string& ticket_db_pat
     return ticket;
 }
 
+static Key::AESKey GetTitleKey(const Ticket& ticket) {
+    Key::SelectCommonKeyIndex(ticket.body.common_key_index);
+    if (!Key::IsNormalKeyAvailable(Key::TicketCommonKey)) {
+        LOG_ERROR(Core, "Ticket common key is not available");
+        return {};
+    }
+
+    const auto ticket_key = Key::GetNormalKey(Key::TicketCommonKey);
+    Key::AESKey ctr{};
+    std::memcpy(ctr.data(), &ticket.body.title_id, 8);
+
+    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
+    aes.SetKeyWithIV(ticket_key.data(), ticket_key.size(), ctr.data());
+
+    Key::AESKey title_key = ticket.body.title_key;
+    aes.ProcessData(title_key.data(), title_key.data(), title_key.size());
+    return title_key;
+}
+
 bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
                              const std::string& enc_title_keys_bin_path) {
 
@@ -173,6 +209,7 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
     } else {
         ticket = BuildStandardTicket(title_id, ticket_db_path, enc_title_keys_bin_path);
     }
+    title_key = GetTitleKey(ticket);
 
     header.tik_size = ticket.GetSize();
 
@@ -213,7 +250,15 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
 
     auto& tmd_chunk = tmd.GetContentChunkByID(content_id);
     header.SetContentPresent(tmd_chunk.index);
-    file->GetHash(tmd_chunk.hash.data());
+
+    if (type == CIABuildType::Standard) { // Fix hash
+        file->GetHash(tmd_chunk.hash.data());
+    } else { // Verify hash
+        if (!file->VerifyHash(tmd_chunk.hash.data())) {
+            LOG_ERROR(Core, "Hash dismatch for content {}", content_id);
+            return false;
+        }
+    }
     file->SetHashEnabled(false);
 
     // DLCs do not have a meta
@@ -252,6 +297,9 @@ bool CIABuilder::Finalize() {
     }
 
     // Write TMD
+    if (type == CIABuildType::Standard) {
+        tmd.FixHashes();
+    }
     file->Seek(tmd_offset, SEEK_SET);
     if (tmd.Save(*file) != ResultStatus::Success) {
         file.reset();

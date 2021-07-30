@@ -83,6 +83,8 @@ public:
     ResultStatus Save(FileUtil::IOFile& file);
     ResultStatus Save(const std::string& file_path);
 
+    void FixHashes();
+    bool VerifyHashes() const;
     bool ValidateSignature() const;
 
     std::size_t GetSize() const;

@@ -21,7 +21,7 @@ class Ticket {
 public:
 #pragma pack(push, 1)
     struct Body {
-        std::array<u8, 0x40> issuer;
+        std::array<char, 0x40> issuer;
         std::array<u8, 0x3C> ecc_public_key;
         u8 version;
         u8 ca_crl_version;
@@ -49,6 +49,7 @@ public:
 
     bool Load(const std::vector<u8> file_data, std::size_t offset = 0);
     bool Save(FileUtil::IOFile& file) const;
+    bool ValidateSignature() const;
     std::size_t GetSize() const;
 
     Signature signature;

@@ -4,10 +4,12 @@
 
 #include <cstring>
 #include <string_view>
+#include <cryptopp/rsa.h>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/common_funcs.h"
 #include "common/file_util.h"
+#include "common/string_util.h"
 #include "core/ncch/cia_common.h"
 #include "core/ncch/ticket.h"
 
@@ -34,6 +36,14 @@ bool Ticket::Save(FileUtil::IOFile& file) const {
     }
 
     return true;
+}
+
+bool Ticket::ValidateSignature() const {
+    const auto issuer =
+        Common::StringFromFixedZeroTerminatedBuffer(body.issuer.data(), body.issuer.size());
+    return signature.Verify(issuer, [this](CryptoPP::PK_MessageAccumulator* message) {
+        message->Update(reinterpret_cast<const u8*>(&body), sizeof(body));
+    });
 }
 
 std::size_t Ticket::GetSize() const {

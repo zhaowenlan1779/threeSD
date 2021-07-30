@@ -10,6 +10,7 @@
 #include "common/file_util.h"
 #include "common/progress_callback.h"
 #include "common/swap.h"
+#include "core/key/key.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/title_metadata.h"
 #include "core/quick_decryptor.h"
@@ -106,6 +107,7 @@ private:
     Metadata meta{};
 
     TitleMetadata tmd;
+    Key::AESKey title_key{};
 
     std::size_t cert_offset{};
     std::size_t ticket_offset{};

@@ -62,6 +62,25 @@ ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
         return ResultStatus::Error;
     }
 
+    // Write our TMD body, then write each of our ContentChunks
+    if (file.WriteBytes(&tmd_body, sizeof(TitleMetadata::Body)) != sizeof(TitleMetadata::Body))
+        return ResultStatus::Error;
+
+    for (u16 i = 0; i < tmd_body.content_count; i++) {
+        ContentChunk chunk = tmd_chunks[i];
+        if (file.WriteBytes(&chunk, sizeof(ContentChunk)) != sizeof(ContentChunk))
+            return ResultStatus::Error;
+    }
+
+    return ResultStatus::Success;
+}
+
+ResultStatus TitleMetadata::Save(const std::string& file_path) {
+    FileUtil::IOFile file(file_path, "wb");
+    return Save(file);
+}
+
+void TitleMetadata::FixHashes() {
     // Update our TMD body values and hashes
     tmd_body.content_count = static_cast<u16>(tmd_chunks.size());
 
@@ -80,26 +99,43 @@ ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
 
     CryptoPP::SHA256 contentinfo_hash;
     for (std::size_t i = 0; i < tmd_body.contentinfo.size(); i++) {
-        chunk_hash.Update(reinterpret_cast<u8*>(&tmd_body.contentinfo[i]), sizeof(ContentInfo));
+        contentinfo_hash.Update(reinterpret_cast<u8*>(&tmd_body.contentinfo[i]),
+                                sizeof(ContentInfo));
     }
-    chunk_hash.Final(tmd_body.contentinfo_hash.data());
-
-    // Write our TMD body, then write each of our ContentChunks
-    if (file.WriteBytes(&tmd_body, sizeof(TitleMetadata::Body)) != sizeof(TitleMetadata::Body))
-        return ResultStatus::Error;
-
-    for (u16 i = 0; i < tmd_body.content_count; i++) {
-        ContentChunk chunk = tmd_chunks[i];
-        if (file.WriteBytes(&chunk, sizeof(ContentChunk)) != sizeof(ContentChunk))
-            return ResultStatus::Error;
-    }
-
-    return ResultStatus::Success;
+    contentinfo_hash.Final(tmd_body.contentinfo_hash.data());
 }
 
-ResultStatus TitleMetadata::Save(const std::string& file_path) {
-    FileUtil::IOFile file(file_path, "wb");
-    return Save(file);
+bool TitleMetadata::VerifyHashes() const {
+    // This can probably be simplified to just checking contentinfo 0 (as above), but do the full
+    // thing for completeness.
+    // TODO: Is this what index and command_count actually mean?
+    CryptoPP::SHA256 contentinfo_hash;
+    for (std::size_t i = 0; i < tmd_body.contentinfo.size(); i++) {
+        contentinfo_hash.Update(reinterpret_cast<const u8*>(&tmd_body.contentinfo[i]),
+                                sizeof(ContentInfo));
+        const std::size_t offset = tmd_body.contentinfo[i].index;
+        const std::size_t count = tmd_body.contentinfo[i].command_count;
+        if (count == 0) {
+            continue;
+        }
+        if (offset + count > tmd_body.content_count) { // sanity check
+            LOG_INFO(Core, "Index / count out of bound for content info record {}", i);
+            return false;
+        }
+        CryptoPP::SHA256 chunk_hash;
+        for (std::size_t j = offset; j < offset + count; ++j) {
+            chunk_hash.Update(reinterpret_cast<const u8*>(&tmd_chunks[j]), sizeof(ContentChunk));
+        }
+        if (!chunk_hash.Verify(tmd_body.contentinfo[i].hash.data())) {
+            LOG_ERROR(Core, "Chunk hash dismatch for content info record {}", i);
+            return false;
+        }
+    }
+    if (!contentinfo_hash.Verify(tmd_body.contentinfo_hash.data())) {
+        LOG_ERROR(Core, "Content info hash dismatch");
+        return false;
+    }
+    return true;
 }
 
 bool TitleMetadata::ValidateSignature() const {
