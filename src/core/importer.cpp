@@ -196,8 +196,8 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
                 LOG_ERROR(Core, "Could not create path {}", citra_path);
                 return false;
             }
-            // Do not specify keys: plain copy with progress.
-            return quick_decryptor.DecryptAndWriteFile(
+            // Crypto is not set: plain copy with progress.
+            return quick_decryptor.CryptAndWriteFile(
                 std::make_shared<FileUtil::IOFile>(physical_path, "rb"),
                 FileUtil::GetSize(physical_path),
                 std::make_shared<FileUtil::IOFile>(citra_path, "wb"), callback);

@@ -15,6 +15,8 @@
 
 namespace Core {
 
+class CryptoFunc;
+
 /**
  * Helper that reads, decrypts and writes data. This uses three threads to process the data
  * and call progress callbacks occasionally.
@@ -25,23 +27,23 @@ public:
     ~QuickDecryptor();
 
     /**
-     * Decrypts and writes a file.
+     * Set up the crypto to use.
+     * Default / nullptr is plain copy.
+     */
+    void SetCrypto(std::shared_ptr<CryptoFunc> crypto);
+
+    /**
+     * Crypts and writes a file.
      *
      * @param source Source file
      * @param size Size to read, decrypt and write
      * @param destination Destination file
-     * @param callback Progress callback
-     * @param decrypt Whether to perform decryption or not
-     * @param key AES Key for decryption
-     * @param ctr AES CTR for decryption
-     * @param aes_seek_pos The position to seek to for decryption.
+     * @param callback Progress callback. default for nothing.
      */
-    bool DecryptAndWriteFile(
+    bool CryptAndWriteFile(
         std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
         std::shared_ptr<FileUtil::IOFile> destination,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {},
-        bool decrypt = false, Core::Key::AESKey key = {}, Core::Key::AESKey ctr = {},
-        std::size_t aes_seek_pos = 0);
+        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
     void DataReadLoop();
     void DataDecryptLoop();
@@ -57,10 +59,7 @@ private:
 
     std::shared_ptr<FileUtil::IOFile> source;
     std::shared_ptr<FileUtil::IOFile> destination;
-    bool decrypt{};
-    Core::Key::AESKey key;
-    Core::Key::AESKey ctr;
-    std::size_t aes_seek_pos;
+    std::shared_ptr<CryptoFunc> crypto;
 
     // Total size of this content, may consist of multiple files
     std::size_t total_size{};
@@ -84,5 +83,14 @@ private:
     bool is_good{true};
     std::atomic_bool is_running{false};
 };
+
+class CryptoFunc {
+public:
+    virtual ~CryptoFunc();
+    virtual void ProcessData(u8* data, std::size_t size) = 0;
+};
+
+std::shared_ptr<CryptoFunc> CreateCTRCrypto(const Key::AESKey& key, const Key::AESKey& ctr,
+                                            std::size_t seek_pos = 0);
 
 } // namespace Core

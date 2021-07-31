@@ -20,12 +20,13 @@ QuickDecryptor::QuickDecryptor() = default;
 
 QuickDecryptor::~QuickDecryptor() = default;
 
-bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_,
-                                         std::size_t size,
-                                         std::shared_ptr<FileUtil::IOFile> destination_,
-                                         const Common::ProgressCallback& callback_, bool decrypt_,
-                                         Core::Key::AESKey key_, Core::Key::AESKey ctr_,
-                                         std::size_t aes_seek_pos_) {
+void QuickDecryptor::SetCrypto(std::shared_ptr<CryptoFunc> crypto_) {
+    crypto = std::move(crypto_);
+}
+
+bool QuickDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_, std::size_t size,
+                                       std::shared_ptr<FileUtil::IOFile> destination_,
+                                       const Common::ProgressCallback& callback_) {
     if (is_running) {
         LOG_ERROR(Core, "Decryptor is running");
         return false;
@@ -48,10 +49,6 @@ bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> sourc
 
     source = std::move(source_);
     destination = std::move(destination_);
-    decrypt = decrypt_;
-    key = std::move(key_);
-    ctr = std::move(ctr_);
-    aes_seek_pos = aes_seek_pos_;
     callback = callback_;
 
     current_total_size = size;
@@ -60,7 +57,7 @@ bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> sourc
 
     read_thread = std::make_unique<std::thread>(&QuickDecryptor::DataReadLoop, this);
     write_thread = std::make_unique<std::thread>(&QuickDecryptor::DataWriteLoop, this);
-    if (decrypt) {
+    if (crypto) {
         decrypt_thread = std::make_unique<std::thread>(&QuickDecryptor::DataDecryptLoop, this);
     }
 
@@ -69,7 +66,7 @@ bool QuickDecryptor::DecryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> sourc
 
     read_thread->join();
     write_thread->join();
-    if (decrypt) {
+    if (crypto) {
         decrypt_thread->join();
     }
 
@@ -117,10 +114,6 @@ void QuickDecryptor::DataReadLoop() {
 }
 
 void QuickDecryptor::DataDecryptLoop() {
-    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
-    aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
-    aes.Seek(aes_seek_pos);
-
     std::size_t current_buffer = 0;
     std::size_t file_size = current_total_size;
 
@@ -128,8 +121,7 @@ void QuickDecryptor::DataDecryptLoop() {
         data_read_event[current_buffer].Wait();
 
         const auto bytes_to_process = std::min(BufferSize, file_size);
-        aes.ProcessData(buffers[current_buffer].data(), buffers[current_buffer].data(),
-                        bytes_to_process);
+        crypto->ProcessData(buffers[current_buffer].data(), bytes_to_process);
 
         file_size -= bytes_to_process;
 
@@ -159,7 +151,7 @@ void QuickDecryptor::DataWriteLoop() {
 
         iteration++;
 
-        if (decrypt) {
+        if (crypto) {
             data_decrypted_event[current_buffer].Wait();
         } else {
             data_read_event[current_buffer].Wait();
@@ -192,6 +184,32 @@ void QuickDecryptor::Abort() {
 void QuickDecryptor::Reset(std::size_t total_size_) {
     total_size = total_size_;
     imported_size = 0;
+}
+
+CryptoFunc::~CryptoFunc() = default;
+
+class CryptoFunc_AES_CTR final : public CryptoFunc {
+public:
+    explicit CryptoFunc_AES_CTR(const Key::AESKey& key, const Key::AESKey& ctr,
+                                std::size_t seek_pos = 0) {
+
+        aes.SetKeyWithIV(key.data(), key.size(), ctr.data());
+        aes.Seek(seek_pos);
+    }
+
+    ~CryptoFunc_AES_CTR() override = default;
+
+    void ProcessData(u8* data, std::size_t size) override {
+        aes.ProcessData(data, data, size);
+    }
+
+private:
+    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
+};
+
+std::shared_ptr<CryptoFunc> CreateCTRCrypto(const Key::AESKey& key, const Key::AESKey& ctr,
+                                            std::size_t seek_pos) {
+    return std::make_shared<CryptoFunc_AES_CTR>(key, ctr, seek_pos);
 }
 
 } // namespace Core

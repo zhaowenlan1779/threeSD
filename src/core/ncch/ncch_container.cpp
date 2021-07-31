@@ -444,13 +444,14 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
     }
 
     if (!is_encrypted) {
-        // Simply copy everything
+        // Simply copy everything. QuickDecryptor is used for progress reporting
         file->Seek(0, SEEK_SET);
 
         const auto size = file->GetSize();
-        decryptor.Reset(size);
 
-        const bool ret = decryptor.DecryptAndWriteFile(file, size, dest_file, callback);
+        decryptor.Reset(size);
+        decryptor.SetCrypto(nullptr);
+        const bool ret = decryptor.CryptAndWriteFile(file, size, dest_file, callback);
         return ret ? ResultStatus::Success : ResultStatus::Error;
     }
 
@@ -520,8 +521,9 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
         }
 
         written = offset;
-        if (!decryptor.DecryptAndWriteFile(file, size, dest_file, decryptor_callback, decrypt, key,
-                                           ctr, aes_seek_pos)) {
+
+        decryptor.SetCrypto(decrypt ? CreateCTRCrypto(key, ctr, aes_seek_pos) : nullptr);
+        if (!decryptor.CryptAndWriteFile(file, size, dest_file, decryptor_callback)) {
             LOG_ERROR(Core, "Could not write {}", name);
             return false;
         }
