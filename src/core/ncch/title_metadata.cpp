@@ -142,9 +142,8 @@ bool TitleMetadata::ValidateSignature() const {
     const auto issuer =
         Common::StringFromFixedZeroTerminatedBuffer(tmd_body.issuer.data(), tmd_body.issuer.size());
     return signature.Verify(issuer, [this](auto* message) {
-        message->Update(reinterpret_cast<const u8*>(&tmd_body), sizeof(tmd_body));
-        message->Update(reinterpret_cast<const u8*>(tmd_chunks.data()),
-                        tmd_chunks.size() * sizeof(ContentChunk));
+        static_assert(offsetof(Body, contentinfo) == 0xC4, "Signed data length is not correct");
+        message->Update(reinterpret_cast<const u8*>(&tmd_body), offsetof(Body, contentinfo));
     });
 }
 
