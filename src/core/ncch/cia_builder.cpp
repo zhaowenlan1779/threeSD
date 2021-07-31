@@ -37,12 +37,14 @@ public:
     }
 
     bool VerifyHash(u8* out) {
-        sha.Verify(out);
+        return sha.Verify(out);
     }
 
     std::size_t Write(const char* data, std::size_t length) override {
         const std::size_t length_written = FileUtil::IOFile::Write(data, length);
-        sha.Update(reinterpret_cast<const CryptoPP::byte*>(data), length_written);
+        if (hash_enabled) {
+            sha.Update(reinterpret_cast<const CryptoPP::byte*>(data), length_written);
+        }
         return length_written;
     }
 
@@ -80,6 +82,7 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
         // Check for legit TMD
         if (!tmd.VerifyHashes() || !tmd.ValidateSignature()) {
             LOG_ERROR(Core, "TMD is not legit");
+            file.reset();
             return false;
         }
     }
@@ -188,7 +191,7 @@ static Key::AESKey GetTitleKey(const Ticket& ticket) {
     Key::AESKey ctr{};
     std::memcpy(ctr.data(), &ticket.body.title_id, 8);
 
-    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption aes;
+    CryptoPP::CBC_Mode<CryptoPP::AES>::Decryption aes;
     aes.SetKeyWithIV(ticket_key.data(), ticket_key.size(), ctr.data());
 
     Key::AESKey title_key = ticket.body.title_key;
@@ -222,44 +225,104 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
     return true;
 }
 
+class CIAEncryptAndHash final : public CryptoFunc {
+public:
+    explicit CIAEncryptAndHash(const Key::AESKey& key, const Key::AESKey& iv) {
+        aes.SetKeyWithIV(key.data(), key.size(), iv.data());
+    }
+
+    ~CIAEncryptAndHash() override = default;
+
+    void ProcessData(u8* data, std::size_t size) override {
+        sha.Update(data, size);
+        aes.ProcessData(data, data, size);
+    }
+
+    bool VerifyHash(const u8* hash) {
+        return sha.Verify(hash);
+    }
+
+private:
+    CryptoPP::CBC_Mode<CryptoPP::AES>::Encryption aes;
+    CryptoPP::SHA256 sha;
+};
+
 bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
-    file->Seek(written, SEEK_SET); // To enforce alignment
-    file->SetHashEnabled(true);
-
-    {
-        std::lock_guard lock{abort_ncch_mutex};
-        abort_ncch = &ncch;
-    }
-
-    const auto ret = ncch.DecryptToFile(file, [this](std::size_t current, std::size_t total) {
-        callback(written + current, total_size);
-    });
-
-    {
-        std::lock_guard lock{abort_ncch_mutex};
-        abort_ncch = nullptr;
-    }
-
-    if (ret != ResultStatus::Success) {
-        file.reset();
+    if (ncch.Load() != ResultStatus::Success) {
         return false;
     }
-    written = Common::AlignUp(file->Tell(), CIA_ALIGNMENT);
 
-    header.content_size = written - content_offset;
+    file->Seek(written, SEEK_SET); // To enforce alignment
 
     auto& tmd_chunk = tmd.GetContentChunkByID(content_id);
-    header.SetContentPresent(tmd_chunk.index);
+    const auto progress_callback = [this](std::size_t current, std::size_t total) {
+        callback(written + current, total_size);
+    };
+    if (type == CIABuildType::Standard) {
+        // Decrypt the NCCH. We created a HashedFile to transparently calculate the hash as there
+        // is no easy way to get decrypted NCCH content otherwise.
+        file->SetHashEnabled(true);
+        {
+            std::lock_guard lock{abort_ncch_mutex};
+            abort_ncch = &ncch;
+        }
+        const auto ret = ncch.DecryptToFile(file, progress_callback);
+        {
+            std::lock_guard lock{abort_ncch_mutex};
+            abort_ncch = nullptr;
+        }
 
-    if (type == CIABuildType::Standard) { // Fix hash
+        if (ret != ResultStatus::Success) {
+            file.reset();
+            return false;
+        }
         file->GetHash(tmd_chunk.hash.data());
-    } else { // Verify hash
-        if (!file->VerifyHash(tmd_chunk.hash.data())) {
+        file->SetHashEnabled(false);
+    } else {
+        ncch.file->Seek(0, SEEK_SET);
+
+        // Calculate IV
+        Key::AESKey iv{};
+        std::memcpy(iv.data(), &tmd_chunk.index, sizeof(tmd_chunk.index));
+
+        const bool is_encrypted = static_cast<u16>(tmd_chunk.type) & 0x01;
+
+        // For encrypted content, the hashes are calculated before CIA/CDN encryption.
+        // So we have to add hash calculation to the CryptoFunc of the QuickDecryptor.
+        // For unencrypted content, we can just use HashedFile's hashing.
+        std::shared_ptr<CIAEncryptAndHash> crypto;
+        if (is_encrypted) {
+            crypto = std::make_shared<CIAEncryptAndHash>(title_key, iv);
+        } else { // crypto left to be null
+            file->SetHashEnabled(true);
+        }
+        decryptor.SetCrypto(crypto);
+        if (!decryptor.CryptAndWriteFile(ncch.file, ncch.file->GetSize(), file,
+                                         progress_callback)) {
+
+            file.reset();
+            return false;
+        }
+
+        // Verify the hash
+        bool verified{};
+        if (is_encrypted) {
+            verified = crypto->VerifyHash(tmd_chunk.hash.data());
+        } else {
+            verified = file->VerifyHash(tmd_chunk.hash.data());
+            file->SetHashEnabled(false);
+        }
+        if (!verified) {
             LOG_ERROR(Core, "Hash dismatch for content {}", content_id);
+            file.reset();
             return false;
         }
     }
-    file->SetHashEnabled(false);
+
+    written = Common::AlignUp(file->Tell(), CIA_ALIGNMENT);
+
+    header.content_size = written - content_offset;
+    header.SetContentPresent(tmd_chunk.index);
 
     // DLCs do not have a meta
     if (tmd_chunk.index != TMDContentIndex::Main || (tmd.GetTitleID() >> 32) == 0x0004008c) {
@@ -322,9 +385,13 @@ bool CIABuilder::Finalize() {
 }
 
 void CIABuilder::Abort() {
-    std::lock_guard lock{abort_ncch_mutex};
-    if (abort_ncch) {
-        abort_ncch->AbortDecryptToFile();
+    if (type == CIABuildType::Standard) { // Abort NCCH decryption
+        std::lock_guard lock{abort_ncch_mutex};
+        if (abort_ncch) {
+            abort_ncch->AbortDecryptToFile();
+        }
+    } else { // Abort the decryptor
+        decryptor.Abort();
     }
 }
 

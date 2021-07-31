@@ -11,6 +11,7 @@
 #include "common/progress_callback.h"
 #include "common/swap.h"
 #include "core/key/key.h"
+#include "core/ncch/cia_common.h"
 #include "core/ncch/ncch_container.h"
 #include "core/ncch/title_metadata.h"
 #include "core/quick_decryptor.h"
@@ -25,12 +26,6 @@ constexpr std::size_t CIA_METADATA_SIZE = 0x3AC0;
 
 struct Config;
 class HashedFile;
-
-enum class CIABuildType {
-    Standard,    /// Decrypted CIA with generalized ticket
-    PirateLegit, /// Uses legit TMD and encryption, but with generalized ticket
-    Legit,       /// Fully legit, with personal ticket containing console ID and eshop account
-};
 
 class CIABuilder {
 public:
@@ -122,6 +117,8 @@ private:
     // The NCCH to abort on
     std::mutex abort_ncch_mutex;
     NCCHContainer* abort_ncch{};
+
+    QuickDecryptor decryptor;
 };
 
 } // namespace Core

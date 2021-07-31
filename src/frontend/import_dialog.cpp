@@ -798,7 +798,8 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
     auto* job = new SimpleJob(
         this,
         [this, specifier, path](const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(specifier, path.toStdString(), callback);
+            return importer.BuildCIA(Core::CIABuildType::Standard, specifier, path.toStdString(),
+                                     callback);
         },
         [this] { importer.AbortBuildCIA(); });
     RunSimpleJob(job);
@@ -854,7 +855,8 @@ void ImportDialog::StartBatchBuildingCIA() {
         this, importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
                const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(specifier, path.toStdString(), callback, true);
+            return importer.BuildCIA(Core::CIABuildType::Standard, specifier, path.toStdString(),
+                                     callback, true);
         },
         &Core::SDMCImporter::AbortBuildCIA);
     RunMultiJob(job, total_count, total_size);

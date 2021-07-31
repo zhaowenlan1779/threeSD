@@ -649,8 +649,9 @@ void SDMCImporter::AbortDumpCXI() {
     dump_cxi_ncch->AbortDecryptToFile();
 }
 
-bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string destination,
-                            const Common::ProgressCallback& callback, bool auto_filename) {
+bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier,
+                            std::string destination, const Common::ProgressCallback& callback,
+                            bool auto_filename) {
 
     if (config.certs_db_path.empty()) {
         LOG_ERROR(Core, "Missing certs.db");
@@ -693,7 +694,7 @@ bool SDMCImporter::BuildCIA(const ContentSpecifier& specifier, std::string desti
         }
     }
 
-    const bool ret = cia_builder->Init(CIABuildType::Standard, destination, tmd, config,
+    const bool ret = cia_builder->Init(type, destination, tmd, config,
                                        FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
         FileUtil::Delete(destination);

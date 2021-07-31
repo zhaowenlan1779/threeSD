@@ -10,6 +10,7 @@
 #include <vector>
 #include "common/common_types.h"
 #include "common/progress_callback.h"
+#include "core/ncch/cia_common.h"
 
 namespace Core {
 
@@ -143,7 +144,7 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool BuildCIA(const ContentSpecifier& specifier, std::string destination,
+    bool BuildCIA(CIABuildType type, const ContentSpecifier& specifier, std::string destination,
                   const Common::ProgressCallback& callback, bool auto_filename = false);
 
     /**

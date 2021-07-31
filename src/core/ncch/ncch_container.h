@@ -318,6 +318,8 @@ private:
     // Used for DecryptToFile
     QuickDecryptor decryptor;
     std::atomic_bool aborted{false};
+
+    friend class CIABuilder;
 };
 
 /**

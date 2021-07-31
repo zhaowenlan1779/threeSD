@@ -16,4 +16,10 @@ constexpr std::array<const char*, 3> CIACertNames{{
     "Root-CA00000003-CP0000000b",
 }};
 
+enum class CIABuildType {
+    Standard,    /// Decrypted CIA with generalized ticket
+    PirateLegit, /// Uses legit TMD and encryption, but with generalized ticket
+    Legit,       /// Fully legit, with personal ticket containing console ID and eshop account
+};
+
 } // namespace Core
