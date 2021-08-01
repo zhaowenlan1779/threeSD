@@ -6,6 +6,7 @@
 #include "common/assert.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
+#include "common/scope_exit.h"
 #include "common/string_util.h"
 #include "core/data_container.h"
 #include "core/decryptor.h"
@@ -60,7 +61,6 @@ bool SDMCImporter::Init() {
     }
 
     decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
-    cia_builder = std::make_unique<CIABuilder>();
 
     // Load SDMC Title DB
     {
@@ -694,6 +694,15 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
         }
     }
 
+    {
+        std::lock_guard lock{cia_builder_mutex};
+        cia_builder = std::make_unique<CIABuilder>();
+    }
+    SCOPE_EXIT({
+        std::lock_guard lock{cia_builder_mutex};
+        cia_builder.reset(); // To release file handles, etc
+    });
+
     const bool ret = cia_builder->Init(type, destination, tmd, config,
                                        FileUtil::GetDirectoryTreeSize(physical_path), callback);
     if (!ret) {
@@ -752,7 +761,10 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
 }
 
 void SDMCImporter::AbortBuildCIA() {
-    cia_builder->Abort();
+    std::lock_guard lock{cia_builder_mutex};
+    if (cia_builder) {
+        cia_builder->Abort();
+    }
 }
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {

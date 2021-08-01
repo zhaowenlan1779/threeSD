@@ -41,4 +41,5 @@ ScopeExitHelper<Func> ScopeExit(Func&& func) {
  * }
  * \endcode
  */
-#define SCOPE_EXIT(body) auto CONCAT2(scope_exit_helper_, __LINE__) = detail::ScopeExit([&]() body)
+#define SCOPE_EXIT(body)                                                                           \
+    auto CONCAT2(scope_exit_helper_, __LINE__) = ::detail::ScopeExit([&]() body)

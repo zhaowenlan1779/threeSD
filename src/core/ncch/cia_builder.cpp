@@ -67,7 +67,6 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     file = std::make_shared<HashedFile>(destination, "wb");
     if (!*file) {
         LOG_ERROR(Core, "Could not open file {}", destination);
-        file.reset();
         return false;
     }
 
@@ -82,7 +81,6 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
         // Check for legit TMD
         if (!tmd.VerifyHashes() || !tmd.ValidateSignature()) {
             LOG_ERROR(Core, "TMD is not legit");
-            file.reset();
             return false;
         }
     }
@@ -95,14 +93,12 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     header.cert_size = CIA_CERT_SIZE;
     if (!WriteCert(config.certs_db_path)) {
         LOG_ERROR(Core, "Could not write cert to file {}", destination);
-        file.reset();
         return false;
     }
 
     // Ticket
     ticket_offset = Common::AlignUp(cert_offset + header.cert_size, CIA_ALIGNMENT);
     if (!WriteTicket(config.ticket_db_path, config.enc_title_keys_bin_path)) {
-        file.reset();
         return false;
     }
 
@@ -219,7 +215,6 @@ bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
     file->Seek(ticket_offset, SEEK_SET);
     if (!ticket.Save(*file)) {
         LOG_ERROR(Core, "Could not write ticket");
-        file.reset();
         return false;
     }
     return true;
@@ -273,7 +268,6 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
         }
 
         if (ret != ResultStatus::Success) {
-            file.reset();
             return false;
         }
         file->GetHash(tmd_chunk.hash.data());
@@ -300,7 +294,6 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
         if (!decryptor.CryptAndWriteFile(ncch.file, ncch.file->GetSize(), file,
                                          progress_callback)) {
 
-            file.reset();
             return false;
         }
 
@@ -314,7 +307,6 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
         }
         if (!verified) {
             LOG_ERROR(Core, "Hash dismatch for content {}", content_id);
-            file.reset();
             return false;
         }
     }
@@ -355,7 +347,6 @@ bool CIABuilder::Finalize() {
     file->Seek(0, SEEK_SET);
     if (file->WriteBytes(&header, sizeof(header)) != sizeof(header)) {
         LOG_ERROR(Core, "Failed to write header");
-        file.reset();
         return false;
     }
 
@@ -365,7 +356,6 @@ bool CIABuilder::Finalize() {
     }
     file->Seek(tmd_offset, SEEK_SET);
     if (tmd.Save(*file) != ResultStatus::Success) {
-        file.reset();
         return false;
     }
 
@@ -374,13 +364,11 @@ bool CIABuilder::Finalize() {
         file->Seek(written, SEEK_SET);
         if (file->WriteBytes(&meta, sizeof(meta)) != sizeof(meta)) {
             LOG_ERROR(Core, "Failed to write meta");
-            file.reset();
             return false;
         }
     }
 
     callback(total_size, total_size);
-    file.reset();
     return true;
 }
 

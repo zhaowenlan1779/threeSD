@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include "common/common_types.h"
@@ -199,7 +200,9 @@ private:
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> decryptor;
+
     std::unique_ptr<CIABuilder> cia_builder;
+    std::mutex cia_builder_mutex;
 
     // The NCCH used to dump CXIs.
     std::unique_ptr<NCCHContainer> dump_cxi_ncch;
