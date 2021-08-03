@@ -698,15 +698,19 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
         std::lock_guard lock{cia_builder_mutex};
         cia_builder = std::make_unique<CIABuilder>();
     }
-    SCOPE_EXIT({
-        std::lock_guard lock{cia_builder_mutex};
-        cia_builder.reset(); // To release file handles, etc
-    });
 
-    const bool ret = cia_builder->Init(type, destination, tmd, config,
-                                       FileUtil::GetDirectoryTreeSize(physical_path), callback);
+    bool ret = cia_builder->Init(type, destination, tmd, config,
+                                 FileUtil::GetDirectoryTreeSize(physical_path), callback);
+    SCOPE_EXIT({
+        {
+            std::lock_guard lock{cia_builder_mutex};
+            cia_builder.reset(); // To release file handles, etc
+        }
+        if (!ret) { // Remove borked file
+            FileUtil::Delete(destination);
+        }
+    });
     if (!ret) {
-        FileUtil::Delete(destination);
         return false;
     }
 
@@ -750,14 +754,9 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
             }
         };
 
-    if (FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback) &&
-        cia_builder->Finalize()) {
-
-        return true;
-    }
-
-    FileUtil::Delete(destination);
-    return false;
+    ret = FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback) &&
+          cia_builder->Finalize();
+    return ret;
 }
 
 void SDMCImporter::AbortBuildCIA() {
