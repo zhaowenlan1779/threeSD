@@ -13,6 +13,9 @@ add_executable(threeSD
   helpers/multi_job.h
   helpers/simple_job.cpp
   helpers/simple_job.h
+  cia_build_dialog.cpp
+  cia_build_dialog.h
+  cia_build_dialog.ui
   import_dialog.cpp
   import_dialog.h
   import_dialog.ui

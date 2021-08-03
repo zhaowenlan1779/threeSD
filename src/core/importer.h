@@ -145,8 +145,14 @@ public:
      * Blocks, but can be aborted on another thread.
      * @return true on success, false otherwise
      */
-    bool BuildCIA(CIABuildType type, const ContentSpecifier& specifier, std::string destination,
-                  const Common::ProgressCallback& callback, bool auto_filename = false);
+    bool BuildCIA(CIABuildType build_type, const ContentSpecifier& specifier,
+                  std::string destination, const Common::ProgressCallback& callback,
+                  bool auto_filename = false);
+
+    /**
+     * Checks if a content can be built as a legit CIA.
+     */
+    bool CanBuildLegitCIA(const ContentSpecifier& specifier) const;
 
     /**
      * Aborts current CIA building

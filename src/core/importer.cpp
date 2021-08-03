@@ -649,7 +649,24 @@ void SDMCImporter::AbortDumpCXI() {
     dump_cxi_ncch->AbortDecryptToFile();
 }
 
-bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier,
+bool SDMCImporter::CanBuildLegitCIA(const ContentSpecifier& specifier) const {
+    if (specifier.type != ContentType::Application && specifier.type != ContentType::Update &&
+        specifier.type != ContentType::DLC && specifier.type != ContentType::SystemTitle) {
+        return false;
+    }
+
+    TitleMetadata tmd;
+    if (!LoadTMD(specifier.type, specifier.id, tmd)) {
+        return false;
+    }
+    if (!tmd.VerifyHashes() || !tmd.ValidateSignature()) {
+        return false;
+    }
+    // TODO: check ticket, etc?
+    return true;
+}
+
+bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& specifier,
                             std::string destination, const Common::ProgressCallback& callback,
                             bool auto_filename) {
 
@@ -678,6 +695,11 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
                 : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
 
+    static constexpr std::array<std::string_view, 3> BuildTypeSuffixes{{
+        ".standard.cia",
+        ".pirate-legit.cia",
+        ".legit.cia",
+    }};
     if (auto_filename) {
         if (destination.back() != '/' && destination.back() != '\\') {
             destination.push_back('/');
@@ -686,11 +708,13 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
             fmt::format("{}{:08x}.app", physical_path, tmd.GetBootContentID());
         if (is_nand) {
             NCCHContainer ncch(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
-            destination.append(GetTitleFileName(ncch)).append(".cia");
+            destination.append(GetTitleFileName(ncch))
+                .append(BuildTypeSuffixes.at(static_cast<std::size_t>(build_type)));
         } else {
             const auto relative_path = boot_content_path.substr(config.sdmc_path.size() - 1);
             NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
-            destination.append(GetTitleFileName(ncch)).append(".cia");
+            destination.append(GetTitleFileName(ncch))
+                .append(BuildTypeSuffixes.at(static_cast<std::size_t>(build_type)));
         }
     }
 
@@ -699,7 +723,7 @@ bool SDMCImporter::BuildCIA(CIABuildType type, const ContentSpecifier& specifier
         cia_builder = std::make_unique<CIABuilder>();
     }
 
-    bool ret = cia_builder->Init(type, destination, tmd, config,
+    bool ret = cia_builder->Init(build_type, destination, tmd, config,
                                  FileUtil::GetDirectoryTreeSize(physical_path), callback);
     SCOPE_EXIT({
         {

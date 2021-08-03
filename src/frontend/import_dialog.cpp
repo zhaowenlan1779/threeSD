@@ -23,6 +23,7 @@
 #include "common/logging/log.h"
 #include "common/progress_callback.h"
 #include "common/scope_exit.h"
+#include "frontend/cia_build_dialog.h"
 #include "frontend/helpers/multi_job.h"
 #include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
@@ -788,18 +789,21 @@ void ImportDialog::StartBatchDumpingCXI() {
 // CIA building
 
 void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifier) {
-    const QString path = QFileDialog::getSaveFileName(this, tr("Build CIA"), last_build_cia_path,
-                                                      tr("CTR Importable Archive (*.cia)"));
-    if (path.isEmpty()) {
+    CIABuildDialog dialog(this,
+                          /*is_dir*/ false,
+                          /*is_nand*/ specifier.type == Core::ContentType::SystemTitle,
+                          /*enable_legit*/ importer.CanBuildLegitCIA(specifier),
+                          last_build_cia_path);
+    if (dialog.exec() != QDialog::Accepted) {
         return;
     }
+    const auto& [path, type] = dialog.GetResults();
     last_build_cia_path = QFileInfo(path).path();
 
     auto* job = new SimpleJob(
         this,
-        [this, specifier, path](const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(Core::CIABuildType::Standard, specifier, path.toStdString(),
-                                     callback);
+        [this, specifier, path = path, type = type](const Common::ProgressCallback& callback) {
+            return importer.BuildCIA(type, specifier, path.toStdString(), callback);
         },
         [this] { importer.AbortBuildCIA(); });
     RunSimpleJob(job);
@@ -835,11 +839,19 @@ void ImportDialog::StartBatchBuildingCIA() {
 
     to_import.erase(removed_iter, to_import.end());
 
-    QString path =
-        QFileDialog::getExistingDirectory(this, tr("Batch Build CIA"), last_batch_build_cia_path);
-    if (path.isEmpty()) {
+    const bool is_nand = std::all_of(to_import.begin(), to_import.end(),
+                                     [](const Core::ContentSpecifier& specifier) {
+                                         return specifier.type == Core::ContentType::SystemTitle;
+                                     });
+    const bool enable_legit = std::all_of(to_import.begin(), to_import.end(),
+                                          [this](const Core::ContentSpecifier& specifier) {
+                                              return importer.CanBuildLegitCIA(specifier);
+                                          });
+    CIABuildDialog dialog(this, /*is_dir*/ true, is_nand, enable_legit, last_batch_build_cia_path);
+    if (dialog.exec() != QDialog::Accepted) {
         return;
     }
+    auto [path, type] = dialog.GetResults();
     last_batch_build_cia_path = path;
     if (!path.endsWith(QChar::fromLatin1('/')) && !path.endsWith(QChar::fromLatin1('\\'))) {
         path.append(QStringLiteral("/"));
@@ -853,10 +865,10 @@ void ImportDialog::StartBatchBuildingCIA() {
                         });
     auto* job = new MultiJob(
         this, importer, std::move(to_import),
-        [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
-               const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(Core::CIABuildType::Standard, specifier, path.toStdString(),
-                                     callback, true);
+        [path = path, type = type](Core::SDMCImporter& importer,
+                                   const Core::ContentSpecifier& specifier,
+                                   const Common::ProgressCallback& callback) {
+            return importer.BuildCIA(type, specifier, path.toStdString(), callback, true);
         },
         &Core::SDMCImporter::AbortBuildCIA);
     RunMultiJob(job, total_count, total_size);
