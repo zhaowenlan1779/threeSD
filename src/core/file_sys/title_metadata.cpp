@@ -113,8 +113,8 @@ bool TitleMetadata::VerifyHashes() const {
     for (std::size_t i = 0; i < tmd_body.contentinfo.size(); i++) {
         contentinfo_hash.Update(reinterpret_cast<const u8*>(&tmd_body.contentinfo[i]),
                                 sizeof(ContentInfo));
-        const std::size_t offset = tmd_body.contentinfo[i].index;
-        const std::size_t count = tmd_body.contentinfo[i].command_count;
+        const std::size_t offset = static_cast<std::size_t>(tmd_body.contentinfo[i].index);
+        const std::size_t count = static_cast<std::size_t>(tmd_body.contentinfo[i].command_count);
         if (count == 0) {
             continue;
         }
