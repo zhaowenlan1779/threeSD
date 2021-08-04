@@ -9,7 +9,7 @@
 #include <vector>
 #include "common/common_funcs.h"
 #include "common/swap.h"
-#include "core/ncch/signature.h"
+#include "core/file_sys/signature.h"
 
 namespace CryptoPP {
 class Integer;

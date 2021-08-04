@@ -6,14 +6,14 @@
 #include <cryptopp/modes.h>
 #include <cryptopp/sha.h>
 #include "common/alignment.h"
+#include "core/cia_builder.h"
+#include "core/db/title_db.h"
+#include "core/db/title_keys_bin.h"
+#include "core/file_sys/certificate.h"
+#include "core/file_sys/cia_common.h"
+#include "core/file_sys/ticket.h"
+#include "core/file_sys/title_metadata.h"
 #include "core/importer.h"
-#include "core/ncch/certificate.h"
-#include "core/ncch/cia_builder.h"
-#include "core/ncch/cia_common.h"
-#include "core/ncch/ticket.h"
-#include "core/ncch/title_metadata.h"
-#include "core/title_db.h"
-#include "core/title_keys_bin.h"
 
 namespace Core {
 

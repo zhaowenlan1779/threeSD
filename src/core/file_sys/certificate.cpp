@@ -11,9 +11,9 @@
 #include "common/file_util.h"
 #include "common/logging/log.h"
 #include "common/string_util.h"
-#include "core/data_container.h"
-#include "core/ncch/certificate.h"
-#include "core/ncch/cia_common.h"
+#include "core/file_sys/certificate.h"
+#include "core/file_sys/cia_common.h"
+#include "core/file_sys/data/data_container.h"
 
 namespace Core {
 

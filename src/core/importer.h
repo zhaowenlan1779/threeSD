@@ -11,7 +11,7 @@
 #include <vector>
 #include "common/common_types.h"
 #include "common/progress_callback.h"
-#include "core/ncch/cia_common.h"
+#include "core/file_sys/cia_common.h"
 
 namespace Core {
 

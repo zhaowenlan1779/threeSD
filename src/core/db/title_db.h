@@ -10,8 +10,8 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/swap.h"
-#include "core/inner_fat.hpp"
-#include "core/ncch/ticket.h"
+#include "core/file_sys/data/inner_fat.hpp"
+#include "core/file_sys/ticket.h"
 
 namespace Core {
 

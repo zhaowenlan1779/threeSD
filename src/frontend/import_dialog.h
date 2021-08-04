@@ -9,8 +9,8 @@
 #include <vector>
 #include <QDialog>
 #include <QPixmap>
+#include "core/file_sys/ncch_container.h"
 #include "core/importer.h"
-#include "core/ncch/ncch_container.h"
 
 class AdvancedMenu;
 class MultiJob;

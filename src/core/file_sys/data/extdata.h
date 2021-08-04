@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "core/inner_fat.hpp"
+#include "core/file_sys/data/inner_fat.hpp"
 
 namespace Core {
 

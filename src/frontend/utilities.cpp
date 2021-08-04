@@ -8,12 +8,12 @@
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QtConcurrent/QtConcurrentRun>
-#include "core/data_container.h"
 #include "core/decryptor.h"
-#include "core/extdata.h"
+#include "core/file_sys/data/data_container.h"
+#include "core/file_sys/data/extdata.h"
+#include "core/file_sys/data/savegame.h"
+#include "core/file_sys/ncch_container.h"
 #include "core/key/key.h"
-#include "core/ncch/ncch_container.h"
-#include "core/savegame.h"
 #include "frontend/select_files_dialog.h"
 #include "frontend/utilities.h"
 #include "ui_utilities.h"

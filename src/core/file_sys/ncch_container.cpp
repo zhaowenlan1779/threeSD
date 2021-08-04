@@ -14,11 +14,11 @@
 #include "common/common_funcs.h"
 #include "common/common_types.h"
 #include "common/logging/log.h"
-#include "core/data_container.h"
+#include "core/db/seed_db.h"
+#include "core/file_sys/data/data_container.h"
+#include "core/file_sys/ncch_container.h"
 #include "core/importer.h"
 #include "core/key/key.h"
-#include "core/ncch/ncch_container.h"
-#include "core/ncch/seed_db.h"
 
 namespace Core {
 

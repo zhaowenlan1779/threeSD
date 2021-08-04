@@ -10,8 +10,8 @@
 #include "common/common_funcs.h"
 #include "common/file_util.h"
 #include "common/string_util.h"
-#include "core/ncch/cia_common.h"
-#include "core/ncch/ticket.h"
+#include "core/file_sys/cia_common.h"
+#include "core/file_sys/ticket.h"
 
 namespace Core {
 

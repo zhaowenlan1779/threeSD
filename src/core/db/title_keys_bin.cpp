@@ -3,7 +3,7 @@
 // Refer to the license.txt file included.
 
 #include "common/file_util.h"
-#include "core/title_keys_bin.h"
+#include "core/db/title_keys_bin.h"
 
 namespace Core {
 

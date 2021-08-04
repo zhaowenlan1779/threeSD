@@ -7,8 +7,8 @@
 #include "common/common_funcs.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
-#include "core/ncch/certificate.h"
-#include "core/ncch/signature.h"
+#include "core/file_sys/certificate.h"
+#include "core/file_sys/signature.h"
 
 namespace Core {
 

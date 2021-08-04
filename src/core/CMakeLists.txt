@@ -1,42 +1,42 @@
 add_library(core STATIC
-  data_container.cpp
-  data_container.h
+  cia_builder.cpp
+  cia_builder.h
+  db/seed_db.cpp
+  db/seed_db.h
+  db/title_db.cpp
+  db/title_db.h
+  db/title_keys_bin.cpp
+  db/title_keys_bin.h
   decryptor.cpp
   decryptor.h
-  extdata.cpp
-  extdata.h
+  file_sys/certificate.cpp
+  file_sys/certificate.h
+  file_sys/cia_common.h
+  file_sys/data/data_container.cpp
+  file_sys/data/data_container.h
+  file_sys/data/extdata.cpp
+  file_sys/data/extdata.h
+  file_sys/data/inner_fat.hpp
+  file_sys/data/savegame.cpp
+  file_sys/data/savegame.h
+  file_sys/ncch_container.cpp
+  file_sys/ncch_container.h
+  file_sys/signature.cpp
+  file_sys/signature.h
+  file_sys/smdh.cpp
+  file_sys/smdh.h
+  file_sys/ticket.cpp
+  file_sys/ticket.h
+  file_sys/title_metadata.cpp
+  file_sys/title_metadata.h
   importer.cpp
   importer.h
-  inner_fat.hpp
   key/arithmetic128.cpp
   key/arithmetic128.h
   key/key.cpp
   key/key.h
-  ncch/certificate.cpp
-  ncch/certificate.h
-  ncch/cia_builder.cpp
-  ncch/cia_builder.h
-  ncch/cia_common.h
-  ncch/ncch_container.cpp
-  ncch/ncch_container.h
-  ncch/signature.cpp
-  ncch/signature.h
-  ncch/seed_db.cpp
-  ncch/seed_db.h
-  ncch/smdh.cpp
-  ncch/smdh.h
-  ncch/ticket.cpp
-  ncch/ticket.h
-  ncch/title_metadata.cpp
-  ncch/title_metadata.h
   quick_decryptor.cpp
   quick_decryptor.h
-  savegame.cpp
-  savegame.h
-  title_db.cpp
-  title_db.h
-  title_keys_bin.cpp
-  title_keys_bin.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

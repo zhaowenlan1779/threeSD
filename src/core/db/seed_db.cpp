@@ -7,7 +7,7 @@
 #include <fmt/format.h>
 #include "common/file_util.h"
 #include "common/logging/log.h"
-#include "core/ncch/seed_db.h"
+#include "core/db/seed_db.h"
 
 namespace Core {
 

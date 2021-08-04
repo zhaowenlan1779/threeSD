@@ -5,7 +5,7 @@
 #include <memory>
 #include <utility>
 #include <QDialog>
-#include "core/ncch/cia_common.h"
+#include "core/file_sys/cia_common.h"
 
 namespace Ui {
 class CIABuildDialog;
