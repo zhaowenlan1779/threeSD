@@ -442,7 +442,7 @@ bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
     }
 
     if (!is_encrypted) {
-        // Simply copy everything. QuickDecryptor is used for progress reporting
+        // Simply copy everything. FileDecryptor is used for progress reporting
         file->Seek(0, SEEK_SET);
 
         const auto size = file->GetSize();

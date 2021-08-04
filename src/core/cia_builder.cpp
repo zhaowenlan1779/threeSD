@@ -282,7 +282,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
         const bool is_encrypted = static_cast<u16>(tmd_chunk.type) & 0x01;
 
         // For encrypted content, the hashes are calculated before CIA/CDN encryption.
-        // So we have to add hash calculation to the CryptoFunc of the QuickDecryptor.
+        // So we have to add hash calculation to the CryptoFunc of the FileDecryptor.
         // For unencrypted content, we can just use HashedFile's hashing.
         std::shared_ptr<CIAEncryptAndHash> crypto;
         if (is_encrypted) {

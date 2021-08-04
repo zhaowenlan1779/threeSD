@@ -7,8 +7,8 @@ add_library(core STATIC
   db/title_db.h
   db/title_keys_bin.cpp
   db/title_keys_bin.h
-  decryptor.cpp
-  decryptor.h
+  file_decryptor.cpp
+  file_decryptor.h
   file_sys/certificate.cpp
   file_sys/certificate.h
   file_sys/cia_common.h
@@ -35,8 +35,8 @@ add_library(core STATIC
   key/arithmetic128.h
   key/key.cpp
   key/key.h
-  quick_decryptor.cpp
-  quick_decryptor.h
+  sdmc_decryptor.cpp
+  sdmc_decryptor.h
 )
 
 target_link_libraries(core PRIVATE common cryptopp)

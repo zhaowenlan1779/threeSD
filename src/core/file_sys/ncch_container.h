@@ -13,7 +13,7 @@
 #include "common/file_util.h"
 #include "common/progress_callback.h"
 #include "common/swap.h"
-#include "core/decryptor.h"
+#include "core/sdmc_decryptor.h"
 
 namespace Core {
 
@@ -305,7 +305,7 @@ private:
     std::shared_ptr<FileUtil::IOFile> exefs_file;
 
     // Used for DecryptToFile
-    QuickDecryptor decryptor;
+    FileDecryptor decryptor;
     std::atomic_bool aborted{false};
 
     friend class CIABuilder;

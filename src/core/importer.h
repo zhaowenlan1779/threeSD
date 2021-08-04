@@ -205,7 +205,7 @@ private:
 
     bool is_good{};
     Config config;
-    std::unique_ptr<SDMCDecryptor> decryptor;
+    std::unique_ptr<SDMCDecryptor> sdmc_decryptor;
 
     std::unique_ptr<CIABuilder> cia_builder;
     std::mutex cia_builder_mutex;

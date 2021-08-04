@@ -12,8 +12,8 @@
 #include "common/assert.h"
 #include "common/file_util.h"
 #include "common/string_util.h"
-#include "core/decryptor.h"
 #include "core/key/key.h"
+#include "core/sdmc_decryptor.h"
 
 namespace Core {
 
@@ -49,7 +49,7 @@ std::array<u8, 16> GetFileCTR(const std::string& path) {
 } // namespace
 
 void SDMCDecryptor::Reset(std::size_t total_size) {
-    quick_decryptor.Reset(total_size);
+    file_decryptor.Reset(total_size);
 }
 
 bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
@@ -61,17 +61,17 @@ bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::st
 
     auto key = Key::GetNormalKey(Key::SDKey);
     auto ctr = GetFileCTR(source);
-    quick_decryptor.SetCrypto(CreateCTRCrypto(key, ctr));
+    file_decryptor.SetCrypto(CreateCTRCrypto(key, ctr));
 
     auto source_file = std::make_shared<FileUtil::IOFile>(root_folder + source, "rb");
     auto size = source_file->GetSize();
     auto destination_file = std::make_shared<FileUtil::IOFile>(destination, "wb");
-    return quick_decryptor.CryptAndWriteFile(std::move(source_file), size,
-                                             std::move(destination_file), callback);
+    return file_decryptor.CryptAndWriteFile(std::move(source_file), size,
+                                            std::move(destination_file), callback);
 }
 
 void SDMCDecryptor::Abort() {
-    quick_decryptor.Abort();
+    file_decryptor.Abort();
 }
 
 std::vector<u8> SDMCDecryptor::DecryptFile(const std::string& source) const {

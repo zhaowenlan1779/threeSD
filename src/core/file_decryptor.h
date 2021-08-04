@@ -18,13 +18,14 @@ namespace Core {
 class CryptoFunc;
 
 /**
+ * Generalized file decryptor.
  * Helper that reads, decrypts and writes data. This uses three threads to process the data
  * and call progress callbacks occasionally.
  */
-class QuickDecryptor {
+class FileDecryptor {
 public:
-    explicit QuickDecryptor();
-    ~QuickDecryptor();
+    explicit FileDecryptor();
+    ~FileDecryptor();
 
     /**
      * Set up the crypto to use.

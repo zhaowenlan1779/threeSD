@@ -11,22 +11,21 @@
 #include "common/assert.h"
 #include "common/file_util.h"
 #include "common/string_util.h"
-#include "core/decryptor.h"
-#include "core/quick_decryptor.h"
+#include "core/file_decryptor.h"
 
 namespace Core {
 
-QuickDecryptor::QuickDecryptor() = default;
+FileDecryptor::FileDecryptor() = default;
 
-QuickDecryptor::~QuickDecryptor() = default;
+FileDecryptor::~FileDecryptor() = default;
 
-void QuickDecryptor::SetCrypto(std::shared_ptr<CryptoFunc> crypto_) {
+void FileDecryptor::SetCrypto(std::shared_ptr<CryptoFunc> crypto_) {
     crypto = std::move(crypto_);
 }
 
-bool QuickDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_, std::size_t size,
-                                       std::shared_ptr<FileUtil::IOFile> destination_,
-                                       const Common::ProgressCallback& callback_) {
+bool FileDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_, std::size_t size,
+                                      std::shared_ptr<FileUtil::IOFile> destination_,
+                                      const Common::ProgressCallback& callback_) {
     if (is_running) {
         LOG_ERROR(Core, "Decryptor is running");
         return false;
@@ -55,10 +54,10 @@ bool QuickDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_
 
     is_good = is_running = true;
 
-    read_thread = std::make_unique<std::thread>(&QuickDecryptor::DataReadLoop, this);
-    write_thread = std::make_unique<std::thread>(&QuickDecryptor::DataWriteLoop, this);
+    read_thread = std::make_unique<std::thread>(&FileDecryptor::DataReadLoop, this);
+    write_thread = std::make_unique<std::thread>(&FileDecryptor::DataWriteLoop, this);
     if (crypto) {
-        decrypt_thread = std::make_unique<std::thread>(&QuickDecryptor::DataDecryptLoop, this);
+        decrypt_thread = std::make_unique<std::thread>(&FileDecryptor::DataDecryptLoop, this);
     }
 
     completion_event.Wait();
@@ -79,7 +78,7 @@ bool QuickDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_
     return ret;
 }
 
-void QuickDecryptor::DataReadLoop() {
+void FileDecryptor::DataReadLoop() {
     std::size_t current_buffer = 0;
     bool is_first_run = true;
 
@@ -113,7 +112,7 @@ void QuickDecryptor::DataReadLoop() {
     }
 }
 
-void QuickDecryptor::DataDecryptLoop() {
+void FileDecryptor::DataDecryptLoop() {
     std::size_t current_buffer = 0;
     std::size_t file_size = current_total_size;
 
@@ -130,7 +129,7 @@ void QuickDecryptor::DataDecryptLoop() {
     }
 }
 
-void QuickDecryptor::DataWriteLoop() {
+void FileDecryptor::DataWriteLoop() {
     std::size_t current_buffer = 0;
 
     if (!*destination) {
@@ -174,14 +173,14 @@ void QuickDecryptor::DataWriteLoop() {
     completion_event.Set();
 }
 
-void QuickDecryptor::Abort() {
+void FileDecryptor::Abort() {
     if (is_running.exchange(false)) {
         is_good = false;
         completion_event.Set();
     }
 }
 
-void QuickDecryptor::Reset(std::size_t total_size_) {
+void FileDecryptor::Reset(std::size_t total_size_) {
     total_size = total_size_;
     imported_size = 0;
 }

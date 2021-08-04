@@ -10,11 +10,11 @@
 #include "common/file_util.h"
 #include "common/progress_callback.h"
 #include "common/swap.h"
+#include "core/file_decryptor.h"
 #include "core/file_sys/cia_common.h"
 #include "core/file_sys/ncch_container.h"
 #include "core/file_sys/title_metadata.h"
 #include "core/key/key.h"
-#include "core/quick_decryptor.h"
 
 namespace Core {
 
@@ -118,7 +118,7 @@ private:
     std::mutex abort_ncch_mutex;
     NCCHContainer* abort_ncch{};
 
-    QuickDecryptor decryptor;
+    FileDecryptor decryptor;
 };
 
 } // namespace Core

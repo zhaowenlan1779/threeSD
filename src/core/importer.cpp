@@ -11,7 +11,6 @@
 #include "core/cia_builder.h"
 #include "core/db/seed_db.h"
 #include "core/db/title_db.h"
-#include "core/decryptor.h"
 #include "core/file_sys/certificate.h"
 #include "core/file_sys/data/data_container.h"
 #include "core/file_sys/data/extdata.h"
@@ -21,6 +20,7 @@
 #include "core/file_sys/title_metadata.h"
 #include "core/importer.h"
 #include "core/key/key.h"
+#include "core/sdmc_decryptor.h"
 
 namespace Core {
 
@@ -60,11 +60,11 @@ bool SDMCImporter::Init() {
         Certs::Load(config.certs_db_path);
     }
 
-    decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
+    sdmc_decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
 
     // Load SDMC Title DB
     {
-        DataContainer container(decryptor->DecryptFile("/dbs/title.db"));
+        DataContainer container(sdmc_decryptor->DecryptFile("/dbs/title.db"));
         std::vector<std::vector<u8>> data;
         if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
             sdmc_title_db = std::make_unique<TitleDB>(std::move(data[0]));
@@ -93,7 +93,7 @@ bool SDMCImporter::IsGood() const {
 }
 
 void SDMCImporter::AbortImporting() {
-    decryptor->Abort();
+    sdmc_decryptor->Abort();
 }
 
 bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
@@ -169,8 +169,9 @@ bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
 bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
                                const Common::ProgressCallback& callback) {
     return ImportTitleGeneric(
-        *decryptor, config.sdmc_path, specifier, [this, &callback](const std::string& filepath) {
-            return decryptor->DecryptAndWriteFile(
+        *sdmc_decryptor, config.sdmc_path, specifier,
+        [this, &callback](const std::string& filepath) {
+            return sdmc_decryptor->DecryptAndWriteFile(
                 filepath,
                 FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
                     "Nintendo "
@@ -185,10 +186,10 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
 
     const auto base_path =
         config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
-    QuickDecryptor quick_decryptor;
+    FileDecryptor decryptor;
     return ImportTitleGeneric(
-        quick_decryptor, base_path, specifier,
-        [&base_path, &quick_decryptor, &callback](const std::string& filepath) {
+        decryptor, base_path, specifier,
+        [&base_path, &decryptor, &callback](const std::string& filepath) {
             const auto physical_path = base_path + filepath.substr(1);
             const auto citra_path = FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
                                     "00000000000000000000000000000000" + filepath;
@@ -197,7 +198,7 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
                 return false;
             }
             // Crypto is not set: plain copy with progress.
-            return quick_decryptor.CryptAndWriteFile(
+            return decryptor.CryptAndWriteFile(
                 std::make_shared<FileUtil::IOFile>(physical_path, "rb"),
                 FileUtil::GetSize(physical_path),
                 std::make_shared<FileUtil::IOFile>(citra_path, "wb"), callback);
@@ -208,7 +209,7 @@ bool SDMCImporter::ImportSavegame(u64 id,
                                   [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("title/{:08x}/{:08x}/data/", (id >> 32), (id & 0xFFFFFFFF));
 
-    DataContainer container(decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
+    DataContainer container(sdmc_decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
     if (!container.IsGood()) {
         return false;
     }
@@ -258,7 +259,7 @@ bool SDMCImporter::ImportNandSavegame(u64 id,
 bool SDMCImporter::ImportExtdata(u64 id,
                                  [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
-    Extdata extdata("/" + path, *decryptor);
+    Extdata extdata("/" + path, *sdmc_decryptor);
     if (!extdata.IsGood()) {
         return false;
     }
@@ -508,7 +509,7 @@ bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
         }
         return out.Load(file.GetData());
     } else {
-        return out.Load(decryptor->DecryptFile(tmd_path.substr(config.sdmc_path.size() - 1)));
+        return out.Load(sdmc_decryptor->DecryptFile(tmd_path.substr(config.sdmc_path.size() - 1)));
     }
 }
 
@@ -849,7 +850,7 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                     // Savegames can be uninitialized.
                     // TODO: Is there a better way of checking this other than performing the
                     // decryption? (Very costy)
-                    DataContainer container(decryptor->DecryptFile(
+                    DataContainer container(sdmc_decryptor->DecryptFile(
                         fmt::format("/title/{:08x}/{}/data/00000001.sav", high_id, virtual_name)));
                     if (!container.IsGood()) {
                         return true;

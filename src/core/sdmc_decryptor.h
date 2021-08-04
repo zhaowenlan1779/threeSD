@@ -9,7 +9,7 @@
 #include "common/common_types.h"
 #include "common/file_util.h"
 #include "common/logging/log.h"
-#include "core/quick_decryptor.h"
+#include "core/file_decryptor.h"
 
 namespace Core {
 
@@ -53,7 +53,7 @@ public:
 
 private:
     std::string root_folder;
-    QuickDecryptor quick_decryptor;
+    FileDecryptor file_decryptor;
 };
 
 /// Interface for reading an SDMC file like a normal IOFile. This is read-only.

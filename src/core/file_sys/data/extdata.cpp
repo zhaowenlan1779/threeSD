@@ -2,9 +2,9 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
-#include "core/decryptor.h"
 #include "core/file_sys/data/data_container.h"
 #include "core/file_sys/data/extdata.h"
+#include "core/sdmc_decryptor.h"
 
 namespace Core {
 
