@@ -14,7 +14,6 @@
 #include "common/progress_callback.h"
 #include "common/swap.h"
 #include "core/decryptor.h"
-#include "core/result_status.h"
 
 namespace Core {
 
@@ -211,33 +210,29 @@ public:
     NCCHContainer(std::shared_ptr<FileUtil::IOFile> file);
     NCCHContainer() {}
 
-    ResultStatus OpenFile(std::shared_ptr<FileUtil::IOFile> file);
+    bool OpenFile(std::shared_ptr<FileUtil::IOFile> file);
 
     /**
      * Ensure ExeFS and exheader is loaded and ready for reading sections
-     * @return ResultStatus result of function
      */
-    ResultStatus Load();
+    bool Load();
 
     /**
      * Reads an application ExeFS section of an NCCH file (non-compressed, primary key only)
      * @param name Name of section to read out of NCCH file
      * @param buffer Vector to read data into
-     * @return ResultStatus result of function
      */
-    ResultStatus LoadSectionExeFS(const char* name, std::vector<u8>& buffer);
+    bool LoadSectionExeFS(const char* name, std::vector<u8>& buffer);
 
     /**
      * Get the Program ID of the NCCH container
-     * @return ResultStatus result of function
      */
-    ResultStatus ReadProgramId(u64_le& program_id);
+    bool ReadProgramId(u64_le& program_id);
 
     /**
      * Get the Extdata ID of the NCCH container
-     * @return ResultStatus result of function
      */
-    ResultStatus ReadExtdataId(u64& extdata_id);
+    bool ReadExtdataId(u64& extdata_id);
 
     /**
      * Checks whether the NCCH container contains an ExeFS
@@ -253,33 +248,28 @@ public:
 
     /**
      * Reads the name of the codeset.
-     * @return ResultStatus result of function.
      */
-    ResultStatus ReadCodesetName(std::string& name);
+    bool ReadCodesetName(std::string& name);
 
     /**
      * Reads the product code.
-     * @return ResultStatus result of function.
      */
-    ResultStatus ReadProductCode(std::string& name);
+    bool ReadProductCode(std::string& name);
 
     /**
      * Gets encryption type (which key is used).
-     * @return ResultStatus result of function.
      */
-    ResultStatus ReadEncryptionType(EncryptionType& encryption);
+    bool ReadEncryptionType(EncryptionType& encryption);
 
     /**
      * Gets whether seed crypto is used.
-     * @return ResultStatus result of function.
      */
-    ResultStatus ReadSeedCrypto(bool& used);
+    bool ReadSeedCrypto(bool& used);
 
     /**
      * Decrypts this NCCH and write to the destination file.
-     * @return ResultStatus result of function.
      */
-    ResultStatus DecryptToFile(
+    bool DecryptToFile(
         std::shared_ptr<FileUtil::IOFile> dest_file,
         const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
 
@@ -293,7 +283,6 @@ public:
     ExeFs_Header exefs_header;
 
 private:
-    bool has_header = false;
     bool has_exheader = false;
     bool has_exefs = false;
     bool has_romfs = false;

@@ -243,7 +243,7 @@ private:
 };
 
 bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
-    if (ncch.Load() != ResultStatus::Success) {
+    if (!ncch.Load()) {
         return false;
     }
 
@@ -267,7 +267,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
             abort_ncch = nullptr;
         }
 
-        if (ret != ResultStatus::Success) {
+        if (!ret) {
             return false;
         }
         file->GetHash(tmd_chunk.hash.data());
@@ -332,7 +332,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     meta.core_version = ncch.exheader_header.arm11_system_local_caps.core_version;
 
     std::vector<u8> smdh_buffer;
-    if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success) {
+    if (!ncch.LoadSectionExeFS("icon", smdh_buffer)) {
         LOG_WARNING(Core, "Failed to load icon in ExeFS");
         return true;
     }
@@ -355,7 +355,7 @@ bool CIABuilder::Finalize() {
         tmd.FixHashes();
     }
     file->Seek(tmd_offset, SEEK_SET);
-    if (tmd.Save(*file) != ResultStatus::Success) {
+    if (!tmd.Save(*file)) {
         return false;
     }
 

@@ -31,7 +31,6 @@ add_library(core STATIC
   ncch/title_metadata.h
   quick_decryptor.cpp
   quick_decryptor.h
-  result_status.h
   savegame.cpp
   savegame.h
   title_db.cpp

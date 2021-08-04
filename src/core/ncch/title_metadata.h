@@ -10,7 +10,6 @@
 #include "common/common_types.h"
 #include "common/swap.h"
 #include "core/ncch/signature.h"
-#include "core/result_status.h"
 
 namespace Core {
 
@@ -79,9 +78,9 @@ public:
 
 #pragma pack(pop)
 
-    ResultStatus Load(const std::vector<u8> file_data, std::size_t offset = 0);
-    ResultStatus Save(FileUtil::IOFile& file);
-    ResultStatus Save(const std::string& file_path);
+    bool Load(const std::vector<u8> file_data, std::size_t offset = 0);
+    bool Save(FileUtil::IOFile& file);
+    bool Save(const std::string& file_path);
 
     void FixHashes();
     bool VerifyHashes() const;

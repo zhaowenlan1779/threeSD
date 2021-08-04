@@ -17,18 +17,18 @@
 
 namespace Core {
 
-ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t offset) {
+bool TitleMetadata::Load(const std::vector<u8> file_data, std::size_t offset) {
     std::size_t total_size = static_cast<std::size_t>(file_data.size() - offset);
     if (total_size < sizeof(u32_be))
-        return ResultStatus::Error;
+        return false;
 
     if (!signature.Load(file_data, offset)) {
-        return ResultStatus::Error;
+        return false;
     }
     const auto signature_size = signature.GetSize();
     std::size_t body_end = signature_size + sizeof(Body);
     if (total_size < body_end)
-        return ResultStatus::Error;
+        return false;
 
     // Read TMD body, then load the amount of ContentChunks specified
     std::memcpy(&tmd_body, &file_data[offset + signature_size], sizeof(TitleMetadata::Body));
@@ -38,7 +38,7 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
     if (total_size < expected_size) {
         LOG_ERROR(Service_FS, "Malformed TMD, expected size 0x{:x}, got 0x{:x}!", expected_size,
                   total_size);
-        return ResultStatus::ErrorInvalidFormat;
+        return false;
     }
 
     for (u16 i = 0; i < tmd_body.content_count; i++) {
@@ -49,33 +49,33 @@ ResultStatus TitleMetadata::Load(const std::vector<u8> file_data, std::size_t of
         tmd_chunks.push_back(chunk);
     }
 
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus TitleMetadata::Save(FileUtil::IOFile& file) {
+bool TitleMetadata::Save(FileUtil::IOFile& file) {
     const std::size_t offset = file.Tell();
 
     if (!file.IsOpen())
-        return ResultStatus::Error;
+        return false;
 
     if (!signature.Save(file)) {
-        return ResultStatus::Error;
+        return false;
     }
 
     // Write our TMD body, then write each of our ContentChunks
     if (file.WriteBytes(&tmd_body, sizeof(TitleMetadata::Body)) != sizeof(TitleMetadata::Body))
-        return ResultStatus::Error;
+        return false;
 
     for (u16 i = 0; i < tmd_body.content_count; i++) {
         ContentChunk chunk = tmd_chunks[i];
         if (file.WriteBytes(&chunk, sizeof(ContentChunk)) != sizeof(ContentChunk))
-            return ResultStatus::Error;
+            return false;
     }
 
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus TitleMetadata::Save(const std::string& file_path) {
+bool TitleMetadata::Save(const std::string& file_path) {
     FileUtil::IOFile file(file_path, "wb");
     return Save(file);
 }

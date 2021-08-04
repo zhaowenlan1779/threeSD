@@ -27,34 +27,37 @@ static const int kBlockSize = 0x200; ///< Size of ExeFS blocks (in bytes)
 
 NCCHContainer::NCCHContainer(std::shared_ptr<FileUtil::IOFile> file_) : file(std::move(file_)) {}
 
-ResultStatus NCCHContainer::OpenFile(std::shared_ptr<FileUtil::IOFile> file_) {
+bool NCCHContainer::OpenFile(std::shared_ptr<FileUtil::IOFile> file_) {
     file = std::move(file_);
 
     if (!file->IsOpen()) {
         LOG_WARNING(Service_FS, "Failed to open");
-        return ResultStatus::Error;
+        return false;
     }
 
     LOG_DEBUG(Service_FS, "Opened");
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::Load() {
+bool NCCHContainer::Load() {
     if (is_loaded)
-        return ResultStatus::Success;
+        return true;
 
     if (file->IsOpen()) {
         // Reset read pointer in case this file has been read before.
         file->Seek(0, SEEK_SET);
 
-        if (file->ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header))
-            return ResultStatus::Error;
+        if (file->ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header)) {
+            LOG_ERROR(Service_FS, "Could not read from file");
+            return false;
+        }
 
         // Verify we are loading the correct file type...
-        if (MakeMagic('N', 'C', 'C', 'H') != ncch_header.magic)
-            return ResultStatus::ErrorInvalidFormat;
+        if (MakeMagic('N', 'C', 'C', 'H') != ncch_header.magic) {
+            LOG_ERROR(Service_FS, "Invalid magic, file may be corrupted");
+            return false;
+        }
 
-        has_header = true;
         bool failed_to_decrypt = false;
         if (!ncch_header.no_crypto) {
             is_encrypted = true;
@@ -173,13 +176,10 @@ ResultStatus NCCHContainer::Load() {
 
         // System archives and DLC don't have an extended header but have RomFS
         if (ncch_header.extended_header_size) {
-            auto read_exheader = [this](FileUtil::IOFile& file) {
-                const std::size_t size = sizeof(exheader_header);
-                return file && file.ReadBytes(&exheader_header, size) == size;
-            };
-
-            if (!read_exheader(*file)) {
-                return ResultStatus::Error;
+            if (file->ReadBytes(&exheader_header,
+                                sizeof(exheader_header) != sizeof(exheader_header))) {
+                LOG_ERROR(Service_FS, "Could not read exheader from file");
+                return false;
             }
 
             if (is_encrypted) {
@@ -193,7 +193,7 @@ ResultStatus NCCHContainer::Load() {
                 } else {
                     if (failed_to_decrypt) {
                         LOG_ERROR(Service_FS, "Failed to decrypt");
-                        return ResultStatus::ErrorEncrypted;
+                        return false;
                     }
                     CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exheader_header);
                     CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption(
@@ -235,8 +235,10 @@ ResultStatus NCCHContainer::Load() {
             LOG_DEBUG(Service_FS, "ExeFS offset:                0x{:08X}", exefs_offset);
             LOG_DEBUG(Service_FS, "ExeFS size:                  0x{:08X}", exefs_size);
             file->Seek(exefs_offset, SEEK_SET);
-            if (file->ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header))
-                return ResultStatus::Error;
+            if (file->ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header)) {
+                LOG_ERROR(Service_FS, "Could not read ExeFS header from file");
+                return false;
+            }
 
             if (is_encrypted) {
                 CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exefs_header);
@@ -254,16 +256,18 @@ ResultStatus NCCHContainer::Load() {
     }
 
     is_loaded = true;
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& buffer) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
+bool NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& buffer) {
+    if (!Load()) {
+        return false;
+    }
 
-    if (!exefs_file || !exefs_file->IsOpen())
-        return ResultStatus::Error;
+    if (!exefs_file || !exefs_file->IsOpen()) {
+        LOG_ERROR(Service_FS, "NCCH does not have ExeFS");
+        return false;
+    }
 
     LOG_DEBUG(Service_FS, "{} sections:", kMaxSections);
     // Iterate through the ExeFs archive until we find a section with the specified name...
@@ -283,36 +287,36 @@ ResultStatus NCCHContainer::LoadSectionExeFS(const char* name, std::vector<u8>& 
 
             buffer.resize(section.size);
             if (exefs_file->ReadBytes(&buffer[0], section.size) != section.size)
-                return ResultStatus::Error;
+                return false;
             if (is_encrypted) {
                 dec.ProcessData(&buffer[0], &buffer[0], section.size);
             }
 
-            return ResultStatus::Success;
+            return true;
         }
     }
-    return ResultStatus::ErrorNotUsed;
+    LOG_ERROR(Service_FS, "Section {} not found", name);
+    return false;
 }
 
-ResultStatus NCCHContainer::ReadProgramId(u64_le& program_id) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
-
-    if (!has_header)
-        return ResultStatus::ErrorNotUsed;
+bool NCCHContainer::ReadProgramId(u64_le& program_id) {
+    if (!Load()) {
+        return false;
+    }
 
     program_id = ncch_header.program_id;
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::ReadExtdataId(u64& extdata_id) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
+bool NCCHContainer::ReadExtdataId(u64& extdata_id) {
+    if (!Load()) {
+        return false;
+    }
 
-    if (!has_exheader)
-        return ResultStatus::ErrorNotUsed;
+    if (!has_exheader) {
+        LOG_ERROR(Service_FS, "NCCH does not have ExHeader");
+        return false;
+    }
 
     if (exheader_header.arm11_system_local_caps.storage_info.other_attributes >> 1) {
         // Using extended save data access
@@ -330,65 +334,65 @@ ResultStatus NCCHContainer::ReadExtdataId(u64& extdata_id) {
             if (id) {
                 // Found a non-zero ID, use it
                 extdata_id = id;
-                return ResultStatus::Success;
+                return true;
             }
         }
 
-        return ResultStatus::ErrorNotUsed;
+        LOG_INFO(Service_FS, "Title does not have extdata ID");
+        return false;
     }
 
     extdata_id = exheader_header.arm11_system_local_caps.storage_info.ext_save_data_id;
-    return ResultStatus::Success;
+    return true;
 }
 
 bool NCCHContainer::HasExeFS() {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
+    if (!Load()) {
         return false;
+    }
 
     return has_exefs;
 }
 
 bool NCCHContainer::HasExHeader() {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
+    if (!Load()) {
         return false;
+    }
 
     return has_exheader;
 }
 
-ResultStatus NCCHContainer::ReadCodesetName(std::string& name) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
+bool NCCHContainer::ReadCodesetName(std::string& name) {
+    if (!Load()) {
+        return false;
+    }
 
-    if (!has_exheader)
-        return ResultStatus::ErrorNotUsed;
+    if (!has_exheader) {
+        LOG_ERROR(Service_FS, "NCCH does not have ExHeader");
+        return false;
+    }
 
     std::array<char, 9> name_data{};
     std::memcpy(name_data.data(), exheader_header.codeset_info.name, 8);
     name = name_data.data();
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::ReadProductCode(std::string& product_code) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
+bool NCCHContainer::ReadProductCode(std::string& product_code) {
+    if (!Load()) {
+        return false;
+    }
 
     std::array<char, 17> data{};
     std::memcpy(data.data(), ncch_header.product_code, 16);
     product_code = data.data();
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
-
-    if (!has_header)
-        return ResultStatus::ErrorNotUsed;
+bool NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
+    if (!Load()) {
+        return false;
+    }
 
     if (!is_encrypted) {
         encryption = EncryptionType::None;
@@ -410,37 +414,31 @@ ResultStatus NCCHContainer::ReadEncryptionType(EncryptionType& encryption) {
             break;
         default:
             LOG_ERROR(Service_FS, "Unknown encryption type {:X}!", ncch_header.secondary_key_slot);
-            return ResultStatus::ErrorNotUsed;
+            return false;
         }
     }
 
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::ReadSeedCrypto(bool& used) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
-
-    if (!has_header)
-        return ResultStatus::ErrorNotUsed;
+bool NCCHContainer::ReadSeedCrypto(bool& used) {
+    if (!Load()) {
+        return false;
+    }
 
     used = ncch_header.seed_crypto;
-    return ResultStatus::Success;
+    return true;
 }
 
-ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
-                                          const Common::ProgressCallback& callback) {
-    ResultStatus result = Load();
-    if (result != ResultStatus::Success)
-        return result;
-
-    if (!has_header)
-        return ResultStatus::ErrorNotUsed;
+bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
+                                  const Common::ProgressCallback& callback) {
+    if (!Load()) {
+        return false;
+    }
 
     if (!*dest_file) {
         LOG_ERROR(Core, "File is not open");
-        return ResultStatus::Error;
+        return false;
     }
 
     if (!is_encrypted) {
@@ -451,8 +449,7 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
 
         decryptor.Reset(size);
         decryptor.SetCrypto(nullptr);
-        const bool ret = decryptor.CryptAndWriteFile(file, size, dest_file, callback);
-        return ret ? ResultStatus::Success : ResultStatus::Error;
+        return decryptor.CryptAndWriteFile(file, size, dest_file, callback);
     }
 
     const auto total_size = file->GetSize();
@@ -476,7 +473,7 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
     if (dest_file->WriteBytes(&modified_header, sizeof(modified_header)) !=
         sizeof(modified_header)) {
         LOG_ERROR(Core, "Could not write NCCH header to file");
-        return ResultStatus::Error;
+        return false;
     }
     written += sizeof(NCCH_Header);
 
@@ -485,7 +482,7 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
         if (dest_file->WriteBytes(&exheader_header, sizeof(exheader_header)) !=
             sizeof(exheader_header)) {
             LOG_ERROR(Core, "Could not write Exheader to file");
-            return ResultStatus::Error;
+            return false;
         }
         written += sizeof(ExHeader_Header);
     }
@@ -533,19 +530,19 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
 
     if (!Write("logo", ncch_header.logo_region_offset * 0x200,
                ncch_header.logo_region_size * 0x200)) {
-        return ResultStatus::Error;
+        return false;
     }
 
     if (!Write("plain region", ncch_header.plain_region_offset * 0x200,
                ncch_header.plain_region_size * 0x200)) {
-        return ResultStatus::Error;
+        return false;
     }
 
     // Write ExeFS header
     if (has_exefs) {
         if (dest_file->WriteBytes(&exefs_header, sizeof(exefs_header)) != sizeof(exefs_header)) {
             LOG_ERROR(Core, "Could not write ExeFS header to file");
-            return ResultStatus::Error;
+            return false;
         }
         written += sizeof(ExeFs_Header);
 
@@ -565,21 +562,21 @@ ResultStatus NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest
             // Plus 1 for the ExeFS header
             if (!Write(section.name, section.offset + (ncch_header.exefs_offset + 1) * 0x200,
                        section.size, true, key, exefs_ctr, section.offset + sizeof(exefs_header))) {
-                return ResultStatus::Error;
+                return false;
             }
         }
     }
 
     if (has_romfs && !Write("romfs", ncch_header.romfs_offset * 0x200,
                             ncch_header.romfs_size * 0x200, true, secondary_key, romfs_ctr)) {
-        return ResultStatus::Error;
+        return false;
     }
     if (written < total_size) {
         LOG_WARNING(Core, "Data after {} ignored", written);
     }
 
     callback(total_size, total_size);
-    return ResultStatus::Success;
+    return true;
 }
 
 void NCCHContainer::AbortDecryptToFile() {

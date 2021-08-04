@@ -506,10 +506,9 @@ bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
             LOG_ERROR(Core, "Could not open {} or file too big", tmd_path);
             return false;
         }
-        return out.Load(file.GetData()) == ResultStatus::Success;
+        return out.Load(file.GetData());
     } else {
-        return out.Load(decryptor->DecryptFile(tmd_path.substr(config.sdmc_path.size() - 1))) ==
-               ResultStatus::Success;
+        return out.Load(decryptor->DecryptFile(tmd_path.substr(config.sdmc_path.size() - 1)));
     }
 }
 
@@ -530,7 +529,7 @@ TitleData LoadTitleData(NCCHContainer& ncch) {
     }
 
     std::vector<u8> smdh_buffer;
-    if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success) {
+    if (!ncch.LoadSectionExeFS("icon", smdh_buffer)) {
         LOG_WARNING(Core, "Failed to load icon in ExeFS");
         TitleData data{};
         std::get<0>(data) = std::move(title_name_from_codeset);
@@ -590,8 +589,7 @@ static std::string GetTitleFileName(NCCHContainer& ncch) {
     ncch.ReadProgramId(program_id);
 
     std::vector<u8> smdh_buffer;
-    if (ncch.LoadSectionExeFS("icon", smdh_buffer) != ResultStatus::Success ||
-        smdh_buffer.size() != sizeof(SMDH)) {
+    if (!ncch.LoadSectionExeFS("icon", smdh_buffer) || smdh_buffer.size() != sizeof(SMDH)) {
         LOG_WARNING(Core, "Failed to load icon in ExeFS or size incorrect");
         return NormalizeFilename(
             fmt::format("{:016x} {} ({})", program_id, codeset_name, product_code));
@@ -636,13 +634,12 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destin
         return false;
     }
 
-    if (dump_cxi_ncch->DecryptToFile(std::make_shared<FileUtil::IOFile>(destination, "wb"),
-                                     callback) == ResultStatus::Success) {
-        return true;
+    if (!dump_cxi_ncch->DecryptToFile(std::make_shared<FileUtil::IOFile>(destination, "wb"),
+                                      callback)) {
+        FileUtil::Delete(destination);
+        return false;
     }
-
-    FileUtil::Delete(destination);
-    return false;
+    return true;
 }
 
 void SDMCImporter::AbortDumpCXI() {
@@ -828,7 +825,7 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                                         virtual_name, tmd.GetBootContentID());
                         NCCHContainer ncch(
                             std::make_shared<SDMCFile>(sdmc_path, boot_content_path, "rb"));
-                        if (ncch.Load() != ResultStatus::Success) {
+                        if (!ncch.Load()) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
                             out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(directory + virtual_name +
@@ -907,7 +904,7 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                             fmt::format("{}{:08x}.app", content_path, tmd.GetBootContentID());
                         NCCHContainer ncch(
                             std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
-                        if (ncch.Load() != ResultStatus::Success) {
+                        if (!ncch.Load()) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
                             out.push_back({ContentType::SystemTitle, id,
                                            FileUtil::Exists(citra_path + "content/"),
