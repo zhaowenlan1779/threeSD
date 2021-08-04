@@ -176,8 +176,8 @@ bool NCCHContainer::Load() {
 
         // System archives and DLC don't have an extended header but have RomFS
         if (ncch_header.extended_header_size) {
-            if (file->ReadBytes(&exheader_header,
-                                sizeof(exheader_header) != sizeof(exheader_header))) {
+            if (file->ReadBytes(&exheader_header, sizeof(exheader_header)) !=
+                sizeof(exheader_header)) {
                 LOG_ERROR(Service_FS, "Could not read exheader from file");
                 return false;
             }
