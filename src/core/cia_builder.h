@@ -25,11 +25,14 @@ constexpr std::size_t CIA_CERT_SIZE = 0xA00;
 constexpr std::size_t CIA_METADATA_SIZE = 0x3AC0;
 
 struct Config;
+class EncTitleKeysBin;
 class HashedFile;
+class Ticket;
+class TicketDB;
 
 class CIABuilder {
 public:
-    explicit CIABuilder();
+    explicit CIABuilder(const Config& config);
     ~CIABuilder();
 
     /**
@@ -37,8 +40,9 @@ public:
      * @return true on success, false otherwise
      */
     bool Init(CIABuildType type, const std::string& destination, TitleMetadata tmd,
-              const Config& config, std::size_t total_size,
-              const Common::ProgressCallback& callback);
+              std::size_t total_size, const Common::ProgressCallback& callback);
+
+    void Cleanup();
 
     /**
      * Adds an NCCH content to the CIA.
@@ -93,9 +97,17 @@ private:
 
     static_assert(sizeof(Metadata) == CIA_METADATA_SIZE, "CIA Metadata structure size is wrong");
 
-    bool WriteCert(const std::string& certs_db_path);
-    bool WriteTicket(const std::string& ticket_db_path, const std::string& enc_title_keys_bin_path);
+    bool WriteCert();
 
+    bool FindLegitTicket(Ticket& ticket, u64 title_id) const;
+    Ticket BuildStandardTicket(u64 title_id) const;
+    bool WriteTicket();
+
+    // Persistent state
+    std::unique_ptr<TicketDB> ticket_db;
+    std::unique_ptr<EncTitleKeysBin> enc_title_keys_bin;
+
+    // State of a single task
     CIABuildType type;
 
     Header header{};
@@ -113,6 +125,7 @@ private:
     std::size_t written{}; // size written (with alignment)
     std::size_t total_size{};
     Common::ProgressCallback callback;
+    Common::ProgressCallbackWrapper wrapper;
 
     // The NCCH to abort on
     std::mutex abort_ncch_mutex;

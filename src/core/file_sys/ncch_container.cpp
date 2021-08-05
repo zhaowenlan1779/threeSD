@@ -447,19 +447,12 @@ bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
 
         const auto size = file->GetSize();
 
-        decryptor.Reset(size);
         decryptor.SetCrypto(nullptr);
         return decryptor.CryptAndWriteFile(file, size, dest_file, callback);
     }
 
     const auto total_size = file->GetSize();
-    decryptor.Reset(total_size); // This is inaccurate but doesn't really matter as we don't use it
-
     std::size_t written{};
-    const auto decryptor_callback = [total_size, &written, &callback](std::size_t current,
-                                                                      std::size_t /*total*/) {
-        callback(written + current, total_size);
-    };
 
     // Write NCCH header
     NCCH_Header modified_header = ncch_header;
@@ -487,6 +480,7 @@ bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
         written += sizeof(ExHeader_Header);
     }
 
+    Common::ProgressCallbackWrapper wrapper(total_size);
     const auto Write = [&](std::string_view name, std::size_t offset, std::size_t size,
                            bool decrypt = false, const Key::AESKey& key = {},
                            const Key::AESKey& ctr = {}, std::size_t aes_seek_pos = 0) {
@@ -518,9 +512,10 @@ bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
         }
 
         written = offset;
+        wrapper.SetCurrent(written);
 
         decryptor.SetCrypto(decrypt ? CreateCTRCrypto(key, ctr, aes_seek_pos) : nullptr);
-        if (!decryptor.CryptAndWriteFile(file, size, dest_file, decryptor_callback)) {
+        if (!decryptor.CryptAndWriteFile(file, size, dest_file, wrapper.Wrap(callback))) {
             LOG_ERROR(Core, "Could not write {}", name);
             return false;
         }

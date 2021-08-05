@@ -93,11 +93,11 @@ static QPixmap GetContentIcon(const Core::ContentSpecifier& specifier,
                                      QImage::Format::Format_RGB16));
 }
 
-ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
-    : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), user_path(config.user_path),
-      has_cert_db(!config.certs_db_path.empty()), importer(config) {
+ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
+    : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), config(config_) {
 
     qRegisterMetaType<u64>("u64");
+    qRegisterMetaType<std::size_t>("std::size_t");
     qRegisterMetaType<Core::ContentSpecifier>();
 
     ui->setupUi(this);
@@ -105,12 +105,8 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
-    if (!importer.IsGood()) {
-        QMessageBox::critical(
-            this, tr("Importer Error"),
-            tr("Failed to initalize the importer.\nRefer to the log for details."));
-        reject();
-    }
+    RelistContent();
+    UpdateSizeDisplay();
 
     ui->title_view_button->setChecked(true);
 
@@ -127,9 +123,6 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config)
 
     connect(ui->title_view_button, &QRadioButton::toggled, this, &ImportDialog::RepopulateContent);
     connect(ui->advanced_button, &QPushButton::clicked, this, &ImportDialog::ShowAdvancedMenu);
-
-    RelistContent();
-    UpdateSizeDisplay();
 
     // Set up column widths.
     // These values are tweaked with regard to the default dialog size.
@@ -155,12 +148,25 @@ void ImportDialog::RelistContent() {
     auto* future_watcher = new FutureWatcher(this);
     connect(future_watcher, &FutureWatcher::finished, this, [this, dialog] {
         dialog->hide();
-        RepopulateContent();
+        if (importer->IsGood()) {
+            RepopulateContent();
+        } else {
+            QMessageBox::critical(
+                this, tr("Importer Error"),
+                tr("Failed to initalize the importer.\nRefer to the log for details."));
+            reject();
+        }
     });
 
-    auto future = QtConcurrent::run([&contents = this->contents, &importer = this->importer] {
-        contents = importer.ListContent();
-    });
+    auto future = QtConcurrent::run(
+        [&importer = this->importer, &config = this->config, &contents = this->contents] {
+            if (!importer) {
+                importer = std::make_unique<Core::SDMCImporter>(config);
+            }
+            if (importer->IsGood()) {
+                contents = importer->ListContent();
+            }
+        });
     future_watcher->setFuture(future);
 }
 
@@ -323,6 +329,12 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
 }
 
 void ImportDialog::RepopulateContent() {
+    if (contents.empty()) { // why???
+        QMessageBox::warning(this, tr("threeSD"), tr("Sorry, there are no contents available."));
+        reject();
+        return;
+    }
+
     total_selected_size = 0;
     ui->main->clear();
     ui->main->setSortingEnabled(false);
@@ -418,13 +430,14 @@ void ImportDialog::RepopulateContent() {
 }
 
 void ImportDialog::UpdateSizeDisplay() {
-    QStorageInfo storage(QString::fromStdString(user_path));
+    QStorageInfo storage(QString::fromStdString(config.user_path));
     if (!storage.isValid() || !storage.isReady()) {
-        LOG_ERROR(Frontend, "Storage {} is not good", user_path);
+        LOG_ERROR(Frontend, "Storage {} is not good", config.user_path);
         QMessageBox::critical(
             this, tr("Bad Storage"),
             tr("An error occured while trying to get available space for the storage."));
         reject();
+        return;
     }
 
     ui->availableSpace->setText(
@@ -602,9 +615,8 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     dialog->setMinimumDuration(0);
 
     connect(job, &MultiJob::NextContent, this,
-            [this, bar, dialog, multiplier, total_count](
-                u64 size_imported, u64 count, const Core::ContentSpecifier& next_content, int eta) {
-                bar->setValue(static_cast<int>(size_imported / multiplier));
+            [this, bar, dialog, multiplier,
+             total_count](std::size_t count, const Core::ContentSpecifier& next_content, int eta) {
                 dialog->setLabelText(
                     tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
                         .arg(count)
@@ -616,16 +628,16 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
                 current_count = count;
             });
     connect(job, &MultiJob::ProgressUpdated, this,
-            [this, bar, dialog, multiplier, total_count](u64 total_size_imported,
-                                                         u64 current_size_imported, int eta) {
-                bar->setValue(static_cast<int>(total_size_imported / multiplier));
+            [this, bar, dialog, multiplier, total_count](u64 current_imported_size,
+                                                         u64 total_imported_size, int eta) {
+                bar->setValue(static_cast<int>(total_imported_size / multiplier));
                 dialog->setLabelText(tr("<p>(%1/%2) %3 (%4)</p><p align=\"center\">%5 "
                                         "/ %6</p><p align=\"right\">%7</p>")
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
                                          .arg(GetContentTypeName(current_content.type))
-                                         .arg(ReadableByteSize(current_size_imported))
+                                         .arg(ReadableByteSize(current_imported_size))
                                          .arg(ReadableByteSize(current_content.maximum_size))
                                          .arg(FormatETA(eta)));
             });
@@ -709,7 +721,7 @@ void ImportDialog::StartImporting() {
     const std::size_t total_count = to_import.size();
 
     auto* job =
-        new MultiJob(this, importer, std::move(to_import), &Core::SDMCImporter::ImportContent,
+        new MultiJob(this, *importer, std::move(to_import), &Core::SDMCImporter::ImportContent,
                      &Core::SDMCImporter::AbortImporting);
 
     RunMultiJob(job, total_count, total_selected_size);
@@ -728,9 +740,9 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
     auto* job = new SimpleJob(
         this,
         [this, specifier, path](const Common::ProgressCallback& callback) {
-            return importer.DumpCXI(specifier, path.toStdString(), callback);
+            return importer->DumpCXI(specifier, path.toStdString(), callback);
         },
-        [this] { importer.AbortDumpCXI(); });
+        [this] { importer->AbortDumpCXI(); });
     RunSimpleJob(job);
 }
 
@@ -771,13 +783,12 @@ void ImportDialog::StartBatchDumpingCXI() {
     }
 
     const auto total_count = to_import.size();
-    const auto total_size =
-        std::accumulate(to_import.begin(), to_import.end(), std::size_t{0},
-                        [](std::size_t sum, const Core::ContentSpecifier& specifier) {
-                            return sum + specifier.maximum_size;
-                        });
+    const auto total_size = std::accumulate(to_import.begin(), to_import.end(), u64{0},
+                                            [](u64 sum, const Core::ContentSpecifier& specifier) {
+                                                return sum + specifier.maximum_size;
+                                            });
     auto* job = new MultiJob(
-        this, importer, std::move(to_import),
+        this, *importer, std::move(to_import),
         [path](Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier,
                const Common::ProgressCallback& callback) {
             return importer.DumpCXI(specifier, path.toStdString(), callback, true);
@@ -792,7 +803,7 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
     CIABuildDialog dialog(this,
                           /*is_dir*/ false,
                           /*is_nand*/ specifier.type == Core::ContentType::SystemTitle,
-                          /*enable_legit*/ importer.CanBuildLegitCIA(specifier),
+                          /*enable_legit*/ importer->CanBuildLegitCIA(specifier),
                           last_build_cia_path);
     if (dialog.exec() != QDialog::Accepted) {
         return;
@@ -803,9 +814,9 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
     auto* job = new SimpleJob(
         this,
         [this, specifier, path = path, type = type](const Common::ProgressCallback& callback) {
-            return importer.BuildCIA(type, specifier, path.toStdString(), callback);
+            return importer->BuildCIA(type, specifier, path.toStdString(), callback);
         },
-        [this] { importer.AbortBuildCIA(); });
+        [this] { importer->AbortBuildCIA(); });
     RunSimpleJob(job);
 }
 
@@ -845,7 +856,7 @@ void ImportDialog::StartBatchBuildingCIA() {
                                      });
     const bool enable_legit = std::all_of(to_import.begin(), to_import.end(),
                                           [this](const Core::ContentSpecifier& specifier) {
-                                              return importer.CanBuildLegitCIA(specifier);
+                                              return importer->CanBuildLegitCIA(specifier);
                                           });
     CIABuildDialog dialog(this, /*is_dir*/ true, is_nand, enable_legit, last_batch_build_cia_path);
     if (dialog.exec() != QDialog::Accepted) {
@@ -858,13 +869,12 @@ void ImportDialog::StartBatchBuildingCIA() {
     }
 
     const auto total_count = to_import.size();
-    const auto total_size =
-        std::accumulate(to_import.begin(), to_import.end(), std::size_t{0},
-                        [](std::size_t sum, const Core::ContentSpecifier& specifier) {
-                            return sum + specifier.maximum_size;
-                        });
+    const auto total_size = std::accumulate(to_import.begin(), to_import.end(), u64{0},
+                                            [](u64 sum, const Core::ContentSpecifier& specifier) {
+                                                return sum + specifier.maximum_size;
+                                            });
     auto* job = new MultiJob(
-        this, importer, std::move(to_import),
+        this, *importer, std::move(to_import),
         [path = path, type = type](Core::SDMCImporter& importer,
                                    const Core::ContentSpecifier& specifier,
                                    const Common::ProgressCallback& callback) {

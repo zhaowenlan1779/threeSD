@@ -33,6 +33,10 @@ public:
     std::size_t Size() const;
     std::optional<Seed::Data> Get(u64 title_id) const;
 
+    void Clear() {
+        seeds.clear();
+    }
+
     auto begin() {
         return seeds.begin();
     }
@@ -56,6 +60,7 @@ private:
 namespace Seeds {
 
 void Load(const std::string& path);
+void Clear();
 std::optional<Seed::Data> GetSeed(u64 title_id);
 
 } // namespace Seeds

@@ -44,16 +44,13 @@ public:
     bool CryptAndWriteFile(
         std::shared_ptr<FileUtil::IOFile> source, std::size_t size,
         std::shared_ptr<FileUtil::IOFile> destination,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](u64, u64) {});
 
     void DataReadLoop();
     void DataDecryptLoop();
     void DataWriteLoop();
 
     void Abort();
-
-    /// Reset the imported_size counter for this content and set a new total_size.
-    void Reset(std::size_t total_size);
 
 private:
     static constexpr std::size_t BufferSize = 16 * 1024; // 16 KB
@@ -62,12 +59,7 @@ private:
     std::shared_ptr<FileUtil::IOFile> destination;
     std::shared_ptr<CryptoFunc> crypto;
 
-    // Total size of this content, may consist of multiple files
     std::size_t total_size{};
-    // Total size of the current file to process
-    std::size_t current_total_size{};
-    // Total imported size for this content
-    std::size_t imported_size{};
 
     std::array<std::array<u8, BufferSize>, 3> buffers;
     std::array<Common::Event, 3> data_read_event;

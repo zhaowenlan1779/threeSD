@@ -19,35 +19,35 @@ void MultiJob::run() {
         total_size += content.maximum_size;
     }
 
-    u64 size_imported = 0, count = 0;
+    std::size_t count = 0;
     int eta = -1;
 
     const auto initial_time = std::chrono::steady_clock::now();
     const auto UpdateETA = [total_size, &eta, initial_time](u64 size_imported) {
-        if (size_imported >= 10 * 1024 * 1024) { // 10M Threshold
-            using namespace std::chrono;
-            const u64 time_elapsed =
-                duration_cast<milliseconds>(steady_clock::now() - initial_time).count();
-            eta = static_cast<int>(time_elapsed * (total_size - size_imported) / (size_imported) /
-                                   1000);
+        if (size_imported < 10 * 1024 * 1024) { // 10M Threshold
+            return;
         }
+        using namespace std::chrono;
+        const u64 time_elapsed =
+            duration_cast<milliseconds>(steady_clock::now() - initial_time).count();
+        eta =
+            static_cast<int>(time_elapsed * (total_size - size_imported) / (size_imported) / 1000);
+    };
+    const auto Callback = [this, &eta, &UpdateETA](u64 current_imported_size,
+                                                   u64 total_imported_size, u64 /*total_size*/) {
+        UpdateETA(total_imported_size);
+        emit ProgressUpdated(current_imported_size, total_imported_size, eta);
     };
 
+    Common::ProgressCallbackWrapper wrapper(total_size);
     for (const auto& content : contents) {
-        emit NextContent(size_imported, count + 1, content, eta);
-        const auto callback = [this, size_imported, &eta, &UpdateETA](std::size_t current_size,
-                                                                      std::size_t /*total_size*/) {
-            UpdateETA(size_imported + current_size);
-            emit ProgressUpdated(size_imported + current_size, current_size, eta);
-        };
-        if (!execute_func(importer, content, callback)) {
+        emit NextContent(count + 1, content, eta);
+        if (!execute_func(importer, content, wrapper.Wrap(Callback))) {
             if (!cancelled) {
                 failed_contents.emplace_back(content);
             }
         }
         count++;
-        size_imported += content.maximum_size;
-        UpdateETA(size_imported);
 
         if (cancelled) {
             break;

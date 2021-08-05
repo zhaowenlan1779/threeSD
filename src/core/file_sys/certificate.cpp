@@ -97,7 +97,7 @@ static std::unordered_map<std::string, Certificate> g_certs;
 static bool g_is_loaded = false;
 
 bool Load(const std::string& path) {
-    g_certs.clear();
+    Clear();
 
     FileUtil::IOFile file(path, "rb");
     DataContainer container(file.GetData());
@@ -149,6 +149,11 @@ bool Load(const std::string& path) {
 
 bool IsLoaded() {
     return g_is_loaded;
+}
+
+void Clear() {
+    g_is_loaded = false;
+    g_certs.clear();
 }
 
 const Certificate& Get(const std::string& name) {

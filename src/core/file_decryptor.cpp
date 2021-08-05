@@ -50,7 +50,7 @@ bool FileDecryptor::CryptAndWriteFile(std::shared_ptr<FileUtil::IOFile> source_,
     destination = std::move(destination_);
     callback = callback_;
 
-    current_total_size = size;
+    total_size = size;
 
     is_good = is_running = true;
 
@@ -88,7 +88,7 @@ void FileDecryptor::DataReadLoop() {
         return;
     }
 
-    std::size_t file_size = current_total_size;
+    std::size_t file_size = total_size;
 
     while (is_running && file_size > 0) {
         if (is_first_run) {
@@ -114,7 +114,7 @@ void FileDecryptor::DataReadLoop() {
 
 void FileDecryptor::DataDecryptLoop() {
     std::size_t current_buffer = 0;
-    std::size_t file_size = current_total_size;
+    std::size_t file_size = total_size;
 
     while (is_running && file_size > 0) {
         data_read_event[current_buffer].Wait();
@@ -138,7 +138,8 @@ void FileDecryptor::DataWriteLoop() {
         return;
     }
 
-    std::size_t file_size = current_total_size;
+    std::size_t file_size = total_size;
+    std::size_t imported_size = 0;
     std::size_t iteration = 0;
     /// The number of iterations each progress report covers. 32 * 16K = 512K
     constexpr std::size_t ProgressReportFreq = 32;
@@ -178,11 +179,6 @@ void FileDecryptor::Abort() {
         is_good = false;
         completion_event.Set();
     }
-}
-
-void FileDecryptor::Reset(std::size_t total_size_) {
-    total_size = total_size_;
-    imported_size = 0;
 }
 
 CryptoFunc::~CryptoFunc() = default;

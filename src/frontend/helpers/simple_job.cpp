@@ -10,8 +10,8 @@ SimpleJob::SimpleJob(QObject* parent, ExecuteFunc execute_, AbortFunc abort_)
 SimpleJob::~SimpleJob() = default;
 
 void SimpleJob::run() {
-    const bool ret = execute(
-        [this](std::size_t current, std::size_t total) { emit ProgressUpdated(current, total); });
+    const bool ret =
+        execute([this](u64 current, u64 total) { emit ProgressUpdated(current, total); });
 
     if (ret || canceled) {
         emit Completed();

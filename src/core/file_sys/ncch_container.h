@@ -271,7 +271,7 @@ public:
      */
     bool DecryptToFile(
         std::shared_ptr<FileUtil::IOFile> dest_file,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](u64, u64) {});
 
     /**
      * Aborts DecryptToFile. Simply aborts the decryptor.

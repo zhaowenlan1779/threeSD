@@ -53,12 +53,28 @@ private:
     bool hash_enabled{};
 };
 
-CIABuilder::CIABuilder() = default;
+CIABuilder::CIABuilder(const Config& config) {
+    if (!config.ticket_db_path.empty()) {
+        ticket_db = std::make_unique<TicketDB>(config.ticket_db_path);
+    }
+    if (!ticket_db || !ticket_db->IsGood()) {
+        LOG_WARNING(Core, "ticket.db not present or is invalid");
+        ticket_db.reset();
+    }
+
+    if (!config.enc_title_keys_bin_path.empty()) {
+        enc_title_keys_bin = std::make_unique<EncTitleKeysBin>();
+        if (!LoadTitleKeysBin(*enc_title_keys_bin, config.enc_title_keys_bin_path)) {
+            LOG_WARNING(Core, "encTitleKeys.bin invalid");
+            enc_title_keys_bin.reset();
+        }
+    }
+}
+
 CIABuilder::~CIABuilder() = default;
 
 bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleMetadata tmd_,
-                      const Config& config, std::size_t total_size_,
-                      const Common::ProgressCallback& callback_) {
+                      std::size_t total_size_, const Common::ProgressCallback& callback_) {
 
     type = type_;
     header = {};
@@ -91,14 +107,14 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     // Cert
     cert_offset = Common::AlignUp(header.header_size, CIA_ALIGNMENT);
     header.cert_size = CIA_CERT_SIZE;
-    if (!WriteCert(config.certs_db_path)) {
+    if (!WriteCert()) {
         LOG_ERROR(Core, "Could not write cert to file {}", destination);
         return false;
     }
 
     // Ticket
     ticket_offset = Common::AlignUp(cert_offset + header.cert_size, CIA_ALIGNMENT);
-    if (!WriteTicket(config.ticket_db_path, config.enc_title_keys_bin_path)) {
+    if (!WriteTicket()) {
         return false;
     }
 
@@ -112,15 +128,23 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     // Meta will be written in Finalize
     header.meta_size = 0;
 
+    // Initialize variables
     written = content_offset;
     total_size = total_size_;
+
     callback = callback_;
+    wrapper.total_size = total_size;
+    wrapper.SetCurrent(written);
 
     callback(written, total_size);
     return true;
 }
 
-bool CIABuilder::WriteCert(const std::string& certs_db_path) {
+void CIABuilder::Cleanup() {
+    file.reset();
+}
+
+bool CIABuilder::WriteCert() {
     if (!Certs::IsLoaded()) {
         return false;
     }
@@ -135,10 +159,9 @@ bool CIABuilder::WriteCert(const std::string& certs_db_path) {
     return true;
 }
 
-static bool FindLegitTicket(Ticket& ticket, u64 title_id, const std::string& ticket_db_path) {
-    TicketDB ticket_db(ticket_db_path);
-    if (ticket_db.IsGood() && ticket_db.tickets.count(title_id)) {
-        ticket = ticket_db.tickets.at(title_id);
+bool CIABuilder::FindLegitTicket(Ticket& ticket, u64 title_id) const {
+    if (ticket_db && ticket_db->tickets.count(title_id)) {
+        ticket = ticket_db->tickets.at(title_id);
         if (!ticket.ValidateSignature()) {
             LOG_ERROR(Core, "Ticket in ticket.db for {:016x} is not legit", title_id);
             return false;
@@ -150,24 +173,17 @@ static bool FindLegitTicket(Ticket& ticket, u64 title_id, const std::string& tic
     return false;
 }
 
-static Ticket BuildStandardTicket(u64 title_id, const std::string& ticket_db_path,
-                                  const std::string& enc_title_keys_bin_path) {
+Ticket CIABuilder::BuildStandardTicket(u64 title_id) const {
     Ticket ticket = BuildFakeTicket(title_id);
 
     // Fill in common_key_index and title_key from either ticket.db (installed tickets)
     // or GM9 support files (encTitleKeys.bin) found on the SD card
-    if (TicketDB ticket_db(ticket_db_path);
-        ticket_db.IsGood() && ticket_db.tickets.count(title_id)) { // ticket.db
-
-        const auto& legit_ticket = ticket_db.tickets.at(title_id);
+    if (ticket_db && ticket_db->tickets.count(title_id)) { // ticket.db
+        const auto& legit_ticket = ticket_db->tickets.at(title_id);
         ticket.body.common_key_index = legit_ticket.body.common_key_index;
         ticket.body.title_key = legit_ticket.body.title_key;
-
-    } else if (TitleKeysMap enc_title_keys;
-               LoadTitleKeysBin(enc_title_keys, enc_title_keys_bin_path) &&
-               enc_title_keys.count(title_id)) { // support files
-
-        const auto& entry = enc_title_keys.at(title_id);
+    } else if (enc_title_keys_bin && enc_title_keys_bin->count(title_id)) { // support files
+        const auto& entry = enc_title_keys_bin->at(title_id);
         ticket.body.common_key_index = entry.common_key_index;
         ticket.body.title_key = entry.title_key;
     } else {
@@ -195,18 +211,16 @@ static Key::AESKey GetTitleKey(const Ticket& ticket) {
     return title_key;
 }
 
-bool CIABuilder::WriteTicket(const std::string& ticket_db_path,
-                             const std::string& enc_title_keys_bin_path) {
-
+bool CIABuilder::WriteTicket() {
     const auto title_id = tmd.GetTitleID();
 
     Ticket ticket;
     if (type == CIABuildType::Legit) {
-        if (!FindLegitTicket(ticket, title_id, ticket_db_path)) {
+        if (!FindLegitTicket(ticket, title_id)) {
             return false;
         }
     } else {
-        ticket = BuildStandardTicket(title_id, ticket_db_path, enc_title_keys_bin_path);
+        ticket = BuildStandardTicket(title_id);
     }
     title_key = GetTitleKey(ticket);
 
@@ -248,11 +262,10 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     }
 
     file->Seek(written, SEEK_SET); // To enforce alignment
+    wrapper.SetCurrent(written);
 
     auto& tmd_chunk = tmd.GetContentChunkByID(content_id);
-    const auto progress_callback = [this](std::size_t current, std::size_t total) {
-        callback(written + current, total_size);
-    };
+
     if (type == CIABuildType::Standard) {
         // Decrypt the NCCH. We created a HashedFile to transparently calculate the hash as there
         // is no easy way to get decrypted NCCH content otherwise.
@@ -261,7 +274,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
             std::lock_guard lock{abort_ncch_mutex};
             abort_ncch = &ncch;
         }
-        const auto ret = ncch.DecryptToFile(file, progress_callback);
+        const auto ret = ncch.DecryptToFile(file, wrapper.Wrap(callback));
         {
             std::lock_guard lock{abort_ncch_mutex};
             abort_ncch = nullptr;
@@ -292,7 +305,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
         }
         decryptor.SetCrypto(crypto);
         if (!decryptor.CryptAndWriteFile(ncch.file, ncch.file->GetSize(), file,
-                                         progress_callback)) {
+                                         wrapper.Wrap(callback))) {
 
             return false;
         }

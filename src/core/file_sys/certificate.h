@@ -61,6 +61,7 @@ namespace Certs {
 
 bool Load(const std::string& path);
 bool IsLoaded();
+void Clear();
 const Certificate& Get(const std::string& name);
 bool Exists(const std::string& name);
 

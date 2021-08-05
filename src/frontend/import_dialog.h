@@ -63,9 +63,9 @@ private:
 
     std::unique_ptr<Ui::ImportDialog> ui;
 
-    std::string user_path;
-    bool has_cert_db = false;
-    Core::SDMCImporter importer;
+    std::unique_ptr<Core::SDMCImporter> importer;
+    const Core::Config config;
+
     std::vector<Core::ContentSpecifier> contents;
     u64 total_selected_size = 0;
 
@@ -84,5 +84,5 @@ private:
 
     // TODO: Why this won't work as locals?
     Core::ContentSpecifier current_content = {};
-    u64 current_count = 0;
+    std::size_t current_count = 0;
 };

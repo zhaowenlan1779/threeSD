@@ -116,6 +116,11 @@ void Load(const std::string& path) {
     g_seeddb_loaded = g_seeddb.Load(path);
 }
 
+void Clear() {
+    g_seeddb.Clear();
+    g_seeddb_loaded = false;
+}
+
 std::optional<Seed::Data> GetSeed(u64 title_id) {
     if (!g_seeddb_loaded) {
         Load(fmt::format("{}/seeddb.bin", FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir)));

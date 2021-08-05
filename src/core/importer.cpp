@@ -28,7 +28,11 @@ SDMCImporter::SDMCImporter(const Config& config_) : config(config_) {
     is_good = Init();
 }
 
-SDMCImporter::~SDMCImporter() = default;
+SDMCImporter::~SDMCImporter() {
+    // Unload global DBs
+    Certs::Clear();
+    Seeds::Clear();
+}
 
 bool SDMCImporter::Init() {
     ASSERT_MSG(!config.sdmc_path.empty() && !config.user_path.empty() &&
@@ -53,6 +57,7 @@ bool SDMCImporter::Init() {
         return false;
     }
 
+    // Load global DBs
     if (!config.seed_db_path.empty()) {
         Seeds::Load(config.seed_db_path);
     }
@@ -60,7 +65,9 @@ bool SDMCImporter::Init() {
         Certs::Load(config.certs_db_path);
     }
 
+    // Create children
     sdmc_decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
+    cia_builder = std::make_unique<CIABuilder>(config);
 
     // Load SDMC Title DB
     {
@@ -138,16 +145,16 @@ bool SDMCImporter::ImportContentImpl(const ContentSpecifier& specifier,
 
 namespace {
 
-template <typename Dec>
-bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
-                        const ContentSpecifier& specifier,
-                        const std::function<bool(const std::string&)>& decryption_func) {
+using DecryptionFunc = std::function<bool(const std::string&, const Common::ProgressCallback&)>;
+bool ImportTitleGeneric(const std::string& base_path, const ContentSpecifier& specifier,
+                        const Common::ProgressCallback& callback,
+                        const DecryptionFunc& decryption_func) {
 
-    decryptor.Reset(specifier.maximum_size);
+    Common::ProgressCallbackWrapper wrapper{specifier.maximum_size};
     const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
-        [size = base_path.size(), &DirectoryEntryCallback,
-         &decryption_func](u64* /*num_entries_out*/, const std::string& directory,
-                           const std::string& virtual_name) {
+        [size = base_path.size(), &DirectoryEntryCallback, &callback, &decryption_func,
+         &wrapper](u64* /*num_entries_out*/, const std::string& directory,
+                   const std::string& virtual_name) {
             if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
                 if (virtual_name == "cmd") {
                     return true; // Skip cmd (not used in Citra)
@@ -157,7 +164,7 @@ bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
                                                        DirectoryEntryCallback);
             }
             const auto filepath = (directory + virtual_name).substr(size - 1);
-            return decryption_func(filepath);
+            return decryption_func(filepath, wrapper.Wrap(callback));
         };
     const auto path = fmt::format("title/{:08x}/{:08x}/content/", (specifier.id >> 32),
                                   (specifier.id & 0xFFFFFFFF));
@@ -169,15 +176,15 @@ bool ImportTitleGeneric(Dec& decryptor, const std::string& base_path,
 bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
                                const Common::ProgressCallback& callback) {
     return ImportTitleGeneric(
-        *sdmc_decryptor, config.sdmc_path, specifier,
-        [this, &callback](const std::string& filepath) {
+        config.sdmc_path, specifier, callback,
+        [this](const std::string& filepath, const Common::ProgressCallback& wrapped_callback) {
             return sdmc_decryptor->DecryptAndWriteFile(
                 filepath,
                 FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir) +
                     "Nintendo "
                     "3DS/00000000000000000000000000000000/00000000000000000000000000000000" +
                     filepath,
-                callback);
+                wrapped_callback);
         });
 }
 
@@ -188,8 +195,9 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
         config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
     FileDecryptor decryptor;
     return ImportTitleGeneric(
-        decryptor, base_path, specifier,
-        [&base_path, &decryptor, &callback](const std::string& filepath) {
+        base_path, specifier, callback,
+        [&base_path, &decryptor](const std::string& filepath,
+                                 const Common::ProgressCallback& wrapped_callback) {
             const auto physical_path = base_path + filepath.substr(1);
             const auto citra_path = FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
                                     "00000000000000000000000000000000" + filepath;
@@ -201,7 +209,7 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
             return decryptor.CryptAndWriteFile(
                 std::make_shared<FileUtil::IOFile>(physical_path, "rb"),
                 FileUtil::GetSize(physical_path),
-                std::make_shared<FileUtil::IOFile>(citra_path, "wb"), callback);
+                std::make_shared<FileUtil::IOFile>(citra_path, "wb"), wrapped_callback);
         });
 }
 
@@ -716,18 +724,9 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         }
     }
 
-    {
-        std::lock_guard lock{cia_builder_mutex};
-        cia_builder = std::make_unique<CIABuilder>();
-    }
-
-    bool ret = cia_builder->Init(build_type, destination, tmd, config,
-                                 FileUtil::GetDirectoryTreeSize(physical_path), callback);
+    bool ret = cia_builder->Init(build_type, destination, tmd, specifier.maximum_size, callback);
     SCOPE_EXIT({
-        {
-            std::lock_guard lock{cia_builder_mutex};
-            cia_builder.reset(); // To release file handles, etc
-        }
+        cia_builder->Cleanup();
         if (!ret) { // Remove borked file
             FileUtil::Delete(destination);
         }
@@ -782,11 +781,11 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
 }
 
 void SDMCImporter::AbortBuildCIA() {
-    std::lock_guard lock{cia_builder_mutex};
-    if (cia_builder) {
-        cia_builder->Abort();
-    }
+    cia_builder->Abort();
 }
+
+// Add a certain amount to the titles' maximum sizes, so that they are always larger than CIA sizes
+constexpr u64 TitleSizeAllowance = 0xA000;
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
     const auto ProcessDirectory = [this, &out, &sdmc_path = config.sdmc_path](ContentType type,
@@ -836,10 +835,11 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
 
                         const auto& [name, extdata_id, encryption, seed_crypto, icon] =
                             LoadTitleData(ncch);
-                        out.push_back(
-                            {type, id, FileUtil::Exists(citra_path + "content/"),
-                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                             name, extdata_id, encryption, seed_crypto, icon});
+                        const auto size =
+                            FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
+                            TitleSizeAllowance;
+                        out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
+                                       name, extdata_id, encryption, seed_crypto, icon});
                     } while (false);
                 }
 
@@ -907,9 +907,6 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                             std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
                         if (!ncch.Load()) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
-                            out.push_back({ContentType::SystemTitle, id,
-                                           FileUtil::Exists(citra_path + "content/"),
-                                           FileUtil::GetDirectoryTreeSize(content_path)});
                             break;
                         }
 
@@ -917,10 +914,11 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                             LoadTitleData(ncch);
                         const auto type = (id >> 32) == 0x00040030 ? ContentType::SystemApplet
                                                                    : ContentType::SystemTitle;
-                        out.push_back(
-                            {type, id, FileUtil::Exists(citra_path + "content/"),
-                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/"),
-                             name, extdata_id, encryption, seed_crypto, icon});
+                        const auto size =
+                            FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
+                            TitleSizeAllowance;
+                        out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
+                                       name, extdata_id, encryption, seed_crypto, icon});
                     } while (false);
                 }
                 return true;

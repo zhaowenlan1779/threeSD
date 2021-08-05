@@ -48,10 +48,6 @@ std::array<u8, 16> GetFileCTR(const std::string& path) {
 }
 } // namespace
 
-void SDMCDecryptor::Reset(std::size_t total_size) {
-    file_decryptor.Reset(total_size);
-}
-
 bool SDMCDecryptor::DecryptAndWriteFile(const std::string& source, const std::string& destination,
                                         const Common::ProgressCallback& callback) {
     if (!FileUtil::CreateFullPath(destination)) {

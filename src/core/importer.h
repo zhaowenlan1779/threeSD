@@ -6,7 +6,6 @@
 
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 #include "common/common_types.h"
@@ -17,6 +16,7 @@ namespace Core {
 
 class CIABuilder;
 class SDMCDecryptor;
+class TicketDB;
 class TitleDB;
 class TitleMetadata;
 
@@ -120,7 +120,7 @@ public:
      */
     bool ImportContent(
         const ContentSpecifier& specifier,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](u64, u64) {});
 
     /**
      * Aborts current importing.
@@ -175,7 +175,7 @@ private:
     // Impl of ImportContent without deleting mechanism.
     bool ImportContentImpl(
         const ContentSpecifier& specifier,
-        const Common::ProgressCallback& callback = [](std::size_t, std::size_t) {});
+        const Common::ProgressCallback& callback = [](u64, u64) {});
     bool ImportTitle(const ContentSpecifier& specifier, const Common::ProgressCallback& callback);
     bool ImportNandTitle(const ContentSpecifier& specifier,
                          const Common::ProgressCallback& callback);
@@ -207,8 +207,8 @@ private:
     Config config;
     std::unique_ptr<SDMCDecryptor> sdmc_decryptor;
 
+    // Used for CIA building
     std::unique_ptr<CIABuilder> cia_builder;
-    std::mutex cia_builder_mutex;
 
     // The NCCH used to dump CXIs.
     std::unique_ptr<NCCHContainer> dump_cxi_ncch;
