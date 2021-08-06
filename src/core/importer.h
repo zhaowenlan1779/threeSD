@@ -36,6 +36,12 @@ enum class ContentType {
     SystemApplet, // This should belong to System Title, but they cause problems so a new category.
 };
 
+constexpr bool CanBuildCIA(ContentType type) {
+    return type == ContentType::Application || type == ContentType::Update ||
+           type == ContentType::DLC || type == ContentType::SystemTitle ||
+           type == ContentType::SystemApplet;
+}
+
 /**
  * Encryption type of an importable content.
  */

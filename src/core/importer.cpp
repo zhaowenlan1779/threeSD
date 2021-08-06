@@ -488,7 +488,7 @@ static std::string FindTMD(const std::string& path) {
 }
 
 bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
-    const bool is_nand = type == ContentType::SystemTitle;
+    const bool is_nand = type == ContentType::SystemTitle || type == ContentType::SystemApplet;
 
     auto& title_db = is_nand ? nand_title_db : sdmc_title_db;
     const auto physical_path =
@@ -656,8 +656,7 @@ void SDMCImporter::AbortDumpCXI() {
 }
 
 bool SDMCImporter::CanBuildLegitCIA(const ContentSpecifier& specifier) const {
-    if (specifier.type != ContentType::Application && specifier.type != ContentType::Update &&
-        specifier.type != ContentType::DLC && specifier.type != ContentType::SystemTitle) {
+    if (!CanBuildCIA(specifier.type)) {
         return false;
     }
 
@@ -681,9 +680,7 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    if (specifier.type != ContentType::Application && specifier.type != ContentType::Update &&
-        specifier.type != ContentType::DLC && specifier.type != ContentType::SystemTitle) {
-
+    if (!CanBuildCIA(specifier.type)) {
         LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
         return false;
     }
@@ -694,7 +691,8 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    const bool is_nand = specifier.type == ContentType::SystemTitle;
+    const bool is_nand =
+        specifier.type == ContentType::SystemTitle || specifier.type == ContentType::SystemApplet;
     const auto physical_path =
         is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))

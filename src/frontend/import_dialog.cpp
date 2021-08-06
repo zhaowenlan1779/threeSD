@@ -511,10 +511,8 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
             connect(dump_cxi, &QAction::triggered,
                     [this, specifier] { StartDumpingCXISingle(specifier); });
         }
-        if (specifier.type == Core::ContentType::Application ||
-            specifier.type == Core::ContentType::Update ||
-            specifier.type == Core::ContentType::DLC) {
-            QAction* build_cia = context_menu.addAction(tr("Build CIA (standard)"));
+        if (Core::CanBuildCIA(specifier.type)) {
+            QAction* build_cia = context_menu.addAction(tr("Build CIA..."));
             connect(build_cia, &QAction::triggered,
                     [this, specifier] { StartBuildingCIASingle(specifier); });
         }
@@ -802,7 +800,8 @@ void ImportDialog::StartBatchDumpingCXI() {
 void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifier) {
     CIABuildDialog dialog(this,
                           /*is_dir*/ false,
-                          /*is_nand*/ specifier.type == Core::ContentType::SystemTitle,
+                          /*is_nand*/ specifier.type == Core::ContentType::SystemTitle ||
+                              specifier.type == Core::ContentType::SystemApplet,
                           /*enable_legit*/ importer->CanBuildLegitCIA(specifier),
                           last_build_cia_path);
     if (dialog.exec() != QDialog::Accepted) {
@@ -829,12 +828,8 @@ void ImportDialog::StartBatchBuildingCIA() {
     }
 
     const auto removed_iter = std::remove_if(
-        to_import.begin(), to_import.end(), [](const Core::ContentSpecifier& specifier) {
-            return specifier.type != Core::ContentType::Application &&
-                   specifier.type != Core::ContentType::Update &&
-                   specifier.type != Core::ContentType::DLC &&
-                   specifier.type != Core::ContentType::SystemTitle;
-        });
+        to_import.begin(), to_import.end(),
+        [](const Core::ContentSpecifier& specifier) { return !Core::CanBuildCIA(specifier.type); });
     if (removed_iter == to_import.begin()) { // No Titles selected
         QMessageBox::critical(this, tr("threeSD"),
                               tr("The contents selected are not supported.<br>You can only build "
@@ -852,7 +847,8 @@ void ImportDialog::StartBatchBuildingCIA() {
 
     const bool is_nand = std::all_of(to_import.begin(), to_import.end(),
                                      [](const Core::ContentSpecifier& specifier) {
-                                         return specifier.type == Core::ContentType::SystemTitle;
+                                         return specifier.type == Core::ContentType::SystemTitle ||
+                                                specifier.type == Core::ContentType::SystemApplet;
                                      });
     const bool enable_legit = std::all_of(to_import.begin(), to_import.end(),
                                           [this](const Core::ContentSpecifier& specifier) {
