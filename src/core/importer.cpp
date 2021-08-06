@@ -676,8 +676,8 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
                             std::string destination, const Common::ProgressCallback& callback,
                             bool auto_filename) {
 
-    if (config.certs_db_path.empty()) {
-        LOG_ERROR(Core, "Missing certs.db");
+    if (!Certs::IsLoaded()) {
+        LOG_ERROR(Core, "Missing certs");
         return false;
     }
 
@@ -735,48 +735,29 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    const FileUtil::DirectoryEntryCallable DirectoryEntryCallback =
-        [this, tmd, is_nand, specifier, &DirectoryEntryCallback](u64* /*num_entries_out*/,
-                                                                 const std::string& directory,
-                                                                 const std::string& virtual_name) {
-            if (FileUtil::IsDirectory(directory + virtual_name + "/")) {
-                if (virtual_name == "cmd") {
-                    return true; // Skip cmd (not used in Citra)
-                }
-                // Recursive call (necessary for DLCs)
-                return FileUtil::ForeachDirectoryEntry(nullptr, directory + virtual_name + "/",
-                                                       DirectoryEntryCallback);
-            }
+    for (const auto& tmd_chunk : tmd.tmd_chunks) {
+        const auto path =
+            fmt::format("{}{:08x}.app", physical_path, static_cast<u32>(tmd_chunk.id));
+        if (!FileUtil::Exists(path)) {
+            LOG_ERROR(Core, "Content {:08x} does not exist", static_cast<u32>(tmd_chunk.id));
+            ret = false;
+            return false;
+        }
 
-            static const std::regex app_regex{"([0-9a-f]{8})\\.app"};
+        if (is_nand) {
+            NCCHContainer ncch(std::make_shared<FileUtil::IOFile>(path, "rb"));
+            ret = cia_builder->AddContent(tmd_chunk.id, ncch);
+        } else {
+            const auto relative_path = path.substr(config.sdmc_path.size() - 1);
+            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
+            ret = cia_builder->AddContent(tmd_chunk.id, ncch);
+        }
+        if (!ret) {
+            return false;
+        }
+    }
 
-            std::smatch match;
-            if (!std::regex_match(virtual_name, match, app_regex)) {
-                return true;
-            }
-            ASSERT(match.size() >= 2);
-
-            const u32 id = static_cast<u32>(std::stoul(match[1], nullptr, 16));
-            if (!tmd.HasContentID(id)) {
-                LOG_WARNING(Core, "Ignoring content {} (not in TMD)", directory + virtual_name);
-                return true;
-            }
-
-            if (is_nand) {
-                NCCHContainer ncch(
-                    std::make_shared<FileUtil::IOFile>(directory + virtual_name, "rb"));
-                return cia_builder->AddContent(id, ncch);
-            } else {
-                const auto relative_path =
-                    directory.substr(config.sdmc_path.size() - 1) + virtual_name;
-                NCCHContainer ncch(
-                    std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
-                return cia_builder->AddContent(id, ncch);
-            }
-        };
-
-    ret = FileUtil::ForeachDirectoryEntry(nullptr, physical_path, DirectoryEntryCallback) &&
-          cia_builder->Finalize();
+    ret = cia_builder->Finalize();
     return ret;
 }
 

@@ -80,6 +80,10 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
     header = {};
     meta = {};
 
+    if (!FileUtil::CreateFullPath(destination)) {
+        LOG_ERROR(Core, "Could not create {}", destination);
+        return false;
+    }
     file = std::make_shared<HashedFile>(destination, "wb");
     if (!*file) {
         LOG_ERROR(Core, "Could not open file {}", destination);
@@ -342,6 +346,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     std::memcpy(meta.dependencies.data(), &ncch.exheader_header.dependency_list,
                 sizeof(meta.dependencies));
 
+    // Note: GodMode9 has this hardcoded to 2.
     meta.core_version = ncch.exheader_header.arm11_system_local_caps.core_version;
 
     std::vector<u8> smdh_buffer;
