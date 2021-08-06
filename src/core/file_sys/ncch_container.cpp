@@ -480,7 +480,7 @@ bool NCCHContainer::DecryptToFile(std::shared_ptr<FileUtil::IOFile> dest_file,
         written += sizeof(ExHeader_Header);
     }
 
-    Common::ProgressCallbackWrapper wrapper(total_size);
+    Common::ProgressCallbackWrapper wrapper{total_size};
     const auto Write = [&](std::string_view name, std::size_t offset, std::size_t size,
                            bool decrypt = false, const Key::AESKey& key = {},
                            const Key::AESKey& ctr = {}, std::size_t aes_seek_pos = 0) {

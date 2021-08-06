@@ -39,7 +39,7 @@ void MultiJob::run() {
         emit ProgressUpdated(current_imported_size, total_imported_size, eta);
     };
 
-    Common::ProgressCallbackWrapper wrapper(total_size);
+    Common::ProgressCallbackWrapper wrapper{total_size};
     for (const auto& content : contents) {
         emit NextContent(count + 1, content, eta);
         if (!execute_func(importer, content, wrapper.Wrap(Callback))) {
