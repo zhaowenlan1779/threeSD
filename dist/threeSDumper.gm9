@@ -139,9 +139,10 @@ cp -w -n "1:/data/$[SYSID0]/sysdata" $[OUT]/data/sysdata
 rm $[OUT]/data/sysdata/00010017
 
 # === Other system titles
-if not find $[OUT]/title NULL
-    mkdir $[OUT]/title
+if find $[OUT]/title NULL
+    rm $[OUT]/title
 end
+mkdir $[OUT]/title
 
 # System Applications
 if not find $[OUT]/title/00040010 NULL
