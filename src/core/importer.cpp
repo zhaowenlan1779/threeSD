@@ -631,6 +631,9 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destin
     dump_cxi_ncch = std::make_unique<NCCHContainer>(
         std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
 
+    if (destination.back() == '/' || destination.back() == '\\') {
+        auto_filename = true;
+    }
     if (auto_filename) {
         if (destination.back() != '/' && destination.back() != '\\') {
             destination.push_back('/');
@@ -699,6 +702,9 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
                 : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
 
+    if (destination.back() == '/' || destination.back() == '\\') {
+        auto_filename = true;
+    }
     static constexpr std::array<std::string_view, 3> BuildTypeExts{{
         "standard.cia",
         "piratelegit.cia",
