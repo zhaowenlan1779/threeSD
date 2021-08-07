@@ -14,9 +14,7 @@ ProgressCallback ProgressCallbackWrapper::Wrap(const ProgressCallback& callback)
     };
 }
 
-ProgressCallback ProgressCallbackWrapper::Wrap(
-    const std::function<void(std::size_t, std::size_t, std::size_t)>& callback) {
-
+ProgressCallback ProgressCallbackWrapper::Wrap(const std::function<void(u64, u64, u64)>& callback) {
     current_done_size += current_pending_size; // Last content finished
     return [this, callback](std::size_t current, std::size_t total) {
         current_pending_size = total;
