@@ -734,9 +734,15 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
     }
 
     for (const auto& tmd_chunk : tmd.tmd_chunks) {
-        const auto path =
-            fmt::format("{}{:08x}.app", physical_path, static_cast<u32>(tmd_chunk.id));
+        // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
+        // should be fine (also matches GodMode9)
+        const auto sub_folder =
+            specifier.type == ContentType::DLC ? physical_path + "00000000/" : physical_path;
+        const auto path = fmt::format("{}{:08x}.app", sub_folder, static_cast<u32>(tmd_chunk.id));
         if (!FileUtil::Exists(path)) {
+            if (static_cast<u16>(tmd_chunk.type) & 0x4000) { // optional
+                continue;
+            }
             LOG_ERROR(Core, "Content {:08x} does not exist", static_cast<u32>(tmd_chunk.id));
             ret = false;
             return false;
