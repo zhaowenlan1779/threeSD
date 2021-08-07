@@ -339,8 +339,6 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     }
 
     // Load meta if the content is main
-    header.meta_size = sizeof(meta);
-
     static_assert(sizeof(ncch.exheader_header.dependency_list) == sizeof(meta.dependencies),
                   "Dependency list should be of the same size in NCCH and CIA");
     std::memcpy(meta.dependencies.data(), &ncch.exheader_header.dependency_list,
@@ -356,7 +354,7 @@ bool CIABuilder::AddContent(u16 content_id, NCCHContainer& ncch) {
     }
     std::memcpy(meta.icon_data.data(), smdh_buffer.data(),
                 std::min(meta.icon_data.size(), smdh_buffer.size()));
-
+    header.meta_size = sizeof(meta);
     return true;
 }
 
