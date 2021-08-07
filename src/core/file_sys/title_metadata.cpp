@@ -6,6 +6,7 @@
 #include <cinttypes>
 #include <cryptopp/rsa.h>
 #include <cryptopp/sha.h>
+#include <fmt/format.h>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/file_util.h"
@@ -162,6 +163,12 @@ u32 TitleMetadata::GetTitleType() const {
 
 u16 TitleMetadata::GetTitleVersion() const {
     return tmd_body.title_version;
+}
+
+std::string TitleMetadata::GetTitleVersionString() const {
+    const auto title_version = static_cast<u16>(tmd_body.title_version);
+    return fmt::format("{}.{}.{}", (title_version >> 10) & 0x3F, (title_version >> 4) & 0x3F,
+                       title_version & 0xF);
 }
 
 u64 TitleMetadata::GetSystemVersion() const {

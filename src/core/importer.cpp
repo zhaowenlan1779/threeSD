@@ -601,13 +601,13 @@ static std::string GetTitleFileName(NCCHContainer& ncch) {
     if (!ncch.LoadSectionExeFS("icon", smdh_buffer) || smdh_buffer.size() != sizeof(SMDH)) {
         LOG_WARNING(Core, "Failed to load icon in ExeFS or size incorrect");
         return NormalizeFilename(
-            fmt::format("{:016x} {} ({})", program_id, codeset_name, product_code));
+            fmt::format("{:016X} {} ({})", program_id, codeset_name, product_code));
     } else {
         SMDH smdh;
         std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
         const auto short_title =
             Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
-        return NormalizeFilename(fmt::format("{:016x} {} ({}) ({})", program_id, short_title,
+        return NormalizeFilename(fmt::format("{:016X} {} ({}) ({})", program_id, short_title,
                                              product_code, smdh.GetRegionString()));
     }
 }
@@ -699,10 +699,10 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
                 : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
 
-    static constexpr std::array<std::string_view, 3> BuildTypeSuffixes{{
-        ".standard.cia",
-        ".pirate-legit.cia",
-        ".legit.cia",
+    static constexpr std::array<std::string_view, 3> BuildTypeExts{{
+        "standard.cia",
+        "piratelegit.cia",
+        "legit.cia",
     }};
     if (auto_filename) {
         if (destination.back() != '/' && destination.back() != '\\') {
@@ -710,16 +710,17 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         }
         const auto boot_content_path =
             fmt::format("{}{:08x}.app", physical_path, tmd.GetBootContentID());
+        NCCHContainer ncch;
         if (is_nand) {
-            NCCHContainer ncch(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
-            destination.append(GetTitleFileName(ncch))
-                .append(BuildTypeSuffixes.at(static_cast<std::size_t>(build_type)));
+            ncch.OpenFile(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
         } else {
             const auto relative_path = boot_content_path.substr(config.sdmc_path.size() - 1);
-            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
-            destination.append(GetTitleFileName(ncch))
-                .append(BuildTypeSuffixes.at(static_cast<std::size_t>(build_type)));
+            ncch.OpenFile(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
         }
+        const auto filename =
+            fmt::format("{} (v{}).{}", GetTitleFileName(ncch), tmd.GetTitleVersionString(),
+                        BuildTypeExts.at(static_cast<std::size_t>(build_type)));
+        destination.append(filename);
     }
 
     bool ret = cia_builder->Init(build_type, destination, tmd, specifier.maximum_size, callback);

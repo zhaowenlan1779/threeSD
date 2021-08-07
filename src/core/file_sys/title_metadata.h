@@ -90,6 +90,7 @@ public:
     u64 GetTitleID() const;
     u32 GetTitleType() const;
     u16 GetTitleVersion() const;
+    std::string GetTitleVersionString() const;
     u64 GetSystemVersion() const;
     std::size_t GetContentCount() const;
     u32 GetBootContentID() const;
