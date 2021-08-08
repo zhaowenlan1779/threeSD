@@ -42,19 +42,21 @@ static QString ReadableByteSize(qulonglong size) {
         .arg(QObject::tr(units[digit_groups], "ImportDialog"));
 }
 
-// content type, name, icon name
-static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*>, 9>
+// content type, singular name, plural name, icon name
+// clang-format off
+static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 9>
     ContentTypeMap{{
-        {Core::ContentType::Application, QT_TR_NOOP("Applications"), "app"},
-        {Core::ContentType::Update, QT_TR_NOOP("Updates"), "update"},
-        {Core::ContentType::DLC, QT_TR_NOOP("DLCs"), "dlc"},
-        {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), "save_data"},
-        {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), "save_data"},
-        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archives"), "system_archive"},
-        {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), "system_data"},
-        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Titles"), "hos"},
-        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applets"), "hos"},
+        {Core::ContentType::Application, QT_TR_NOOP("Application"), QT_TR_NOOP("Applications"), "app"},
+        {Core::ContentType::Update, QT_TR_NOOP("Update"),  QT_TR_NOOP("Updates"), "update"},
+        {Core::ContentType::DLC, QT_TR_NOOP("DLC"), QT_TR_NOOP("DLCs"), "dlc"},
+        {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), QT_TR_NOOP("Save Data"), "save_data"},
+        {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), QT_TR_NOOP("Extra Data"), "save_data"},
+        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), QT_TR_NOOP("System Archives"), "system_archive"},
+        {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), QT_TR_NOOP("System Data"), "system_data"},
+        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), QT_TR_NOOP("System Titles"), "hos"},
+        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), QT_TR_NOOP("System Applets"), "hos"},
     }};
+// clang-format on
 
 static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
     {Core::EncryptionType::None, QT_TR_NOOP("None")},
@@ -71,14 +73,20 @@ static QString GetContentName(const Core::ContentSpecifier& specifier) {
                : QString::fromStdString(specifier.name);
 }
 
+template <bool Plural = true>
 static QString GetContentTypeName(Core::ContentType type) {
-    return QObject::tr(std::get<1>(ContentTypeMap.at(static_cast<std::size_t>(type))),
-                       "ImportDialog");
+    if constexpr (Plural) {
+        return QObject::tr(std::get<2>(ContentTypeMap.at(static_cast<std::size_t>(type))),
+                           "ImportDialog");
+    } else {
+        return QObject::tr(std::get<1>(ContentTypeMap.at(static_cast<std::size_t>(type))),
+                           "ImportDialog");
+    }
 }
 
 static QPixmap GetContentTypeIcon(Core::ContentType type) {
     return QIcon::fromTheme(
-               QString::fromUtf8(std::get<2>(ContentTypeMap.at(static_cast<std::size_t>(type)))))
+               QString::fromUtf8(std::get<3>(ContentTypeMap.at(static_cast<std::size_t>(type)))))
         .pixmap(24);
 }
 
@@ -235,11 +243,11 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         if (row == 0) {
             name = QStringLiteral("%1 (%2)")
                        .arg(GetContentName(content))
-                       .arg(GetContentTypeName(content.type));
+                       .arg(GetContentTypeName<false>(content.type));
         } else if (row <= SpecialContentTypeList.size()) {
             name = GetContentName(content);
         } else {
-            name = GetContentTypeName(content.type);
+            name = GetContentTypeName<false>(content.type);
         }
     } else {
         name = GetContentName(content);
@@ -402,8 +410,8 @@ void ImportDialog::RepopulateContent() {
             InsertSecondLevelItem(row, content, i);
         }
     } else {
-        for (const auto& [type, name, _] : ContentTypeMap) {
-            InsertTopLevelItem(tr(name), GetContentTypeIcon(type));
+        for (const auto& [type, singular_name, plural_name, icon_name] : ContentTypeMap) {
+            InsertTopLevelItem(tr(plural_name), GetContentTypeIcon(type));
         }
 
         for (std::size_t i = 0; i < contents.size(); ++i) {
@@ -620,7 +628,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
                         .arg(count)
                         .arg(total_count)
                         .arg(GetContentName(next_content))
-                        .arg(GetContentTypeName(next_content.type))
+                        .arg(GetContentTypeName<false>(next_content.type))
                         .arg(FormatETA(eta)));
                 current_content = next_content;
                 current_count = count;
@@ -634,7 +642,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
                                          .arg(current_count)
                                          .arg(total_count)
                                          .arg(GetContentName(current_content))
-                                         .arg(GetContentTypeName(current_content.type))
+                                         .arg(GetContentTypeName<false>(current_content.type))
                                          .arg(ReadableByteSize(current_imported_size))
                                          .arg(ReadableByteSize(current_content.maximum_size))
                                          .arg(FormatETA(eta)));
@@ -650,7 +658,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
             for (const auto& content : failed_contents) {
                 list_content.append(QStringLiteral("<li>%1 (%2)</li>")
                                         .arg(GetContentName(content))
-                                        .arg(GetContentTypeName(content.type)));
+                                        .arg(GetContentTypeName<false>(content.type)));
             }
             QMessageBox::critical(this, tr("threeSD"),
                                   tr("List of failed contents:<ul>%1</ul>").arg(list_content));
