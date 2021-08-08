@@ -621,8 +621,8 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     dialog->setMinimumDuration(0);
 
     connect(job, &MultiJob::NextContent, this,
-            [this, dialog, multiplier,
-             total_count](std::size_t count, const Core::ContentSpecifier& next_content, int eta) {
+            [this, dialog, total_count](std::size_t count,
+                                        const Core::ContentSpecifier& next_content, int eta) {
                 dialog->setLabelText(
                     tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
                         .arg(count)
