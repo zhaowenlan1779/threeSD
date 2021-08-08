@@ -47,7 +47,6 @@ private:
     void ShowAdvancedMenu();
 
     void RunMultiJob(MultiJob* job, std::size_t total_count, u64 total_size);
-    void RunSimpleJob(SimpleJob* job);
 
     void StartImporting();
 

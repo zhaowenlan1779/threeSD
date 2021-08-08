@@ -24,24 +24,12 @@
 #include "common/progress_callback.h"
 #include "common/scope_exit.h"
 #include "frontend/cia_build_dialog.h"
+#include "frontend/helpers/frontend_common.h"
 #include "frontend/helpers/multi_job.h"
 #include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
 #include "frontend/title_info_dialog.h"
 #include "ui_import_dialog.h"
-
-static QString ReadableByteSize(qulonglong size) {
-    static const std::array<const char*, 6> units = {QT_TR_NOOP("B"),   QT_TR_NOOP("KiB"),
-                                                     QT_TR_NOOP("MiB"), QT_TR_NOOP("GiB"),
-                                                     QT_TR_NOOP("TiB"), QT_TR_NOOP("PiB")};
-    if (size == 0)
-        return QStringLiteral("0");
-    int digit_groups = std::min<int>(static_cast<int>(std::log10(size) / std::log10(1024)),
-                                     static_cast<int>(units.size()));
-    return QStringLiteral("%L1 %2")
-        .arg(size / std::pow(1024, digit_groups), 0, 'f', 1)
-        .arg(QObject::tr(units[digit_groups], "ImportDialog"));
-}
 
 // content type, singular name, plural name, icon name
 // clang-format off
@@ -686,40 +674,6 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     job->start();
 }
 
-// Runs the job, opening a dialog to report its progress.
-void ImportDialog::RunSimpleJob(SimpleJob* job) {
-    // We need to create the bar ourselves to circumvent an issue caused by modal ProgressDialog's
-    // event handling.
-    auto* bar = new QProgressBar(this);
-    bar->setRange(0, 100);
-    bar->setValue(0);
-
-    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, this);
-    dialog->setBar(bar);
-    dialog->setWindowModality(Qt::WindowModal);
-    dialog->setMinimumDuration(0);
-
-    connect(job, &SimpleJob::ProgressUpdated, this, [bar, dialog](u64 current, u64 total) {
-        // Try to map total to int range
-        // This is equal to ceil(total / INT_MAX)
-        const u64 multiplier =
-            (total + std::numeric_limits<int>::max() - 1) / std::numeric_limits<int>::max();
-        bar->setMaximum(static_cast<int>(total / multiplier));
-        bar->setValue(static_cast<int>(current / multiplier));
-        dialog->setLabelText(
-            tr("%1 / %2").arg(ReadableByteSize(current)).arg(ReadableByteSize(total)));
-    });
-    connect(job, &SimpleJob::ErrorOccured, this, [this, dialog] {
-        QMessageBox::critical(this, tr("threeSD"),
-                              tr("Operation failed. Please refer to the log."));
-        dialog->hide();
-    });
-    connect(job, &SimpleJob::Completed, this, [dialog] { dialog->setValue(dialog->maximum()); });
-    connect(dialog, &QProgressDialog::canceled, this, [job] { job->Cancel(); });
-
-    job->start();
-}
-
 void ImportDialog::StartImporting() {
     UpdateSizeDisplay();
     if (!ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->isEnabled()) {
@@ -755,7 +709,7 @@ void ImportDialog::StartDumpingCXISingle(const Core::ContentSpecifier& specifier
             return importer->DumpCXI(specifier, path.toStdString(), callback);
         },
         [this] { importer->AbortDumpCXI(); });
-    RunSimpleJob(job);
+    job->StartWithProgressDialog(this);
 }
 
 void ImportDialog::StartBatchDumpingCXI() {
@@ -830,7 +784,7 @@ void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifie
             return importer->BuildCIA(type, specifier, path.toStdString(), callback);
         },
         [this] { importer->AbortBuildCIA(); });
-    RunSimpleJob(job);
+    job->StartWithProgressDialog(this);
 }
 
 void ImportDialog::StartBatchBuildingCIA() {

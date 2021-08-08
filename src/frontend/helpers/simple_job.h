@@ -25,9 +25,11 @@ public:
     void run() override;
     void Cancel();
 
+    void StartWithProgressDialog(QWidget* widget);
+
 signals:
     void ProgressUpdated(u64 current, u64 total);
-    void Completed();
+    void Completed(bool canceled);
     void ErrorOccured();
 
 private:

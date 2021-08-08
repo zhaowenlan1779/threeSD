@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #include <regex>
+#include <cryptopp/sha.h>
 #include "common/assert.h"
 #include "common/common_paths.h"
 #include "common/file_util.h"
@@ -110,6 +111,7 @@ bool SDMCImporter::IsGood() const {
 
 void SDMCImporter::AbortImporting() {
     sdmc_decryptor->Abort();
+    file_decryptor.Abort();
 }
 
 bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
@@ -202,11 +204,10 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
 
     const auto base_path =
         config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
-    FileDecryptor decryptor;
     return ImportTitleGeneric(
         base_path, specifier, callback,
-        [&base_path, &decryptor](const std::string& filepath,
-                                 const Common::ProgressCallback& wrapped_callback) {
+        [this, &base_path](const std::string& filepath,
+                           const Common::ProgressCallback& wrapped_callback) {
             const auto physical_path = base_path + filepath.substr(1);
             const auto citra_path = FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
                                     "00000000000000000000000000000000" + filepath;
@@ -215,7 +216,7 @@ bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
                 return false;
             }
             // Crypto is not set: plain copy with progress.
-            return decryptor.CryptAndWriteFile(
+            return file_decryptor.CryptAndWriteFile(
                 std::make_shared<FileUtil::IOFile>(physical_path, "rb"),
                 FileUtil::GetSize(physical_path),
                 std::make_shared<FileUtil::IOFile>(citra_path, "wb"), wrapped_callback);
@@ -787,6 +788,86 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
 
 void SDMCImporter::AbortBuildCIA() {
     cia_builder->Abort();
+}
+
+// Removed actual writing of the data
+class HashOnlyFile : public FileUtil::IOFile {
+public:
+    explicit HashOnlyFile() = default;
+    ~HashOnlyFile() override = default;
+
+    std::size_t Write(const char* data, std::size_t length) override {
+        sha.Update(reinterpret_cast<const CryptoPP::byte*>(data), length);
+        return length;
+    }
+
+    bool VerifyHash(const u8* hash) {
+        const bool ret = sha.Verify(hash);
+        sha.Restart();
+        return ret;
+    }
+
+private:
+    CryptoPP::SHA256 sha;
+};
+
+bool SDMCImporter::CheckTitleContents(const ContentSpecifier& specifier,
+                                      const Common::ProgressCallback& callback) {
+
+    if (!IsTitle(specifier.type)) {
+        LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
+        return false;
+    }
+
+    // Load TMD
+    TitleMetadata tmd;
+    if (!LoadTMD(specifier.type, specifier.id, tmd)) {
+        return false;
+    }
+
+    Common::ProgressCallbackWrapper wrapper{specifier.maximum_size};
+
+    const bool is_nand =
+        specifier.type == ContentType::SystemTitle || specifier.type == ContentType::SystemApplet;
+    const auto physical_path =
+        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
+                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
+                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
+                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
+    for (const auto& tmd_chunk : tmd.tmd_chunks) {
+        // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
+        // should be fine (also matches GodMode9)
+        const auto sub_folder =
+            specifier.type == ContentType::DLC ? physical_path + "00000000/" : physical_path;
+        const auto path = fmt::format("{}{:08x}.app", sub_folder, static_cast<u32>(tmd_chunk.id));
+        if (!FileUtil::Exists(path)) {
+            if (static_cast<u16>(tmd_chunk.type) & 0x4000) { // optional
+                continue;
+            }
+            LOG_INFO(Core, "Content {:08x} does not exist", static_cast<u32>(tmd_chunk.id));
+            return false;
+        }
+
+        std::shared_ptr<FileUtil::IOFile> source_file;
+        if (is_nand) {
+            source_file = std::make_shared<FileUtil::IOFile>(path, "rb");
+        } else {
+            const auto relative_path = path.substr(config.sdmc_path.size() - 1);
+            source_file = std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb");
+        }
+        std::shared_ptr<HashOnlyFile> dest_file = std::make_shared<HashOnlyFile>();
+        if (!file_decryptor.CryptAndWriteFile(source_file, source_file->GetSize(), dest_file,
+                                              wrapper.Wrap(callback))) {
+            return false;
+        }
+        if (!dest_file->VerifyHash(tmd_chunk.hash.data())) {
+            LOG_INFO(Core, "Hash dismatch for content {:08x}", static_cast<u32>(tmd_chunk.id));
+            return false;
+        }
+    }
+
+    callback(specifier.maximum_size, specifier.maximum_size);
+    return true;
 }
 
 // Add a certain amount to the titles' maximum sizes, so that they are always larger than CIA sizes

@@ -10,6 +10,7 @@
 #include <vector>
 #include "common/common_types.h"
 #include "common/progress_callback.h"
+#include "core/file_decryptor.h"
 #include "core/file_sys/cia_common.h"
 
 namespace Core {
@@ -166,6 +167,13 @@ public:
     void AbortBuildCIA();
 
     /**
+     * Checks the contents of a title against its TMD hashes.
+     */
+    bool CheckTitleContents(
+        const ContentSpecifier& specifier,
+        const Common::ProgressCallback& callback = [](u64, u64) {});
+
+    /**
      * Gets a list of dumpable content specifiers.
      */
     std::vector<ContentSpecifier> ListContent() const;
@@ -221,6 +229,7 @@ private:
     bool is_good{};
     Config config;
     std::unique_ptr<SDMCDecryptor> sdmc_decryptor;
+    FileDecryptor file_decryptor;
 
     // Used for CIA building
     std::unique_ptr<CIABuilder> cia_builder;

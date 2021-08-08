@@ -11,28 +11,28 @@
 #include "core/file_sys/ncch_container.h"
 #include "core/file_sys/title_metadata.h"
 #include "core/importer.h"
+#include "frontend/helpers/simple_job.h"
 #include "frontend/title_info_dialog.h"
 #include "ui_title_info_dialog.h"
 
 TitleInfoDialog::TitleInfoDialog(QWidget* parent, const Core::Config& config,
-                                 Core::SDMCImporter& importer,
-                                 const Core::ContentSpecifier& specifier)
-    : QDialog(parent), ui(std::make_unique<Ui::TitleInfoDialog>()) {
+                                 Core::SDMCImporter& importer_, Core::ContentSpecifier specifier_)
+    : QDialog(parent), ui(std::make_unique<Ui::TitleInfoDialog>()), importer(importer_),
+      specifier(std::move(specifier_)) {
 
     ui->setupUi(this);
 
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
-    LoadInfo(config, importer, specifier);
+    LoadInfo(config);
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &TitleInfoDialog::accept);
 }
 
 TitleInfoDialog::~TitleInfoDialog() = default;
 
-void TitleInfoDialog::LoadInfo(const Core::Config& config, Core::SDMCImporter& importer,
-                               const Core::ContentSpecifier& specifier) {
+void TitleInfoDialog::LoadInfo(const Core::Config& config) {
     Core::TitleMetadata tmd;
     if (!importer.LoadTMD(specifier, tmd)) {
         QMessageBox::warning(this, tr("threeSD"), tr("Could not load title information."));
@@ -100,6 +100,8 @@ void TitleInfoDialog::LoadInfo(const Core::Config& config, Core::SDMCImporter& i
     } else {
         ui->ticketCheckLabel->setText(tr("Missing"));
     }
+    connect(ui->contentsCheckButton, &QPushButton::clicked, this,
+            &TitleInfoDialog::ExecuteContentsCheck);
 
     // Load SMDH
     std::vector<u8> smdh_buffer;
@@ -169,4 +171,28 @@ void TitleInfoDialog::UpdateNames() {
         QString::fromStdString(Common::UTF16BufferToUTF8(title.long_title)));
     ui->publisherLineEdit->setText(
         QString::fromStdString(Common::UTF16BufferToUTF8(title.publisher)));
+}
+
+void TitleInfoDialog::ExecuteContentsCheck() {
+    auto* job = new SimpleJob(
+        this,
+        [this](const Common::ProgressCallback& callback) {
+            contents_check_result = importer.CheckTitleContents(specifier, callback);
+            return true;
+        },
+        [this] { importer.AbortImporting(); });
+    connect(job, &SimpleJob::Completed, this, [this](bool canceled) {
+        if (canceled) {
+            return;
+        }
+
+        ui->contentsCheckButton->setVisible(false);
+        ui->contentsCheckLabel->setVisible(true);
+        if (contents_check_result) {
+            ui->contentsCheckLabel->setText(tr("OK"));
+        } else {
+            ui->contentsCheckLabel->setText(tr("Failed"));
+        }
+    });
+    job->StartWithProgressDialog(this);
 }

@@ -22,15 +22,19 @@ class TitleInfoDialog : public QDialog {
 
 public:
     explicit TitleInfoDialog(QWidget* parent, const Core::Config& config,
-                             Core::SDMCImporter& importer, const Core::ContentSpecifier& specifier);
+                             Core::SDMCImporter& importer, Core::ContentSpecifier specifier);
     ~TitleInfoDialog();
 
 private:
-    void LoadInfo(const Core::Config& config, Core::SDMCImporter& importer,
-                  const Core::ContentSpecifier& specifier);
+    void LoadInfo(const Core::Config& config);
     void InitializeLanguageComboBox();
     void UpdateNames();
+    void ExecuteContentsCheck();
 
     std::unique_ptr<Ui::TitleInfoDialog> ui;
+
+    Core::SDMCImporter& importer;
+    const Core::ContentSpecifier specifier;
     Core::SMDH smdh{};
+    bool contents_check_result = false;
 };

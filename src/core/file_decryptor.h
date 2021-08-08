@@ -13,6 +13,10 @@
 #include "common/thread.h"
 #include "core/key/key.h"
 
+namespace FileUtil {
+class IOFile;
+}
+
 namespace Core {
 
 class CryptoFunc;
