@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TitleInfoDialog</class>
+ <widget class="QDialog" name="TitleInfoDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>360</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Title Info</string>
+  </property>
+  <layout class="QVBoxLayout">
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>Info</string>
+     </property>
+     <layout class="QGridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Version:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="versionLineEdit"/>
+      </item>
+      <item row="0" column="2" rowspan="2">
+       <widget class="QLabel" name="iconLargeLabel">
+        <property name="minimumSize">
+         <size>
+          <width>48</width>
+          <height>48</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3" rowspan="2">
+       <widget class="QLabel" name="iconSmallLabel">
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>24</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Encryption:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="encryptionLineEdit"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Title ID:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1" colspan="3">
+       <widget class="QLineEdit" name="titleIDLineEdit"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="namesGroupBox">
+     <property name="title">
+      <string>Names</string>
+     </property>
+     <layout class="QGridLayout" columnstretch="0,20,10">
+      <item row="0" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Short Title:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="shortTitleLineEdit"/>
+      </item>
+      <item row="0" column="2">
+       <widget class="QComboBox" name="languageComboBox"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Long Title:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="2">
+       <widget class="QLineEdit" name="longTitleLineEdit"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Publisher:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1" colspan="2">
+       <widget class="QLineEdit" name="publisherLineEdit"/>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox">
+     <property name="title">
+      <string>Checks</string>
+     </property>
+     <layout class="QGridLayout">
+      <item row="0" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>TMD:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="tmdCheckLabel">
+        <property name="text">
+         <string>Legit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Ticket:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="ticketCheckLabel">
+        <property name="text">
+         <string>Legit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel">
+        <property name="text">
+         <string>Contents:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QPushButton" name="contentsCheckButton">
+        <property name="text">
+         <string>Check</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="contentsCheckLabel">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Legit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <spacer>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer>
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+</ui>

@@ -36,7 +36,7 @@ enum class ContentType {
     SystemApplet, // This should belong to System Title, but they cause problems so a new category.
 };
 
-constexpr bool CanBuildCIA(ContentType type) {
+constexpr bool IsTitle(ContentType type) {
     return type == ContentType::Application || type == ContentType::Update ||
            type == ContentType::DLC || type == ContentType::SystemTitle ||
            type == ContentType::SystemApplet;
@@ -175,6 +175,9 @@ public:
      */
     bool IsGood() const;
 
+    bool LoadTMD(ContentType type, u64 id, TitleMetadata& out) const;
+    bool LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out) const;
+
 private:
     bool Init();
 
@@ -206,8 +209,6 @@ private:
     void DeleteExtdata(u64 id) const;
     void DeleteSystemArchive(u64 id) const;
     void DeleteSysdata(u64 id) const;
-
-    bool LoadTMD(ContentType type, u64 id, TitleMetadata& out) const;
 
     bool is_good{};
     Config config;

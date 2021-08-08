@@ -110,7 +110,7 @@
       <enum>Qt::Vertical</enum>
      </property>
     </spacer>
-    </item>
+   </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">

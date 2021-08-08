@@ -27,6 +27,7 @@
 #include "frontend/helpers/multi_job.h"
 #include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
+#include "frontend/title_info_dialog.h"
 #include "ui_import_dialog.h"
 
 static QString ReadableByteSize(qulonglong size) {
@@ -519,10 +520,15 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
             connect(dump_cxi, &QAction::triggered,
                     [this, specifier] { StartDumpingCXISingle(specifier); });
         }
-        if (Core::CanBuildCIA(specifier.type)) {
+        if (Core::IsTitle(specifier.type)) {
             QAction* build_cia = context_menu.addAction(tr("Build CIA..."));
             connect(build_cia, &QAction::triggered,
                     [this, specifier] { StartBuildingCIASingle(specifier); });
+            QAction* show_title_info = context_menu.addAction(tr("Show Title Info"));
+            connect(show_title_info, &QAction::triggered, [this, specifier] {
+                TitleInfoDialog dialog(this, config, *importer, specifier);
+                dialog.exec();
+            });
         }
     } else { // Top level
         if (!title_view) {
@@ -837,7 +843,7 @@ void ImportDialog::StartBatchBuildingCIA() {
 
     const auto removed_iter = std::remove_if(
         to_import.begin(), to_import.end(),
-        [](const Core::ContentSpecifier& specifier) { return !Core::CanBuildCIA(specifier.type); });
+        [](const Core::ContentSpecifier& specifier) { return !Core::IsTitle(specifier.type); });
     if (removed_iter == to_import.begin()) { // No Titles selected
         QMessageBox::critical(this, tr("threeSD"),
                               tr("The contents selected are not supported.<br>You can only build "

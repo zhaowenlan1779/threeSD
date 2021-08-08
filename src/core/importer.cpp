@@ -521,6 +521,10 @@ bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
     }
 }
 
+bool SDMCImporter::LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out) const {
+    return LoadTMD(specifier.type, specifier.id, out);
+}
+
 // English short title name, extdata id, encryption, seed, icon
 using TitleData = std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>>;
 
@@ -659,7 +663,7 @@ void SDMCImporter::AbortDumpCXI() {
 }
 
 bool SDMCImporter::CanBuildLegitCIA(const ContentSpecifier& specifier) const {
-    if (!CanBuildCIA(specifier.type)) {
+    if (!IsTitle(specifier.type)) {
         return false;
     }
 
@@ -683,7 +687,7 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    if (!CanBuildCIA(specifier.type)) {
+    if (!IsTitle(specifier.type)) {
         LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
         return false;
     }
