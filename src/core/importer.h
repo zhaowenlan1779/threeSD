@@ -178,6 +178,14 @@ public:
     bool LoadTMD(ContentType type, u64 id, TitleMetadata& out) const;
     bool LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out) const;
 
+    std::shared_ptr<TicketDB>& GetTicketDB() {
+        return ticket_db;
+    }
+
+    const std::shared_ptr<TicketDB>& GetTicketDB() const {
+        return ticket_db;
+    }
+
 private:
     bool Init();
 
@@ -216,6 +224,7 @@ private:
 
     // Used for CIA building
     std::unique_ptr<CIABuilder> cia_builder;
+    std::shared_ptr<TicketDB> ticket_db;
 
     // The NCCH used to dump CXIs.
     std::unique_ptr<NCCHContainer> dump_cxi_ncch;

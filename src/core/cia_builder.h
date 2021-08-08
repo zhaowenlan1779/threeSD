@@ -32,7 +32,7 @@ class TicketDB;
 
 class CIABuilder {
 public:
-    explicit CIABuilder(const Config& config);
+    explicit CIABuilder(const Config& config, std::shared_ptr<TicketDB> ticket_db);
     ~CIABuilder();
 
     /**
@@ -104,7 +104,7 @@ private:
     bool WriteTicket();
 
     // Persistent state
-    std::unique_ptr<TicketDB> ticket_db;
+    const std::shared_ptr<TicketDB> ticket_db;
     std::unique_ptr<EncTitleKeysBin> enc_title_keys_bin;
 
     // State of a single task

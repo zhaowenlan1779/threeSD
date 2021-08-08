@@ -10,6 +10,7 @@ namespace Core {
 class Config;
 class ContentSpecifier;
 class SDMCImporter;
+class TitleMetadata;
 } // namespace Core
 
 namespace Ui {
@@ -25,8 +26,8 @@ public:
     ~TitleInfoDialog();
 
 private:
-    void InitializeInfo(const Core::Config& config, Core::SDMCImporter& importer,
-                        const Core::ContentSpecifier& specifier);
+    void LoadInfo(const Core::Config& config, Core::SDMCImporter& importer,
+                  const Core::ContentSpecifier& specifier);
     void InitializeLanguageComboBox();
     void UpdateNames();
 

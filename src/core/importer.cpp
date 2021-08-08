@@ -65,9 +65,18 @@ bool SDMCImporter::Init() {
         Certs::Load(config.certs_db_path);
     }
 
+    // Load Ticket DB
+    if (!config.ticket_db_path.empty()) {
+        ticket_db = std::make_shared<TicketDB>(config.ticket_db_path);
+    }
+    if (!ticket_db || !ticket_db->IsGood()) {
+        LOG_WARNING(Core, "ticket.db not present or is invalid");
+        ticket_db.reset();
+    }
+
     // Create children
     sdmc_decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
-    cia_builder = std::make_unique<CIABuilder>(config);
+    cia_builder = std::make_unique<CIABuilder>(config, ticket_db);
 
     // Load SDMC Title DB
     {

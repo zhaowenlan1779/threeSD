@@ -53,15 +53,8 @@ private:
     bool hash_enabled{};
 };
 
-CIABuilder::CIABuilder(const Config& config) {
-    if (!config.ticket_db_path.empty()) {
-        ticket_db = std::make_unique<TicketDB>(config.ticket_db_path);
-    }
-    if (!ticket_db || !ticket_db->IsGood()) {
-        LOG_WARNING(Core, "ticket.db not present or is invalid");
-        ticket_db.reset();
-    }
-
+CIABuilder::CIABuilder(const Config& config, std::shared_ptr<TicketDB> ticket_db_)
+    : ticket_db(std::move(ticket_db_)) {
     if (!config.enc_title_keys_bin_path.empty()) {
         enc_title_keys_bin = std::make_unique<EncTitleKeysBin>();
         if (!LoadTitleKeysBin(*enc_title_keys_bin, config.enc_title_keys_bin_path)) {

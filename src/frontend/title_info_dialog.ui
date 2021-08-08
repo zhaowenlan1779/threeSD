@@ -28,7 +28,11 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="versionLineEdit"/>
+       <widget class="QLineEdit" name="versionLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="0" column="2" rowspan="2">
        <widget class="QLabel" name="iconLargeLabel">
@@ -58,7 +62,11 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QLineEdit" name="encryptionLineEdit"/>
+       <widget class="QLineEdit" name="encryptionLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel">
@@ -68,7 +76,11 @@
        </widget>
       </item>
       <item row="2" column="1" colspan="3">
-       <widget class="QLineEdit" name="titleIDLineEdit"/>
+       <widget class="QLineEdit" name="titleIDLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -87,7 +99,11 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QLineEdit" name="shortTitleLineEdit"/>
+       <widget class="QLineEdit" name="shortTitleLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="0" column="2">
        <widget class="QComboBox" name="languageComboBox"/>
@@ -100,7 +116,11 @@
        </widget>
       </item>
       <item row="1" column="1" colspan="2">
-       <widget class="QLineEdit" name="longTitleLineEdit"/>
+       <widget class="QLineEdit" name="longTitleLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel">
@@ -110,7 +130,11 @@
        </widget>
       </item>
       <item row="2" column="1" colspan="2">
-       <widget class="QLineEdit" name="publisherLineEdit"/>
+       <widget class="QLineEdit" name="publisherLineEdit">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

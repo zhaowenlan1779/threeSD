@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <fmt/format.h>
 #include "common/string_util.h"
+#include "core/db/title_db.h"
 #include "core/file_sys/ncch_container.h"
 #include "core/file_sys/title_metadata.h"
 #include "core/importer.h"
@@ -23,16 +24,15 @@ TitleInfoDialog::TitleInfoDialog(QWidget* parent, const Core::Config& config,
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
-    InitializeInfo(config, importer, specifier);
-    InitializeLanguageComboBox();
+    LoadInfo(config, importer, specifier);
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &TitleInfoDialog::accept);
 }
 
 TitleInfoDialog::~TitleInfoDialog() = default;
 
-void TitleInfoDialog::InitializeInfo(const Core::Config& config, Core::SDMCImporter& importer,
-                                     const Core::ContentSpecifier& specifier) {
+void TitleInfoDialog::LoadInfo(const Core::Config& config, Core::SDMCImporter& importer,
+                               const Core::ContentSpecifier& specifier) {
     Core::TitleMetadata tmd;
     if (!importer.LoadTMD(specifier, tmd)) {
         QMessageBox::warning(this, tr("threeSD"), tr("Could not load title information."));
@@ -80,6 +80,27 @@ void TitleInfoDialog::InitializeInfo(const Core::Config& config, Core::SDMCImpor
     }
     ui->encryptionLineEdit->setText(encryption_text);
 
+    // Checks
+    const bool tmd_legit = tmd.ValidateSignature() && tmd.VerifyHashes();
+    if (tmd_legit) {
+        ui->tmdCheckLabel->setText(tr("Legit"));
+    } else {
+        ui->tmdCheckLabel->setText(tr("Illegit"));
+    }
+
+    if (const auto& ticket_db = importer.GetTicketDB();
+        ticket_db && ticket_db->tickets.count(specifier.id)) {
+
+        const bool ticket_legit = ticket_db->tickets.at(specifier.id).ValidateSignature();
+        if (ticket_legit) {
+            ui->ticketCheckLabel->setText(tr("Legit"));
+        } else {
+            ui->ticketCheckLabel->setText(tr("Illegit"));
+        }
+    } else {
+        ui->ticketCheckLabel->setText(tr("Missing"));
+    }
+
     // Load SMDH
     std::vector<u8> smdh_buffer;
     if (!ncch.LoadSectionExeFS("icon", smdh_buffer) || smdh_buffer.size() != sizeof(Core::SMDH) ||
@@ -98,6 +119,8 @@ void TitleInfoDialog::InitializeInfo(const Core::Config& config, Core::SDMCImpor
     ui->iconSmallLabel->setPixmap(
         QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(false).data()), 24,
                                   24, QImage::Format::Format_RGB16)));
+    // Load names
+    InitializeLanguageComboBox();
 }
 
 void TitleInfoDialog::InitializeLanguageComboBox() {
