@@ -2,7 +2,10 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <QAction>
 #include <QDesktopWidget>
+#include <QFileDialog>
+#include <QImageWriter>
 #include <QMessageBox>
 #include <QPixmap>
 #include <fmt/format.h>
@@ -61,12 +64,7 @@ void TitleInfoDialog::LoadInfo() {
 
     // Icons
     if (has_smdh) {
-        ui->iconLargeLabel->setPixmap(
-            QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(true).data()), 48,
-                                      48, QImage::Format::Format_RGB16)));
-        ui->iconSmallLabel->setPixmap(
-            QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(false).data()),
-                                      24, 24, QImage::Format::Format_RGB16)));
+        LoadIcons();
     }
 
     // Names
@@ -101,6 +99,24 @@ void TitleInfoDialog::LoadEncryption(Core::NCCHContainer& ncch) {
         encryption_text.append(tr(" (Seed)"));
     }
     ui->encryptionLineEdit->setText(encryption_text);
+}
+
+void TitleInfoDialog::LoadIcons() {
+    ui->iconLargeLabel->setPixmap(
+        QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(true).data()), 48, 48,
+                                  QImage::Format::Format_RGB16)));
+
+    QAction* save_icon_large = new QAction(tr("Save Icon (Large)"), this);
+    ui->iconLargeLabel->addAction(save_icon_large);
+    connect(save_icon_large, &QAction::triggered, this, [this] { SaveIcon(true); });
+
+    ui->iconSmallLabel->setPixmap(
+        QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(false).data()), 24,
+                                  24, QImage::Format::Format_RGB16)));
+
+    QAction* save_icon_small = new QAction(tr("Save Icon (Small)"), this);
+    ui->iconSmallLabel->addAction(save_icon_small);
+    connect(save_icon_small, &QAction::triggered, this, [this] { SaveIcon(false); });
 }
 
 void TitleInfoDialog::InitializeLanguageComboBox() {
@@ -139,6 +155,29 @@ void TitleInfoDialog::InitializeLanguageComboBox() {
     connect(ui->languageComboBox, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &TitleInfoDialog::UpdateNames);
     UpdateNames();
+}
+
+void TitleInfoDialog::SaveIcon(bool large) {
+    const auto types = QImageWriter::supportedImageFormats();
+    QStringList filters;
+    for (const auto& type : types) {
+        const QString extension = QString::fromUtf8(type);
+        filters << QStringLiteral("%1 Image (*.%2)").arg(extension.toUpper(), extension);
+    }
+
+    static QString last_path;
+    const QString path = QFileDialog::getSaveFileName(this, tr("Save Icon"), last_path,
+                                                      filters.join(QStringLiteral(";;")));
+    if (path.isEmpty()) {
+        return;
+    }
+    last_path = QFileInfo(path).path();
+
+    const auto pixmap = large ? ui->iconLargeLabel->pixmap(Qt::ReturnByValue)
+                              : ui->iconSmallLabel->pixmap(Qt::ReturnByValue);
+    if (!pixmap.save(path)) {
+        QMessageBox::warning(this, tr("threeSD"), tr("Could not save icon."));
+    }
 }
 
 void TitleInfoDialog::UpdateNames() {

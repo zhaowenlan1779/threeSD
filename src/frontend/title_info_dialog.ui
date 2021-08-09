@@ -42,6 +42,9 @@
           <height>48</height>
          </size>
         </property>
+        <property name="contextMenuPolicy">
+         <enum>Qt::ActionsContextMenu</enum>
+        </property>
        </widget>
       </item>
       <item row="0" column="3" rowspan="2">
@@ -51,6 +54,9 @@
           <width>24</width>
           <height>24</height>
          </size>
+        </property>
+        <property name="contextMenuPolicy">
+         <enum>Qt::ActionsContextMenu</enum>
         </property>
        </widget>
       </item>

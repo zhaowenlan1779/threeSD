@@ -30,9 +30,11 @@ private:
     void LoadInfo();
 
     void LoadEncryption(Core::NCCHContainer& ncch);
+    void LoadIcons();
     void InitializeLanguageComboBox();
     void InitializeChecks(Core::TitleMetadata& tmd);
 
+    void SaveIcon(bool large);
     void UpdateNames();
     void ExecuteContentsCheck();
 
