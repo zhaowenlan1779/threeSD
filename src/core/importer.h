@@ -176,8 +176,8 @@ public:
     bool LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out) const;
 
     std::string GetTitleContentsPath(const ContentSpecifier& specifier) const;
-    std::shared_ptr<FileUtil::IOFile> OpenBootContent(const ContentSpecifier& specifier,
-                                                      const TitleMetadata& tmd) const;
+    std::shared_ptr<FileUtil::IOFile> OpenContent(const ContentSpecifier& specifier,
+                                                  u32 content_id) const;
 
     std::shared_ptr<TicketDB>& GetTicketDB() {
         return ticket_db;

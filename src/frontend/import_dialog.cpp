@@ -490,7 +490,7 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
                     [this, specifier] { StartBuildingCIASingle(specifier); });
             QAction* show_title_info = context_menu.addAction(tr("Show Title Info"));
             connect(show_title_info, &QAction::triggered, [this, specifier] {
-                TitleInfoDialog dialog(this, config, *importer, specifier);
+                TitleInfoDialog dialog(this, *importer, specifier);
                 dialog.exec();
             });
         }

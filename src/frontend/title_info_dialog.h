@@ -9,6 +9,7 @@
 namespace Core {
 struct Config;
 class ContentSpecifier;
+class NCCHContainer;
 class SDMCImporter;
 class TitleMetadata;
 } // namespace Core
@@ -21,13 +22,17 @@ class TitleInfoDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit TitleInfoDialog(QWidget* parent, const Core::Config& config,
-                             Core::SDMCImporter& importer, Core::ContentSpecifier specifier);
+    explicit TitleInfoDialog(QWidget* parent, Core::SDMCImporter& importer,
+                             Core::ContentSpecifier specifier);
     ~TitleInfoDialog();
 
 private:
-    void LoadInfo(const Core::Config& config);
+    void LoadInfo();
+
+    void LoadEncryption(Core::NCCHContainer& ncch);
     void InitializeLanguageComboBox();
+    void InitializeChecks(Core::TitleMetadata& tmd);
+
     void UpdateNames();
     void ExecuteContentsCheck();
 

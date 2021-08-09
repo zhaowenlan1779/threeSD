@@ -42,217 +42,216 @@ bool NCCHContainer::Load() {
     if (is_loaded)
         return true;
 
-    if (file->IsOpen()) {
-        // Reset read pointer in case this file has been read before.
-        file->Seek(0, SEEK_SET);
+    if (!file->IsOpen()) {
+        LOG_WARNING(Service_FS, "Failed to open");
+        return false;
+    }
 
-        if (file->ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header)) {
-            LOG_ERROR(Service_FS, "Could not read from file");
-            return false;
-        }
+    // Reset read pointer in case this file has been read before.
+    file->Seek(0, SEEK_SET);
 
-        // Verify we are loading the correct file type...
-        if (MakeMagic('N', 'C', 'C', 'H') != ncch_header.magic) {
-            LOG_ERROR(Service_FS, "Invalid magic, file may be corrupted");
-            return false;
-        }
+    if (file->ReadBytes(&ncch_header, sizeof(NCCH_Header)) != sizeof(NCCH_Header)) {
+        LOG_ERROR(Service_FS, "Could not read from file");
+        return false;
+    }
 
-        bool failed_to_decrypt = false;
-        if (!ncch_header.no_crypto) {
-            is_encrypted = true;
+    // Verify we are loading the correct file type...
+    if (MakeMagic('N', 'C', 'C', 'H') != ncch_header.magic) {
+        LOG_ERROR(Service_FS, "Invalid magic, file may be corrupted");
+        return false;
+    }
 
-            // Find primary and secondary keys
-            if (ncch_header.fixed_key) {
-                LOG_DEBUG(Service_FS, "Fixed-key crypto");
-                primary_key.fill(0);
-                secondary_key.fill(0);
+    bool failed_to_decrypt = false;
+    if (!ncch_header.no_crypto) {
+        is_encrypted = true;
+
+        // Find primary and secondary keys
+        if (ncch_header.fixed_key) {
+            LOG_DEBUG(Service_FS, "Fixed-key crypto");
+            primary_key.fill(0);
+            secondary_key.fill(0);
+        } else {
+            std::array<u8, 16> key_y_primary, key_y_secondary;
+
+            std::copy(ncch_header.signature, ncch_header.signature + key_y_primary.size(),
+                      key_y_primary.begin());
+
+            if (!ncch_header.seed_crypto) {
+                key_y_secondary = key_y_primary;
             } else {
-                std::array<u8, 16> key_y_primary, key_y_secondary;
-
-                std::copy(ncch_header.signature, ncch_header.signature + key_y_primary.size(),
-                          key_y_primary.begin());
-
-                if (!ncch_header.seed_crypto) {
-                    key_y_secondary = key_y_primary;
-                } else {
-                    auto opt{Seeds::GetSeed(ncch_header.program_id)};
-                    if (!opt.has_value()) {
-                        LOG_ERROR(Service_FS, "Seed for program {:016X} not found",
-                                  ncch_header.program_id);
-                        failed_to_decrypt = true;
-                    } else {
-                        auto seed{*opt};
-                        std::array<u8, 32> input;
-                        std::memcpy(input.data(), key_y_primary.data(), key_y_primary.size());
-                        std::memcpy(input.data() + key_y_primary.size(), seed.data(), seed.size());
-                        CryptoPP::SHA256 sha;
-                        std::array<u8, CryptoPP::SHA256::DIGESTSIZE> hash;
-                        sha.CalculateDigest(hash.data(), input.data(), input.size());
-                        std::memcpy(key_y_secondary.data(), hash.data(), key_y_secondary.size());
-                    }
-                }
-
-                Key::SetKeyY(Key::NCCHSecure1, key_y_primary);
-                if (!Key::IsNormalKeyAvailable(Key::NCCHSecure1)) {
-                    LOG_ERROR(Service_FS, "Secure1 KeyX missing");
+                auto opt{Seeds::GetSeed(ncch_header.program_id)};
+                if (!opt.has_value()) {
+                    LOG_ERROR(Service_FS, "Seed for program {:016X} not found",
+                              ncch_header.program_id);
                     failed_to_decrypt = true;
-                }
-                primary_key = Key::GetNormalKey(Key::NCCHSecure1);
-
-                const auto SetSecondaryKey = [this, &failed_to_decrypt,
-                                              &key_y_secondary](Key::KeySlotID slot) {
-                    Key::SetKeyY(slot, key_y_secondary);
-                    if (!Key::IsNormalKeyAvailable(slot)) {
-                        LOG_ERROR(Service_FS, "{:#04X} KeyX missing", slot);
-                        failed_to_decrypt = true;
-                    }
-                    secondary_key = Key::GetNormalKey(slot);
-                };
-
-                switch (ncch_header.secondary_key_slot) {
-                case 0:
-                    LOG_DEBUG(Service_FS, "Secure1 crypto");
-                    SetSecondaryKey(Key::NCCHSecure1);
-                    break;
-                case 1:
-                    LOG_DEBUG(Service_FS, "Secure2 crypto");
-                    SetSecondaryKey(Key::NCCHSecure2);
-                    break;
-                case 10:
-                    LOG_DEBUG(Service_FS, "Secure3 crypto");
-                    SetSecondaryKey(Key::NCCHSecure3);
-                    break;
-                case 11:
-                    LOG_DEBUG(Service_FS, "Secure4 crypto");
-                    SetSecondaryKey(Key::NCCHSecure4);
-                    break;
+                } else {
+                    auto seed{*opt};
+                    std::array<u8, 32> input;
+                    std::memcpy(input.data(), key_y_primary.data(), key_y_primary.size());
+                    std::memcpy(input.data() + key_y_primary.size(), seed.data(), seed.size());
+                    CryptoPP::SHA256 sha;
+                    std::array<u8, CryptoPP::SHA256::DIGESTSIZE> hash;
+                    sha.CalculateDigest(hash.data(), input.data(), input.size());
+                    std::memcpy(key_y_secondary.data(), hash.data(), key_y_secondary.size());
                 }
             }
 
-            // Find CTR for each section
-            // Written with reference to
-            // https://github.com/d0k3/GodMode9/blob/99af6a73be48fa7872649aaa7456136da0df7938/arm9/source/game/ncch.c#L34-L52
-            if (ncch_header.version == 0 || ncch_header.version == 2) {
-                LOG_DEBUG(Loader, "NCCH version 0/2");
-                // In this version, CTR for each section is a magic number prefixed by partition ID
-                // (reverse order)
-                std::reverse_copy(ncch_header.partition_id, ncch_header.partition_id + 8,
-                                  exheader_ctr.begin());
-                exefs_ctr = romfs_ctr = exheader_ctr;
-                exheader_ctr[8] = 1;
-                exefs_ctr[8] = 2;
-                romfs_ctr[8] = 3;
-            } else if (ncch_header.version == 1) {
-                LOG_DEBUG(Loader, "NCCH version 1");
-                // In this version, CTR for each section is the section offset prefixed by partition
-                // ID, as if the entire NCCH image is encrypted using a single CTR stream.
-                std::copy(ncch_header.partition_id, ncch_header.partition_id + 8,
-                          exheader_ctr.begin());
-                exefs_ctr = romfs_ctr = exheader_ctr;
-                auto u32ToBEArray = [](u32 value) -> std::array<u8, 4> {
-                    return std::array<u8, 4>{
-                        static_cast<u8>(value >> 24),
-                        static_cast<u8>((value >> 16) & 0xFF),
-                        static_cast<u8>((value >> 8) & 0xFF),
-                        static_cast<u8>(value & 0xFF),
-                    };
-                };
-                auto offset_exheader = u32ToBEArray(0x200); // exheader offset
-                auto offset_exefs = u32ToBEArray(ncch_header.exefs_offset * kBlockSize);
-                auto offset_romfs = u32ToBEArray(ncch_header.romfs_offset * kBlockSize);
-                std::copy(offset_exheader.begin(), offset_exheader.end(),
-                          exheader_ctr.begin() + 12);
-                std::copy(offset_exefs.begin(), offset_exefs.end(), exefs_ctr.begin() + 12);
-                std::copy(offset_romfs.begin(), offset_romfs.end(), romfs_ctr.begin() + 12);
-            } else {
-                LOG_ERROR(Service_FS, "Unknown NCCH version {}", ncch_header.version);
+            Key::SetKeyY(Key::NCCHSecure1, key_y_primary);
+            if (!Key::IsNormalKeyAvailable(Key::NCCHSecure1)) {
+                LOG_ERROR(Service_FS, "Secure1 KeyX missing");
                 failed_to_decrypt = true;
             }
-        } else {
-            LOG_DEBUG(Service_FS, "No crypto");
-            is_encrypted = false;
-        }
+            primary_key = Key::GetNormalKey(Key::NCCHSecure1);
 
-        // System archives and DLC don't have an extended header but have RomFS
-        if (ncch_header.extended_header_size) {
-            if (file->ReadBytes(&exheader_header, sizeof(exheader_header)) !=
-                sizeof(exheader_header)) {
-                LOG_ERROR(Service_FS, "Could not read exheader from file");
-                return false;
-            }
-
-            if (is_encrypted) {
-                // This ID check is masked to low 32-bit as a toleration to ill-formed ROM created
-                // by merging games and its updates.
-                if ((exheader_header.system_info.jump_id & 0xFFFFFFFF) ==
-                    (ncch_header.program_id & 0xFFFFFFFF)) {
-                    LOG_WARNING(Service_FS, "NCCH is marked as encrypted but with decrypted "
-                                            "exheader. Force no crypto scheme.");
-                    is_encrypted = false;
-                } else {
-                    if (failed_to_decrypt) {
-                        LOG_ERROR(Service_FS, "Failed to decrypt");
-                        return false;
-                    }
-                    CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exheader_header);
-                    CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption(
-                        primary_key.data(), primary_key.size(), exheader_ctr.data())
-                        .ProcessData(data, data, sizeof(exheader_header));
+            const auto SetSecondaryKey = [this, &failed_to_decrypt,
+                                          &key_y_secondary](Key::KeySlotID slot) {
+                Key::SetKeyY(slot, key_y_secondary);
+                if (!Key::IsNormalKeyAvailable(slot)) {
+                    LOG_ERROR(Service_FS, "{:#04X} KeyX missing", slot);
+                    failed_to_decrypt = true;
                 }
+                secondary_key = Key::GetNormalKey(slot);
+            };
+
+            switch (ncch_header.secondary_key_slot) {
+            case 0:
+                LOG_DEBUG(Service_FS, "Secure1 crypto");
+                SetSecondaryKey(Key::NCCHSecure1);
+                break;
+            case 1:
+                LOG_DEBUG(Service_FS, "Secure2 crypto");
+                SetSecondaryKey(Key::NCCHSecure2);
+                break;
+            case 10:
+                LOG_DEBUG(Service_FS, "Secure3 crypto");
+                SetSecondaryKey(Key::NCCHSecure3);
+                break;
+            case 11:
+                LOG_DEBUG(Service_FS, "Secure4 crypto");
+                SetSecondaryKey(Key::NCCHSecure4);
+                break;
             }
-
-            u32 entry_point = exheader_header.codeset_info.text.address;
-            u32 code_size = exheader_header.codeset_info.text.code_size;
-            u32 stack_size = exheader_header.codeset_info.stack_size;
-            u32 bss_size = exheader_header.codeset_info.bss_size;
-            u32 core_version = exheader_header.arm11_system_local_caps.core_version;
-            u8 priority = exheader_header.arm11_system_local_caps.priority;
-            u8 resource_limit_category =
-                exheader_header.arm11_system_local_caps.resource_limit_category;
-
-            LOG_DEBUG(Service_FS, "Name:                        {}",
-                      exheader_header.codeset_info.name);
-            LOG_DEBUG(Service_FS, "Program ID:                  {:016X}", ncch_header.program_id);
-            LOG_DEBUG(Service_FS, "Entry point:                 0x{:08X}", entry_point);
-            LOG_DEBUG(Service_FS, "Code size:                   0x{:08X}", code_size);
-            LOG_DEBUG(Service_FS, "Stack size:                  0x{:08X}", stack_size);
-            LOG_DEBUG(Service_FS, "Bss size:                    0x{:08X}", bss_size);
-            LOG_DEBUG(Service_FS, "Core version:                {}", core_version);
-            LOG_DEBUG(Service_FS, "Thread priority:             0x{:X}", priority);
-            LOG_DEBUG(Service_FS, "Resource limit category:     {}", resource_limit_category);
-            LOG_DEBUG(Service_FS, "System Mode:                 {}",
-                      static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
-
-            has_exheader = true;
         }
 
-        // DLC can have an ExeFS and a RomFS but no extended header
-        if (ncch_header.exefs_size) {
-            exefs_offset = ncch_header.exefs_offset * kBlockSize;
-            u32 exefs_size = ncch_header.exefs_size * kBlockSize;
-
-            LOG_DEBUG(Service_FS, "ExeFS offset:                0x{:08X}", exefs_offset);
-            LOG_DEBUG(Service_FS, "ExeFS size:                  0x{:08X}", exefs_size);
-            file->Seek(exefs_offset, SEEK_SET);
-            if (file->ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header)) {
-                LOG_ERROR(Service_FS, "Could not read ExeFS header from file");
-                return false;
-            }
-
-            if (is_encrypted) {
-                CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exefs_header);
-                CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption(primary_key.data(),
-                                                              primary_key.size(), exefs_ctr.data())
-                    .ProcessData(data, data, sizeof(exefs_header));
-            }
-
-            exefs_file = file;
-            has_exefs = true;
+        // Find CTR for each section
+        // Written with reference to
+        // https://github.com/d0k3/GodMode9/blob/99af6a73be48fa7872649aaa7456136da0df7938/arm9/source/game/ncch.c#L34-L52
+        if (ncch_header.version == 0 || ncch_header.version == 2) {
+            LOG_DEBUG(Loader, "NCCH version 0/2");
+            // In this version, CTR for each section is a magic number prefixed by partition ID
+            // (reverse order)
+            std::reverse_copy(ncch_header.partition_id, ncch_header.partition_id + 8,
+                              exheader_ctr.begin());
+            exefs_ctr = romfs_ctr = exheader_ctr;
+            exheader_ctr[8] = 1;
+            exefs_ctr[8] = 2;
+            romfs_ctr[8] = 3;
+        } else if (ncch_header.version == 1) {
+            LOG_DEBUG(Loader, "NCCH version 1");
+            // In this version, CTR for each section is the section offset prefixed by partition
+            // ID, as if the entire NCCH image is encrypted using a single CTR stream.
+            std::copy(ncch_header.partition_id, ncch_header.partition_id + 8, exheader_ctr.begin());
+            exefs_ctr = romfs_ctr = exheader_ctr;
+            auto u32ToBEArray = [](u32 value) -> std::array<u8, 4> {
+                return std::array<u8, 4>{
+                    static_cast<u8>(value >> 24),
+                    static_cast<u8>((value >> 16) & 0xFF),
+                    static_cast<u8>((value >> 8) & 0xFF),
+                    static_cast<u8>(value & 0xFF),
+                };
+            };
+            auto offset_exheader = u32ToBEArray(0x200); // exheader offset
+            auto offset_exefs = u32ToBEArray(ncch_header.exefs_offset * kBlockSize);
+            auto offset_romfs = u32ToBEArray(ncch_header.romfs_offset * kBlockSize);
+            std::copy(offset_exheader.begin(), offset_exheader.end(), exheader_ctr.begin() + 12);
+            std::copy(offset_exefs.begin(), offset_exefs.end(), exefs_ctr.begin() + 12);
+            std::copy(offset_romfs.begin(), offset_romfs.end(), romfs_ctr.begin() + 12);
+        } else {
+            LOG_ERROR(Service_FS, "Unknown NCCH version {}", ncch_header.version);
+            failed_to_decrypt = true;
         }
-
-        if (ncch_header.romfs_offset != 0 && ncch_header.romfs_size != 0)
-            has_romfs = true;
+    } else {
+        LOG_DEBUG(Service_FS, "No crypto");
+        is_encrypted = false;
     }
+
+    // System archives and DLC don't have an extended header but have RomFS
+    if (ncch_header.extended_header_size) {
+        if (file->ReadBytes(&exheader_header, sizeof(exheader_header)) != sizeof(exheader_header)) {
+            LOG_ERROR(Service_FS, "Could not read exheader from file");
+            return false;
+        }
+
+        if (is_encrypted) {
+            // This ID check is masked to low 32-bit as a toleration to ill-formed ROM created
+            // by merging games and its updates.
+            if ((exheader_header.system_info.jump_id & 0xFFFFFFFF) ==
+                (ncch_header.program_id & 0xFFFFFFFF)) {
+                LOG_WARNING(Service_FS, "NCCH is marked as encrypted but with decrypted "
+                                        "exheader. Force no crypto scheme.");
+                is_encrypted = false;
+            } else {
+                if (failed_to_decrypt) {
+                    LOG_ERROR(Service_FS, "Failed to decrypt");
+                    return false;
+                }
+                CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exheader_header);
+                CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption(
+                    primary_key.data(), primary_key.size(), exheader_ctr.data())
+                    .ProcessData(data, data, sizeof(exheader_header));
+            }
+        }
+
+        u32 entry_point = exheader_header.codeset_info.text.address;
+        u32 code_size = exheader_header.codeset_info.text.code_size;
+        u32 stack_size = exheader_header.codeset_info.stack_size;
+        u32 bss_size = exheader_header.codeset_info.bss_size;
+        u32 core_version = exheader_header.arm11_system_local_caps.core_version;
+        u8 priority = exheader_header.arm11_system_local_caps.priority;
+        u8 resource_limit_category =
+            exheader_header.arm11_system_local_caps.resource_limit_category;
+
+        LOG_DEBUG(Service_FS, "Name:                        {}", exheader_header.codeset_info.name);
+        LOG_DEBUG(Service_FS, "Program ID:                  {:016X}", ncch_header.program_id);
+        LOG_DEBUG(Service_FS, "Entry point:                 0x{:08X}", entry_point);
+        LOG_DEBUG(Service_FS, "Code size:                   0x{:08X}", code_size);
+        LOG_DEBUG(Service_FS, "Stack size:                  0x{:08X}", stack_size);
+        LOG_DEBUG(Service_FS, "Bss size:                    0x{:08X}", bss_size);
+        LOG_DEBUG(Service_FS, "Core version:                {}", core_version);
+        LOG_DEBUG(Service_FS, "Thread priority:             0x{:X}", priority);
+        LOG_DEBUG(Service_FS, "Resource limit category:     {}", resource_limit_category);
+        LOG_DEBUG(Service_FS, "System Mode:                 {}",
+                  static_cast<int>(exheader_header.arm11_system_local_caps.system_mode));
+
+        has_exheader = true;
+    }
+
+    // DLC can have an ExeFS and a RomFS but no extended header
+    if (ncch_header.exefs_size) {
+        exefs_offset = ncch_header.exefs_offset * kBlockSize;
+        u32 exefs_size = ncch_header.exefs_size * kBlockSize;
+
+        LOG_DEBUG(Service_FS, "ExeFS offset:                0x{:08X}", exefs_offset);
+        LOG_DEBUG(Service_FS, "ExeFS size:                  0x{:08X}", exefs_size);
+        file->Seek(exefs_offset, SEEK_SET);
+        if (file->ReadBytes(&exefs_header, sizeof(ExeFs_Header)) != sizeof(ExeFs_Header)) {
+            LOG_ERROR(Service_FS, "Could not read ExeFS header from file");
+            return false;
+        }
+
+        if (is_encrypted) {
+            CryptoPP::byte* data = reinterpret_cast<CryptoPP::byte*>(&exefs_header);
+            CryptoPP::CTR_Mode<CryptoPP::AES>::Decryption(primary_key.data(), primary_key.size(),
+                                                          exefs_ctr.data())
+                .ProcessData(data, data, sizeof(exefs_header));
+        }
+
+        exefs_file = file;
+        has_exefs = true;
+    }
+
+    if (ncch_header.romfs_offset != 0 && ncch_header.romfs_size != 0)
+        has_romfs = true;
 
     is_loaded = true;
     return true;

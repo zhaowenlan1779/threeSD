@@ -535,10 +535,29 @@ bool SDMCImporter::LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out
     return LoadTMD(specifier.type, specifier.id, out);
 }
 
+std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifier& specifier,
+                                                            u32 content_id) const {
+    if (IsNandTitle(specifier.type)) {
+        const auto path =
+            fmt::format("{}{:08x}/{:08x}/content/{:08x}.app", config.system_titles_path,
+                        (specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id);
+        return std::make_shared<FileUtil::IOFile>(path, "rb");
+    } else {
+        // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
+        // should be fine (also matches GodMode9 behaviour)
+        const auto format_str = specifier.type == ContentType::DLC
+                                    ? "/title/{:08x}/{:08x}/content/00000000/{:08x}.app"
+                                    : "/title/{:08x}/{:08x}/content/{:08x}.app";
+        const auto path =
+            fmt::format(format_str, (specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id);
+        return std::make_shared<SDMCFile>(config.sdmc_path, path, "rb");
+    }
+}
+
 // English short title name, extdata id, icon
 using TitleData = std::tuple<std::string, u64, std::vector<u16>>;
 
-TitleData LoadTitleData(NCCHContainer& ncch) {
+static TitleData LoadTitleData(NCCHContainer& ncch) {
     std::string codeset_name;
     ncch.ReadCodesetName(codeset_name);
 
@@ -634,11 +653,7 @@ bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destin
         return false;
     }
 
-    const auto boot_content_path =
-        fmt::format("/title/{:08x}/{:08x}/content/{:08x}.app", specifier.id >> 32,
-                    (specifier.id & 0xFFFFFFFF), tmd.GetBootContentID());
-    dump_cxi_ncch = std::make_unique<NCCHContainer>(
-        std::make_shared<SDMCFile>(config.sdmc_path, boot_content_path, "rb"));
+    dump_cxi_ncch = std::make_unique<NCCHContainer>(OpenContent(specifier, tmd.GetBootContentID()));
 
     if (destination.back() == '/' || destination.back() == '\\') {
         auto_filename = true;
@@ -703,13 +718,6 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    const bool is_nand = IsNandTitle(specifier.type);
-    const auto physical_path =
-        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
-                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
-
     if (destination.back() == '/' || destination.back() == '\\') {
         auto_filename = true;
     }
@@ -722,15 +730,12 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         if (destination.back() != '/' && destination.back() != '\\') {
             destination.push_back('/');
         }
-        const auto boot_content_path =
-            fmt::format("{}{:08x}.app", physical_path, tmd.GetBootContentID());
-        NCCHContainer ncch;
-        if (is_nand) {
-            ncch.OpenFile(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
-        } else {
-            const auto relative_path = boot_content_path.substr(config.sdmc_path.size() - 1);
-            ncch.OpenFile(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
+        auto file = OpenContent(specifier, tmd.GetBootContentID());
+        if (!file) {
+            LOG_ERROR(Core, "Could not open boot content");
+            return false;
         }
+        NCCHContainer ncch(std::move(file));
         const auto filename =
             fmt::format("{} (v{}).{}", GetTitleFileName(ncch), tmd.GetTitleVersionString(),
                         BuildTypeExts.at(static_cast<std::size_t>(build_type)));
@@ -749,28 +754,18 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
     }
 
     for (const auto& tmd_chunk : tmd.tmd_chunks) {
-        // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
-        // should be fine (also matches GodMode9)
-        const auto sub_folder =
-            specifier.type == ContentType::DLC ? physical_path + "00000000/" : physical_path;
-        const auto path = fmt::format("{}{:08x}.app", sub_folder, static_cast<u32>(tmd_chunk.id));
-        if (!FileUtil::Exists(path)) {
+        auto file = OpenContent(specifier, tmd_chunk.id);
+        if (!file) {
             if (static_cast<u16>(tmd_chunk.type) & 0x4000) { // optional
                 continue;
             }
-            LOG_ERROR(Core, "Content {:08x} does not exist", static_cast<u32>(tmd_chunk.id));
+            LOG_ERROR(Core, "Could not open content {:08x}", static_cast<u32>(tmd_chunk.id));
             ret = false;
             return false;
         }
 
-        if (is_nand) {
-            NCCHContainer ncch(std::make_shared<FileUtil::IOFile>(path, "rb"));
-            ret = cia_builder->AddContent(tmd_chunk.id, ncch);
-        } else {
-            const auto relative_path = path.substr(config.sdmc_path.size() - 1);
-            NCCHContainer ncch(std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb"));
-            ret = cia_builder->AddContent(tmd_chunk.id, ncch);
-        }
+        NCCHContainer ncch(std::move(file));
+        ret = cia_builder->AddContent(tmd_chunk.id, ncch);
         if (!ret) {
             return false;
         }
@@ -821,35 +816,18 @@ bool SDMCImporter::CheckTitleContents(const ContentSpecifier& specifier,
 
     Common::ProgressCallbackWrapper wrapper{specifier.maximum_size};
 
-    const bool is_nand = IsNandTitle(specifier.type);
-    const auto physical_path =
-        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
-                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
     for (const auto& tmd_chunk : tmd.tmd_chunks) {
-        // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
-        // should be fine (also matches GodMode9)
-        const auto sub_folder =
-            specifier.type == ContentType::DLC ? physical_path + "00000000/" : physical_path;
-        const auto path = fmt::format("{}{:08x}.app", sub_folder, static_cast<u32>(tmd_chunk.id));
-        if (!FileUtil::Exists(path)) {
+        auto file = OpenContent(specifier, tmd_chunk.id);
+        if (!file) {
             if (static_cast<u16>(tmd_chunk.type) & 0x4000) { // optional
                 continue;
             }
-            LOG_INFO(Core, "Content {:08x} does not exist", static_cast<u32>(tmd_chunk.id));
+            LOG_INFO(Core, "Could not open content {:08x}", static_cast<u32>(tmd_chunk.id));
             return false;
         }
 
-        std::shared_ptr<FileUtil::IOFile> source_file;
-        if (is_nand) {
-            source_file = std::make_shared<FileUtil::IOFile>(path, "rb");
-        } else {
-            const auto relative_path = path.substr(config.sdmc_path.size() - 1);
-            source_file = std::make_shared<SDMCFile>(config.sdmc_path, relative_path, "rb");
-        }
         std::shared_ptr<HashOnlyFile> dest_file = std::make_shared<HashOnlyFile>();
-        if (!file_decryptor.CryptAndWriteFile(source_file, source_file->GetSize(), dest_file,
+        if (!file_decryptor.CryptAndWriteFile(file, file->GetSize(), dest_file,
                                               wrapper.Wrap(callback))) {
             return false;
         }

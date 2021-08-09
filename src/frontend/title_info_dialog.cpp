@@ -15,8 +15,8 @@
 #include "frontend/title_info_dialog.h"
 #include "ui_title_info_dialog.h"
 
-TitleInfoDialog::TitleInfoDialog(QWidget* parent, const Core::Config& config,
-                                 Core::SDMCImporter& importer_, Core::ContentSpecifier specifier_)
+TitleInfoDialog::TitleInfoDialog(QWidget* parent, Core::SDMCImporter& importer_,
+                                 Core::ContentSpecifier specifier_)
     : QDialog(parent), ui(std::make_unique<Ui::TitleInfoDialog>()), importer(importer_),
       specifier(std::move(specifier_)) {
 
@@ -25,39 +25,62 @@ TitleInfoDialog::TitleInfoDialog(QWidget* parent, const Core::Config& config,
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
-    LoadInfo(config);
+    LoadInfo();
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &TitleInfoDialog::accept);
 }
 
 TitleInfoDialog::~TitleInfoDialog() = default;
 
-void TitleInfoDialog::LoadInfo(const Core::Config& config) {
+void TitleInfoDialog::LoadInfo() {
+    // Load TMD & boot NCCH
     Core::TitleMetadata tmd;
-    if (!importer.LoadTMD(specifier, tmd)) {
+    Core::NCCHContainer ncch;
+    if (!importer.LoadTMD(specifier, tmd) ||
+        !ncch.OpenFile(importer.OpenContent(specifier, tmd.GetBootContentID()))) {
+
         QMessageBox::warning(this, tr("threeSD"), tr("Could not load title information."));
         reject();
         return;
     }
-    ui->versionLineEdit->setText(QString::fromStdString(tmd.GetTitleVersionString()));
-    ui->titleIDLineEdit->setText(QStringLiteral("%1").arg(specifier.id, 16, 16, QLatin1Char{'0'}));
 
-    const bool is_nand = Core::IsNandTitle(specifier.type);
-    const auto physical_path =
-        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
-                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
-                              (specifier.id >> 32), (specifier.id & 0xFFFFFFFF));
-    const auto boot_content_path =
-        fmt::format("{}{:08x}.app", physical_path, tmd.GetBootContentID());
-    Core::NCCHContainer ncch;
-    if (is_nand) {
-        ncch.OpenFile(std::make_shared<FileUtil::IOFile>(boot_content_path, "rb"));
-    } else {
-        const auto relative_path = boot_content_path.substr(config.sdmc_path.size() - 1);
-        ncch.OpenFile(std::make_shared<Core::SDMCFile>(config.sdmc_path, relative_path, "rb"));
+    // Load SMDH from boot NCCH
+    bool has_smdh = false;
+    std::vector<u8> smdh_buffer;
+    if (ncch.LoadSectionExeFS("icon", smdh_buffer) && smdh_buffer.size() == sizeof(Core::SMDH) &&
+        Core::IsValidSMDH(smdh_buffer)) {
+
+        has_smdh = true;
+        std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
     }
 
+    // Basic info
+    ui->versionLineEdit->setText(QString::fromStdString(tmd.GetTitleVersionString()));
+    LoadEncryption(ncch);
+    ui->titleIDLineEdit->setText(QStringLiteral("%1").arg(specifier.id, 16, 16, QLatin1Char{'0'}));
+
+    // Icons
+    if (has_smdh) {
+        ui->iconLargeLabel->setPixmap(
+            QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(true).data()), 48,
+                                      48, QImage::Format::Format_RGB16)));
+        ui->iconSmallLabel->setPixmap(
+            QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(false).data()),
+                                      24, 24, QImage::Format::Format_RGB16)));
+    }
+
+    // Names
+    if (has_smdh) {
+        InitializeLanguageComboBox();
+    } else {
+        ui->namesGroupBox->setVisible(false);
+    }
+
+    // Checks
+    InitializeChecks(tmd);
+}
+
+void TitleInfoDialog::LoadEncryption(Core::NCCHContainer& ncch) {
     static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
         {Core::EncryptionType::None, QT_TR_NOOP("None")},
         {Core::EncryptionType::FixedKey, QT_TR_NOOP("FixedKey")},
@@ -78,50 +101,6 @@ void TitleInfoDialog::LoadInfo(const Core::Config& config) {
         encryption_text.append(tr(" (Seed)"));
     }
     ui->encryptionLineEdit->setText(encryption_text);
-
-    // Checks
-    const bool tmd_legit = tmd.ValidateSignature() && tmd.VerifyHashes();
-    if (tmd_legit) {
-        ui->tmdCheckLabel->setText(tr("Legit"));
-    } else {
-        ui->tmdCheckLabel->setText(tr("Illegit"));
-    }
-
-    if (const auto& ticket_db = importer.GetTicketDB();
-        ticket_db && ticket_db->tickets.count(specifier.id)) {
-
-        const bool ticket_legit = ticket_db->tickets.at(specifier.id).ValidateSignature();
-        if (ticket_legit) {
-            ui->ticketCheckLabel->setText(tr("Legit"));
-        } else {
-            ui->ticketCheckLabel->setText(tr("Illegit"));
-        }
-    } else {
-        ui->ticketCheckLabel->setText(tr("Missing"));
-    }
-    connect(ui->contentsCheckButton, &QPushButton::clicked, this,
-            &TitleInfoDialog::ExecuteContentsCheck);
-
-    // Load SMDH
-    std::vector<u8> smdh_buffer;
-    if (!ncch.LoadSectionExeFS("icon", smdh_buffer) || smdh_buffer.size() != sizeof(Core::SMDH) ||
-        !Core::IsValidSMDH(smdh_buffer)) {
-
-        LOG_WARNING(Core, "Failed to load SMDH");
-        ui->namesGroupBox->setEnabled(false);
-        return;
-    }
-
-    std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
-    // Load icon
-    ui->iconLargeLabel->setPixmap(
-        QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(true).data()), 48, 48,
-                                  QImage::Format::Format_RGB16)));
-    ui->iconSmallLabel->setPixmap(
-        QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(smdh.GetIcon(false).data()), 24,
-                                  24, QImage::Format::Format_RGB16)));
-    // Load names
-    InitializeLanguageComboBox();
 }
 
 void TitleInfoDialog::InitializeLanguageComboBox() {
@@ -170,6 +149,30 @@ void TitleInfoDialog::UpdateNames() {
         QString::fromStdString(Common::UTF16BufferToUTF8(title.long_title)));
     ui->publisherLineEdit->setText(
         QString::fromStdString(Common::UTF16BufferToUTF8(title.publisher)));
+}
+
+void TitleInfoDialog::InitializeChecks(Core::TitleMetadata& tmd) {
+    const bool tmd_legit = tmd.ValidateSignature() && tmd.VerifyHashes();
+    if (tmd_legit) {
+        ui->tmdCheckLabel->setText(tr("Legit"));
+    } else {
+        ui->tmdCheckLabel->setText(tr("Illegit"));
+    }
+
+    if (const auto& ticket_db = importer.GetTicketDB();
+        ticket_db && ticket_db->tickets.count(specifier.id)) {
+
+        const bool ticket_legit = ticket_db->tickets.at(specifier.id).ValidateSignature();
+        if (ticket_legit) {
+            ui->ticketCheckLabel->setText(tr("Legit"));
+        } else {
+            ui->ticketCheckLabel->setText(tr("Illegit"));
+        }
+    } else {
+        ui->ticketCheckLabel->setText(tr("Missing"));
+    }
+    connect(ui->contentsCheckButton, &QPushButton::clicked, this,
+            &TitleInfoDialog::ExecuteContentsCheck);
 }
 
 void TitleInfoDialog::ExecuteContentsCheck() {
