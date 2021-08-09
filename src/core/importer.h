@@ -47,18 +47,6 @@ constexpr bool IsNandTitle(ContentType type) {
 }
 
 /**
- * Encryption type of an importable content.
- */
-enum class EncryptionType {
-    None,
-    FixedKey,
-    NCCHSecure1,
-    NCCHSecure2,
-    NCCHSecure3,
-    NCCHSecure4,
-};
-
-/**
  * Struct that specifies an importable content.
  */
 struct ContentSpecifier {
@@ -186,6 +174,10 @@ public:
 
     bool LoadTMD(ContentType type, u64 id, TitleMetadata& out) const;
     bool LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out) const;
+
+    std::string GetTitleContentsPath(const ContentSpecifier& specifier) const;
+    std::shared_ptr<FileUtil::IOFile> OpenBootContent(const ContentSpecifier& specifier,
+                                                      const TitleMetadata& tmd) const;
 
     std::shared_ptr<TicketDB>& GetTicketDB() {
         return ticket_db;

@@ -196,7 +196,17 @@ struct ExHeader_Header {
 
 static_assert(sizeof(ExHeader_Header) == 0x800, "ExHeader structure size is wrong");
 
-enum class EncryptionType;
+/**
+ * Encryption type of an importable content.
+ */
+enum class EncryptionType {
+    None,
+    FixedKey,
+    NCCHSecure1,
+    NCCHSecure2,
+    NCCHSecure3,
+    NCCHSecure4,
+};
 
 /**
  * Helper which implements an interface to deal with NCCH containers which can

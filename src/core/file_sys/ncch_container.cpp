@@ -17,7 +17,6 @@
 #include "core/db/seed_db.h"
 #include "core/file_sys/data/data_container.h"
 #include "core/file_sys/ncch_container.h"
-#include "core/importer.h"
 #include "core/key/key.h"
 
 namespace Core {
