@@ -90,6 +90,7 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
 
     ui->setupUi(this);
 
+    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
@@ -126,6 +127,7 @@ ImportDialog::~ImportDialog() = default;
 
 void ImportDialog::RelistContent() {
     auto* dialog = new QProgressDialog(tr("Loading Contents..."), tr("Cancel"), 0, 0, this);
+    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setCancelButton(nullptr);
     dialog->setMinimumDuration(0);
@@ -585,9 +587,10 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     bar->setValue(0);
 
     auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, this);
+    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
+    dialog->setWindowModality(Qt::WindowModal);
     dialog->setBar(bar);
     dialog->setLabel(label);
-    dialog->setWindowModality(Qt::WindowModal);
     dialog->setMinimumDuration(0);
 
     connect(job, &MultiJob::NextContent, this,
@@ -639,6 +642,8 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     connect(dialog, &QProgressDialog::canceled, this, [this, job] {
         // Add yet-another-ProgressDialog to indicate cancel progress
         auto* cancel_dialog = new QProgressDialog(tr("Canceling..."), tr("Cancel"), 0, 0, this);
+        cancel_dialog->setWindowFlags(cancel_dialog->windowFlags() &
+                                      (~Qt::WindowContextHelpButtonHint));
         cancel_dialog->setWindowModality(Qt::WindowModal);
         cancel_dialog->setCancelButton(nullptr);
         cancel_dialog->setMinimumDuration(0);

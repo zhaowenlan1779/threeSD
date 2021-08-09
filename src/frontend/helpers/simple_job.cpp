@@ -37,8 +37,9 @@ void SimpleJob::StartWithProgressDialog(QWidget* widget) {
     bar->setValue(0);
 
     auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, widget);
-    dialog->setBar(bar);
+    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
     dialog->setWindowModality(Qt::WindowModal);
+    dialog->setBar(bar);
     dialog->setMinimumDuration(0);
 
     connect(this, &SimpleJob::ProgressUpdated, this, [bar, dialog](u64 current, u64 total) {

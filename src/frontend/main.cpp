@@ -40,6 +40,7 @@ bool IsConfigGood(const Core::Config& config) {
 MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
     ui->setupUi(this);
 
+    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 

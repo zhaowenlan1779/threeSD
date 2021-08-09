@@ -25,6 +25,7 @@ TitleInfoDialog::TitleInfoDialog(QWidget* parent, Core::SDMCImporter& importer_,
 
     ui->setupUi(this);
 
+    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 

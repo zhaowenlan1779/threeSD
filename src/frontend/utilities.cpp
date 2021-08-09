@@ -23,6 +23,7 @@ UtilitiesDialog::UtilitiesDialog(QWidget* parent)
 
     ui->setupUi(this);
 
+    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
     const double scale = qApp->desktop()->logicalDpiX() / 96.0;
     resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
@@ -124,6 +125,7 @@ bool UtilitiesDialog::LoadSDKeys() {
 
 void UtilitiesDialog::ShowProgressDialog(std::function<bool()> operation) {
     auto* dialog = new QProgressDialog(tr("Processing..."), tr("Cancel"), 0, 0, this);
+    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setCancelButton(nullptr);
     dialog->setMinimumDuration(0);
