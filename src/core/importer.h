@@ -42,6 +42,9 @@ constexpr bool IsTitle(ContentType type) {
            type == ContentType::DLC || type == ContentType::SystemTitle ||
            type == ContentType::SystemApplet;
 }
+constexpr bool IsNandTitle(ContentType type) {
+    return type == ContentType::SystemTitle || type == ContentType::SystemApplet;
+}
 
 /**
  * Encryption type of an importable content.

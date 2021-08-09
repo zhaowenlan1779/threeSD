@@ -498,7 +498,7 @@ static std::string FindTMD(const std::string& path) {
 }
 
 bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
-    const bool is_nand = type == ContentType::SystemTitle || type == ContentType::SystemApplet;
+    const bool is_nand = IsNandTitle(type);
 
     auto& title_db = is_nand ? nand_title_db : sdmc_title_db;
     const auto physical_path =
@@ -708,8 +708,7 @@ bool SDMCImporter::BuildCIA(CIABuildType build_type, const ContentSpecifier& spe
         return false;
     }
 
-    const bool is_nand =
-        specifier.type == ContentType::SystemTitle || specifier.type == ContentType::SystemApplet;
+    const bool is_nand = IsNandTitle(specifier.type);
     const auto physical_path =
         is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))
@@ -827,8 +826,7 @@ bool SDMCImporter::CheckTitleContents(const ContentSpecifier& specifier,
 
     Common::ProgressCallbackWrapper wrapper{specifier.maximum_size};
 
-    const bool is_nand =
-        specifier.type == ContentType::SystemTitle || specifier.type == ContentType::SystemApplet;
+    const bool is_nand = IsNandTitle(specifier.type);
     const auto physical_path =
         is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))

@@ -768,8 +768,7 @@ void ImportDialog::StartBatchDumpingCXI() {
 void ImportDialog::StartBuildingCIASingle(const Core::ContentSpecifier& specifier) {
     CIABuildDialog dialog(this,
                           /*is_dir*/ false,
-                          /*is_nand*/ specifier.type == Core::ContentType::SystemTitle ||
-                              specifier.type == Core::ContentType::SystemApplet,
+                          /*is_nand*/ Core::IsNandTitle(specifier.type),
                           /*enable_legit*/ importer->CanBuildLegitCIA(specifier),
                           last_build_cia_path);
     if (dialog.exec() != QDialog::Accepted) {
@@ -813,11 +812,9 @@ void ImportDialog::StartBatchBuildingCIA() {
 
     to_import.erase(removed_iter, to_import.end());
 
-    const bool is_nand = std::all_of(to_import.begin(), to_import.end(),
-                                     [](const Core::ContentSpecifier& specifier) {
-                                         return specifier.type == Core::ContentType::SystemTitle ||
-                                                specifier.type == Core::ContentType::SystemApplet;
-                                     });
+    const bool is_nand = std::all_of(
+        to_import.begin(), to_import.end(),
+        [](const Core::ContentSpecifier& specifier) { return Core::IsNandTitle(specifier.type); });
     const bool enable_legit = std::all_of(to_import.begin(), to_import.end(),
                                           [this](const Core::ContentSpecifier& specifier) {
                                               return importer->CanBuildLegitCIA(specifier);
