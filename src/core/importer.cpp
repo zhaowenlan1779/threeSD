@@ -535,8 +535,8 @@ bool SDMCImporter::LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out
     return LoadTMD(specifier.type, specifier.id, out);
 }
 
-// English short title name, extdata id, encryption, seed, icon
-using TitleData = std::tuple<std::string, u64, EncryptionType, bool, std::vector<u16>>;
+// English short title name, extdata id, icon
+using TitleData = std::tuple<std::string, u64, std::vector<u16>>;
 
 TitleData LoadTitleData(NCCHContainer& ncch) {
     std::string codeset_name;
@@ -572,13 +572,8 @@ TitleData LoadTitleData(NCCHContainer& ncch) {
     u64 extdata_id{};
     ncch.ReadExtdataId(extdata_id);
 
-    EncryptionType encryption = EncryptionType::None;
-    ncch.ReadEncryptionType(encryption);
-
-    bool seed_crypto{};
-    ncch.ReadSeedCrypto(seed_crypto);
     return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)), extdata_id,
-            encryption, seed_crypto, smdh.GetIcon(false)};
+            smdh.GetIcon(false)};
 }
 
 static std::string NormalizeFilename(std::string filename) {
@@ -917,13 +912,12 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                             break;
                         }
 
-                        const auto& [name, extdata_id, encryption, seed_crypto, icon] =
-                            LoadTitleData(ncch);
+                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch);
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;
                         out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
-                                       name, extdata_id, encryption, seed_crypto, icon});
+                                       name, extdata_id, icon});
                     } while (false);
                 }
 
@@ -994,15 +988,14 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                             break;
                         }
 
-                        const auto& [name, extdata_id, encryption, seed_crypto, icon] =
-                            LoadTitleData(ncch);
+                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch);
                         const auto type = (id >> 32) == 0x00040030 ? ContentType::SystemApplet
                                                                    : ContentType::SystemTitle;
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;
                         out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
-                                       name, extdata_id, encryption, seed_crypto, icon});
+                                       name, extdata_id, icon});
                     } while (false);
                 }
                 return true;

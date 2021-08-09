@@ -124,10 +124,9 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
     // Set up column widths.
     // These values are tweaked with regard to the default dialog size.
     ui->main->setColumnWidth(0, width() * 0.11);
-    ui->main->setColumnWidth(1, width() * 0.415);
-    ui->main->setColumnWidth(2, width() * 0.14);
-    ui->main->setColumnWidth(3, width() * 0.17);
-    ui->main->setColumnWidth(4, width() * 0.08);
+    ui->main->setColumnWidth(1, width() * 0.525);
+    ui->main->setColumnWidth(2, width() * 0.18);
+    ui->main->setColumnWidth(3, width() * 0.10);
 
     connect(ui->main, &QTreeWidget::customContextMenuRequested, this, &ImportDialog::OnContextMenu);
 }
@@ -246,22 +245,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         name = replace_name;
     }
 
-    QString encryption = tr(EncryptionTypeMap.at(content.encryption));
-    if (content.seed_crypto) {
-        encryption.append(tr(" (Seed)"));
-    }
-
-    if (content.type != Core::ContentType::Application &&
-        content.type != Core::ContentType::Update && content.type != Core::ContentType::DLC &&
-        content.type != Core::ContentType::SystemTitle &&
-        content.type != Core::ContentType::SystemApplet) {
-
-        // Do not display encryption in this case
-        encryption.clear();
-    }
-
     auto* item = new QTreeWidgetItem{{QString{}, name, ReadableByteSize(content.maximum_size),
-                                      encryption, content.already_exists ? tr("Yes") : tr("No")}};
+                                      content.already_exists ? tr("Yes") : tr("No")}};
 
     QPixmap icon;
     if (replace_icon.isNull()) {

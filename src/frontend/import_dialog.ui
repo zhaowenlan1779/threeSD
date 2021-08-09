@@ -68,11 +68,6 @@
      </column>
      <column>
       <property name="text">
-       <string>Encryption</string>
-      </property>
-     </column>
-     <column>
-      <property name="text">
        <string>Exists</string>
       </property>
      </column>

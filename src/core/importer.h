@@ -68,9 +68,7 @@ struct ContentSpecifier {
     u64 maximum_size; ///< The maximum size of the content. May be slightly bigger than real size.
     std::string name; ///< Optional. The content's preferred display name.
     u64 extdata_id;   ///< Extdata ID for Applications.
-    EncryptionType encryption = EncryptionType::None; ///< Only for NCCHs. Encryption scheme.
-    bool seed_crypto = false; ///< Only for NCCHs. Whether seed crypto is used.
-    std::vector<u16> icon;    ///< Optional. The content's icon.
+    std::vector<u16> icon; ///< Optional. The content's icon.
 };
 
 /**
