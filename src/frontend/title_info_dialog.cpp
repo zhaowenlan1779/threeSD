@@ -174,8 +174,12 @@ void TitleInfoDialog::SaveIcon(bool large) {
     }
     last_path = QFileInfo(path).path();
 
-    const auto pixmap = large ? ui->iconLargeLabel->pixmap(Qt::ReturnByValue)
-                              : ui->iconSmallLabel->pixmap(Qt::ReturnByValue);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    const auto& pixmap = large ? ui->iconLargeLabel->pixmap(Qt::ReturnByValue)
+                               : ui->iconSmallLabel->pixmap(Qt::ReturnByValue);
+#else
+    const auto& pixmap = large ? *ui->iconLargeLabel->pixmap() : *ui->iconSmallLabel->pixmap();
+#endif
     if (!pixmap.save(path)) {
         QMessageBox::warning(this, tr("threeSD"), tr("Could not save icon."));
     }
