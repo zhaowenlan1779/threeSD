@@ -8,7 +8,7 @@
 
 namespace Core {
 struct Config;
-class ContentSpecifier;
+struct ContentSpecifier;
 class NCCHContainer;
 class SDMCImporter;
 class TitleMetadata;
