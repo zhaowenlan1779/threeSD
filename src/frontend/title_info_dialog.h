@@ -7,7 +7,7 @@
 #include "core/file_sys/smdh.h"
 
 namespace Core {
-class Config;
+struct Config;
 class ContentSpecifier;
 class SDMCImporter;
 class TitleMetadata;
