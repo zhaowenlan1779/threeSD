@@ -42,8 +42,7 @@ void TitleInfoDialog::LoadInfo(const Core::Config& config) {
     ui->versionLineEdit->setText(QString::fromStdString(tmd.GetTitleVersionString()));
     ui->titleIDLineEdit->setText(QStringLiteral("%1").arg(specifier.id, 16, 16, QLatin1Char{'0'}));
 
-    const bool is_nand = specifier.type == Core::ContentType::SystemTitle ||
-                         specifier.type == Core::ContentType::SystemApplet;
+    const bool is_nand = Core::IsNandTitle(specifier.type);
     const auto physical_path =
         is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path,
                               (specifier.id >> 32), (specifier.id & 0xFFFFFFFF))

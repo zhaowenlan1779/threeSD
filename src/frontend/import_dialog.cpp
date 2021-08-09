@@ -47,15 +47,6 @@ static constexpr std::array<std::tuple<Core::ContentType, const char*, const cha
     }};
 // clang-format on
 
-static const std::unordered_map<Core::EncryptionType, const char*> EncryptionTypeMap{{
-    {Core::EncryptionType::None, QT_TR_NOOP("None")},
-    {Core::EncryptionType::FixedKey, QT_TR_NOOP("FixedKey")},
-    {Core::EncryptionType::NCCHSecure1, QT_TR_NOOP("Secure1")},
-    {Core::EncryptionType::NCCHSecure2, QT_TR_NOOP("Secure2")},
-    {Core::EncryptionType::NCCHSecure3, QT_TR_NOOP("Secure3")},
-    {Core::EncryptionType::NCCHSecure4, QT_TR_NOOP("Secure4")},
-}};
-
 static QString GetContentName(const Core::ContentSpecifier& specifier) {
     return specifier.name.empty()
                ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
