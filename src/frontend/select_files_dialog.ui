@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>SelectFilesDialog</class>
  <widget class="QDialog" name="SelectFilesDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>480</width>
-    <height>96</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>Select Files</string>
   </property>

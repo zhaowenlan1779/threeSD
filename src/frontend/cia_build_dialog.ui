@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>CIABuildDialog</class>
  <widget class="QDialog" name="CIABuildDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>510</width>
-    <height>260</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>Build CIA</string>
   </property>
@@ -59,9 +51,6 @@
       </item>
       <item>
        <widget class="QLabel">
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
         <property name="text">
          <string>Recommended for general use.&lt;br&gt;Decrypted CIA with decrypted contents and standard ticket.</string>
         </property>
@@ -76,9 +65,6 @@
       </item>
       <item>
        <widget class="QLabel" name="pirateLegitLabel">
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
         <property name="text">
          <string>Encrypted CIA with legit TMD, encrypted contents and standard ticket.</string>
         </property>
@@ -93,9 +79,6 @@
       </item>
       <item>
        <widget class="QLabel" name="legitLabel">
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
         <property name="text">
          <string>Encrypted CIA with legit TMD, encrypted contents and legit ticket.&lt;br&gt;WARNING: Legit ticket may include console identifying information!</string>
         </property>

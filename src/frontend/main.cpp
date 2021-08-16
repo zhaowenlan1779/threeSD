@@ -5,7 +5,6 @@
 #include <regex>
 #include <string>
 #include <QApplication>
-#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QStorageInfo>
@@ -37,12 +36,11 @@ bool IsConfigGood(const Core::Config& config) {
            !config.movable_sed_path.empty() && !config.bootrom_path.empty();
 }
 
-MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<Ui::MainDialog>()) {
-    ui->setupUi(this);
+MainDialog::MainDialog(QWidget* parent)
+    : DPIAwareDialog(parent, 640, 256), ui(std::make_unique<Ui::MainDialog>()) {
 
+    ui->setupUi(this);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(false);
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));
@@ -89,9 +87,6 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
     });
 
     ui->main->setIndentation(4);
-    ui->main->setColumnWidth(0, 0.3 * width());
-    ui->main->setColumnWidth(1, 0.4 * width());
-    ui->main->setColumnWidth(2, 0.2 * width());
 
     // Set up device watcher
     auto* device_watcher = new QDeviceWatcher(this);
@@ -102,6 +97,18 @@ MainDialog::MainDialog(QWidget* parent) : QDialog(parent), ui(std::make_unique<U
 }
 
 MainDialog::~MainDialog() = default;
+
+void MainDialog::SetContentSizes(int previous_width, int previous_height) {
+    const int current_width = width();
+    if (previous_width == 0) { // first time
+        ui->main->setColumnWidth(0, 0.3 * current_width);
+        ui->main->setColumnWidth(1, 0.4 * current_width);
+    } else { // proportionally update column widths
+        for (int i : {0, 1}) {
+            ui->main->setColumnWidth(i, ui->main->columnWidth(i) * current_width / previous_width);
+        }
+    }
+}
 
 static const std::regex sdmc_path_regex{"(.+)([/\\\\])Nintendo 3DS/([0-9a-f]{32})/([0-9a-f]{32})/"};
 

@@ -9,6 +9,8 @@ endif()
 file(GLOB_RECURSE THEMES ${PROJECT_SOURCE_DIR}/dist/themes/*)
 
 add_executable(threeSD
+  helpers/dpi_aware_dialog.cpp
+  helpers/dpi_aware_dialog.h
   helpers/frontend_common.cpp
   helpers/frontend_common.h
   helpers/multi_job.cpp

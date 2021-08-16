@@ -6,7 +6,7 @@
 
 #include <functional>
 #include <memory>
-#include <QDialog>
+#include "frontend/helpers/dpi_aware_dialog.h"
 
 class QWidget;
 
@@ -14,7 +14,7 @@ namespace Ui {
 class UtilitiesDialog;
 }
 
-class UtilitiesDialog : public QDialog {
+class UtilitiesDialog : public DPIAwareDialog {
     Q_OBJECT
 
 public:

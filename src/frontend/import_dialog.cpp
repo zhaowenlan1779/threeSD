@@ -82,17 +82,14 @@ static QPixmap GetContentIcon(const Core::ContentSpecifier& specifier,
 }
 
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
-    : QDialog(parent), ui(std::make_unique<Ui::ImportDialog>()), config(config_) {
+    : DPIAwareDialog(parent, 560, 320), ui(std::make_unique<Ui::ImportDialog>()), config(config_) {
 
     qRegisterMetaType<u64>("u64");
     qRegisterMetaType<std::size_t>("std::size_t");
     qRegisterMetaType<Core::ContentSpecifier>();
 
     ui->setupUi(this);
-
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     RelistContent();
     UpdateSizeDisplay();
@@ -113,17 +110,25 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
     connect(ui->title_view_button, &QRadioButton::toggled, this, &ImportDialog::RepopulateContent);
     connect(ui->advanced_button, &QPushButton::clicked, this, &ImportDialog::ShowAdvancedMenu);
 
-    // Set up column widths.
-    // These values are tweaked with regard to the default dialog size.
-    ui->main->setColumnWidth(0, width() * 0.11);
-    ui->main->setColumnWidth(1, width() * 0.525);
-    ui->main->setColumnWidth(2, width() * 0.18);
-    ui->main->setColumnWidth(3, width() * 0.10);
-
+    ui->main->header()->setStretchLastSection(false);
     connect(ui->main, &QTreeWidget::customContextMenuRequested, this, &ImportDialog::OnContextMenu);
 }
 
 ImportDialog::~ImportDialog() = default;
+
+void ImportDialog::SetContentSizes(int previous_width, int previous_height) {
+    const int current_width = width();
+    if (previous_width == 0) { // first time
+        ui->main->setColumnWidth(0, current_width * 0.11);
+        ui->main->setColumnWidth(1, current_width * 0.55);
+        ui->main->setColumnWidth(2, current_width * 0.15);
+        ui->main->setColumnWidth(3, current_width * 0.1);
+    } else { // proportionally update column widths
+        for (int i : {0, 1, 2, 3}) {
+            ui->main->setColumnWidth(i, ui->main->columnWidth(i) * current_width / previous_width);
+        }
+    }
+}
 
 void ImportDialog::RelistContent() {
     auto* dialog = new QProgressDialog(tr("Loading Contents..."), tr("Cancel"), 0, 0, this);

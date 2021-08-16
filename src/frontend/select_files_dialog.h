@@ -5,15 +5,13 @@
 #pragma once
 
 #include <memory>
-#include <QDialog>
-
-class QWidget;
+#include "frontend/helpers/dpi_aware_dialog.h"
 
 namespace Ui {
 class SelectFilesDialog;
 }
 
-class SelectFilesDialog : public QDialog {
+class SelectFilesDialog : public DPIAwareDialog {
     Q_OBJECT
 
 public:

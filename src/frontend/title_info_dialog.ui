@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>TitleInfoDialog</class>
  <widget class="QDialog" name="TitleInfoDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>500</width>
-    <height>360</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>Title Info</string>
   </property>

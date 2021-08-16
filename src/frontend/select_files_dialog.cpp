@@ -9,14 +9,11 @@
 #include "ui_select_files_dialog.h"
 
 SelectFilesDialog::SelectFilesDialog(QWidget* parent, bool source_is_dir_, bool destination_is_dir_)
-    : QDialog(parent), ui(std::make_unique<Ui::SelectFilesDialog>()), source_is_dir(source_is_dir_),
-      destination_is_dir(destination_is_dir_) {
+    : DPIAwareDialog(parent, 480, 96), ui(std::make_unique<Ui::SelectFilesDialog>()),
+      source_is_dir(source_is_dir_), destination_is_dir(destination_is_dir_) {
 
     ui->setupUi(this);
-
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, [this] {
         if (ui->source->text().isEmpty() || ui->destination->text().isEmpty()) {

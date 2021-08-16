@@ -19,13 +19,10 @@
 #include "ui_utilities.h"
 
 UtilitiesDialog::UtilitiesDialog(QWidget* parent)
-    : QDialog(parent), ui(std::make_unique<Ui::UtilitiesDialog>()) {
+    : DPIAwareDialog(parent, 640, 384), ui(std::make_unique<Ui::UtilitiesDialog>()) {
 
     ui->setupUi(this);
-
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     connect(ui->useSdDecryption, &QCheckBox::clicked, [this] {
         const bool checked = ui->useSdDecryption->isChecked();

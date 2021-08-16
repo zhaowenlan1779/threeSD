@@ -7,10 +7,10 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <QDialog>
 #include <QPixmap>
 #include "core/file_sys/ncch_container.h"
 #include "core/importer.h"
+#include "helpers/dpi_aware_dialog.h"
 
 class AdvancedMenu;
 class MultiJob;
@@ -21,7 +21,7 @@ namespace Ui {
 class ImportDialog;
 }
 
-class ImportDialog : public QDialog {
+class ImportDialog final : public DPIAwareDialog {
     Q_OBJECT
 
 public:
@@ -29,6 +29,8 @@ public:
     ~ImportDialog() override;
 
 private:
+    void SetContentSizes(int previous_width, int previous_height) override;
+
     void RelistContent();
     void RepopulateContent();
     void UpdateSizeDisplay();

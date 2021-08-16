@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>ImportDialog</class>
  <widget class="QDialog" name="ImportDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>560</width>
-    <height>320</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>Select Contents</string>
   </property>

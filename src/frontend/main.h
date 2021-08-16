@@ -5,14 +5,14 @@
 #pragma once
 
 #include <memory>
-#include <QDialog>
 #include "core/importer.h"
+#include "frontend/helpers/dpi_aware_dialog.h"
 
 namespace Ui {
 class MainDialog;
 }
 
-class MainDialog : public QDialog {
+class MainDialog final : public DPIAwareDialog {
     Q_OBJECT
 
 public:
@@ -20,6 +20,8 @@ public:
     ~MainDialog() override;
 
 private:
+    void SetContentSizes(int previous_width, int previous_height) override;
+
     void LoadPresetConfig();
     void LaunchImportDialog();
 

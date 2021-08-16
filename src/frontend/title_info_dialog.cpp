@@ -20,14 +20,11 @@
 
 TitleInfoDialog::TitleInfoDialog(QWidget* parent, Core::SDMCImporter& importer_,
                                  Core::ContentSpecifier specifier_)
-    : QDialog(parent), ui(std::make_unique<Ui::TitleInfoDialog>()), importer(importer_),
-      specifier(std::move(specifier_)) {
+    : DPIAwareDialog(parent, 500, 360), ui(std::make_unique<Ui::TitleInfoDialog>()),
+      importer(importer_), specifier(std::move(specifier_)) {
 
     ui->setupUi(this);
-
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     LoadInfo();
 

@@ -6,14 +6,14 @@
 
 #include <memory>
 #include <utility>
-#include <QDialog>
 #include "core/file_sys/cia_common.h"
+#include "frontend/helpers/dpi_aware_dialog.h"
 
 namespace Ui {
 class CIABuildDialog;
 }
 
-class CIABuildDialog : public QDialog {
+class CIABuildDialog : public DPIAwareDialog {
     Q_OBJECT
 
 public:

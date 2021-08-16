@@ -3,8 +3,8 @@
 // Refer to the license.txt file included.
 
 #include <memory>
-#include <QDialog>
 #include "core/file_sys/smdh.h"
+#include "frontend/helpers/dpi_aware_dialog.h"
 
 namespace Core {
 struct Config;
@@ -18,7 +18,7 @@ namespace Ui {
 class TitleInfoDialog;
 }
 
-class TitleInfoDialog : public QDialog {
+class TitleInfoDialog : public DPIAwareDialog {
     Q_OBJECT
 
 public:

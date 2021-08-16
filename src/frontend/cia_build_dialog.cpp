@@ -12,12 +12,11 @@
 
 CIABuildDialog::CIABuildDialog(QWidget* parent, bool is_dir_, bool is_nand, bool enable_legit,
                                const QString& default_path)
-    : QDialog(parent), ui(std::make_unique<Ui::CIABuildDialog>()), is_dir(is_dir_) {
-    ui->setupUi(this);
+    : DPIAwareDialog(parent, 510, 260), ui(std::make_unique<Ui::CIABuildDialog>()),
+      is_dir(is_dir_) {
 
+    ui->setupUi(this);
     setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    const double scale = qApp->desktop()->logicalDpiX() / 96.0;
-    resize(static_cast<int>(width() * scale), static_cast<int>(height() * scale));
 
     if (is_dir) {
         setWindowTitle(tr("Batch Build CIA"));
