@@ -17,7 +17,7 @@ protected:
 
     // Called with two zeroes to set up content sizes that are relative to dialog size. Also called
     // when screen is changed, to update those sizes.
-    virtual void SetContentSizes(int previous_width, int previous_height){};
+    virtual void SetContentSizes(int previous_width = 0, int previous_height = 0){};
 
 private:
 #ifndef __APPLE__
