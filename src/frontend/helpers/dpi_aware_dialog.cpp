@@ -36,12 +36,12 @@ void DPIAwareDialog::showEvent(QShowEvent* event) {
 #endif
 }
 
+#ifndef __APPLE__
 void DPIAwareDialog::resizeEvent(QResizeEvent* event) {
     QDialog::resizeEvent(event);
     resized = true;
 }
 
-#ifndef __APPLE__
 void DPIAwareDialog::OnScreenChanged() {
     // Resize according to DPI
     const double scaleX = window_handle->screen()->logicalDotsPerInchX() / 96.0;
