@@ -208,7 +208,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
 
     auto* item = new QTreeWidgetItem{{name, ReadableByteSize(content.maximum_size),
                                       content.already_exists ? tr("Yes") : tr("No")}};
-    item->setData(0, SpecifierIndexRole, id);
+    item->setData(0, SpecifierIndexRole, static_cast<int>(id));
 
     // Set icon
     QPixmap icon;
