@@ -34,7 +34,6 @@ private:
     void RelistContent();
     void RepopulateContent();
     void UpdateSizeDisplay();
-    void UpdateItemCheckState(QTreeWidgetItem* item);
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
 
     void InsertTopLevelItem(const QString& text, QPixmap icon = {});
@@ -47,6 +46,8 @@ private:
 
     void OnContextMenu(const QPoint& point);
     void ShowAdvancedMenu();
+
+    void OnItemChanged(QTreeWidgetItem* item, int column);
 
     void RunMultiJob(MultiJob* job, std::size_t total_count, u64 total_size);
 
@@ -69,10 +70,6 @@ private:
 
     std::vector<Core::ContentSpecifier> contents;
     u64 total_selected_size = 0;
-
-    // HACK: To tell whether the checkbox state change is a programmatic trigger
-    // TODO: Is there a more elegant way of doing the same?
-    bool program_trigger = false;
 
     // HACK: Block advanced menu trigger once.
     bool block_advanced_menu = false;

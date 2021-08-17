@@ -7,8 +7,6 @@
 #include <cmath>
 #include <numeric>
 #include <unordered_map>
-#include <QCheckBox>
-#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QFutureWatcher>
 #include <QMenu>
@@ -16,7 +14,6 @@
 #include <QMouseEvent>
 #include <QProgressBar>
 #include <QProgressDialog>
-#include <QPushButton>
 #include <QStorageInfo>
 #include <QtConcurrent/QtConcurrentRun>
 #include "common/assert.h"
@@ -110,6 +107,7 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
     connect(ui->title_view_button, &QRadioButton::toggled, this, &ImportDialog::RepopulateContent);
     connect(ui->advanced_button, &QPushButton::clicked, this, &ImportDialog::ShowAdvancedMenu);
 
+    ui->main->sortByColumn(-1, Qt::AscendingOrder); // disable sorting by default
     ui->main->header()->setStretchLastSection(false);
     connect(ui->main, &QTreeWidget::customContextMenuRequested, this, &ImportDialog::OnContextMenu);
 }
@@ -119,12 +117,11 @@ ImportDialog::~ImportDialog() = default;
 void ImportDialog::SetContentSizes(int previous_width, int previous_height) {
     const int current_width = width();
     if (previous_width == 0) { // first time
-        ui->main->setColumnWidth(0, current_width * 0.11);
-        ui->main->setColumnWidth(1, current_width * 0.55);
-        ui->main->setColumnWidth(2, current_width * 0.15);
-        ui->main->setColumnWidth(3, current_width * 0.1);
+        ui->main->setColumnWidth(0, current_width * 0.66);
+        ui->main->setColumnWidth(1, current_width * 0.145);
+        ui->main->setColumnWidth(2, current_width * 0.09);
     } else { // proportionally update column widths
-        for (int i : {0, 1, 2, 3}) {
+        for (int i : {0, 1, 2}) {
             ui->main->setColumnWidth(i, ui->main->columnWidth(i) * current_width / previous_width);
         }
     }
@@ -165,44 +162,13 @@ void ImportDialog::RelistContent() {
 }
 
 void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
-    auto* checkBox = new QCheckBox();
-    checkBox->setText(text);
-    if (!icon.isNull()) {
-        checkBox->setIcon(QIcon(icon));
-    }
-    checkBox->setStyleSheet(QStringLiteral("margin-left: 7px; icon-size: 24px"));
-    checkBox->setTristate(true);
-    checkBox->setProperty("previousState", static_cast<int>(Qt::Unchecked));
+    auto* item = new QTreeWidgetItem{{text}};
+    item->setIcon(0, QIcon(icon));
 
-    auto* item = new QTreeWidgetItem;
+    item->setFlags(item->flags() | Qt::ItemIsAutoTristate);
+    item->setCheckState(0, Qt::Unchecked); // required to give the item a checkbox
+
     ui->main->invisibleRootItem()->addChild(item);
-
-    connect(checkBox, &QCheckBox::stateChanged, [this, checkBox, item](int state) {
-        SCOPE_EXIT({ checkBox->setProperty("previousState", state); });
-
-        if (program_trigger) {
-            program_trigger = false;
-            return;
-        }
-
-        if (state == Qt::PartiallyChecked) {
-            if (checkBox->property("previousState").toInt() == Qt::Unchecked) {
-                checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Checked));
-            } else {
-                checkBox->setCheckState(static_cast<Qt::CheckState>(state = Qt::Unchecked));
-            }
-            return;
-        }
-
-        program_trigger = true;
-        for (int i = 0; i < item->childCount(); ++i) {
-            static_cast<QCheckBox*>(ui->main->itemWidget(item->child(i), 0))
-                ->setCheckState(static_cast<Qt::CheckState>(state));
-        }
-        program_trigger = false;
-    });
-
-    ui->main->setItemWidget(item, 0, checkBox);
     item->setFirstColumnSpanned(true);
 }
 
@@ -214,14 +180,11 @@ constexpr std::array<Core::ContentType, 4> SpecialContentTypeList{{
     Core::ContentType::SystemApplet,
 }};
 
+constexpr Qt::ItemDataRole SpecifierIndexRole = Qt::UserRole;
+
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                          std::size_t id, QString replace_name,
                                          QPixmap replace_icon) {
-    auto* checkBox = new QCheckBox();
-    checkBox->setStyleSheet(QStringLiteral("margin-left:7px"));
-    // HACK: The checkbox is used to record ID. Is there a better way?
-    checkBox->setProperty("id", static_cast<unsigned long long>(id));
-
     const bool use_title_view = ui->title_view_button->isChecked();
 
     QString name;
@@ -243,9 +206,11 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         name = replace_name;
     }
 
-    auto* item = new QTreeWidgetItem{{QString{}, name, ReadableByteSize(content.maximum_size),
+    auto* item = new QTreeWidgetItem{{name, ReadableByteSize(content.maximum_size),
                                       content.already_exists ? tr("Yes") : tr("No")}};
+    item->setData(0, SpecifierIndexRole, id);
 
+    // Set icon
     QPixmap icon;
     if (replace_icon.isNull()) {
         // Exclude system titles, they are a single group but have own icons.
@@ -261,51 +226,52 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     } else {
         icon = replace_icon;
     }
-    item->setData(1, Qt::DecorationRole, icon);
-
-    ui->main->invisibleRootItem()->child(row)->addChild(item);
-    ui->main->setItemWidget(item, 0, checkBox);
-
-    connect(checkBox, &QCheckBox::stateChanged,
-            [this, item, size = content.maximum_size, type = content.type,
-             exists = content.already_exists](int state) {
-                if (state == Qt::Checked) {
-                    if (!applet_warning_shown && !exists &&
-                        type == Core::ContentType::SystemApplet) {
-                        QMessageBox::warning(
-                            this, tr("Warning"),
-                            tr("You are trying to import System Applets.\nThese are known to cause "
-                               "problems with certain games.\nOnly proceed if you understand what "
-                               "you are doing."));
-                        applet_warning_shown = true;
-                    }
-                    total_selected_size += size;
-                } else {
-                    if (!system_warning_shown && !exists &&
-                        (type == Core::ContentType::SystemArchive ||
-                         type == Core::ContentType::Sysdata ||
-                         type == Core::ContentType::SystemTitle)) {
-
-                        QMessageBox::warning(
-                            this, tr("Warning"),
-                            tr("You are de-selecting important files that may be necessary for "
-                               "your imported games to run.\nIt is highly recommended to import "
-                               "these contents if they do not exist yet."));
-                        system_warning_shown = true;
-                    }
-                    total_selected_size -= size;
-                }
-                UpdateSizeDisplay();
-
-                if (!program_trigger) {
-                    UpdateItemCheckState(item->parent());
-                }
-            });
+    item->setIcon(0, QIcon(icon));
 
     // Skip System Applets, but enable everything else by default.
     if (!content.already_exists && content.type != Core::ContentType::SystemApplet) {
-        checkBox->setChecked(true);
+        item->setCheckState(0, Qt::Checked);
+        total_selected_size += content.maximum_size;
+    } else {
+        item->setCheckState(0, Qt::Unchecked);
     }
+
+    ui->main->invisibleRootItem()->child(row)->addChild(item);
+}
+
+void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {
+    // Only handle second level items (with checkboxes)
+    if (column != 0 || item->parent() == ui->main->invisibleRootItem()) {
+        return;
+    }
+
+    const auto& specifier = SpecifierFromItem(item);
+    if (item->checkState(0) == Qt::Checked) {
+        if (!applet_warning_shown && !specifier.already_exists &&
+            specifier.type == Core::ContentType::SystemApplet) {
+
+            QMessageBox::warning(
+                this, tr("Warning"),
+                tr("You are trying to import System Applets.\nThese are known to cause problems "
+                   "with certain games.\nOnly proceed if you understand what you are doing."));
+            applet_warning_shown = true;
+        }
+        total_selected_size += specifier.maximum_size;
+    } else {
+        if (!system_warning_shown && !specifier.already_exists &&
+            (specifier.type == Core::ContentType::SystemArchive ||
+             specifier.type == Core::ContentType::Sysdata ||
+             specifier.type == Core::ContentType::SystemTitle)) {
+
+            QMessageBox::warning(this, tr("Warning"),
+                                 tr("You are de-selecting important files that may be necessary "
+                                    "for your imported games to run.\nIt is highly recommended to "
+                                    "import these contents if they do not exist yet."));
+            system_warning_shown = true;
+        }
+        total_selected_size -= specifier.maximum_size;
+    }
+    UpdateSizeDisplay();
 }
 
 void ImportDialog::RepopulateContent() {
@@ -318,6 +284,7 @@ void ImportDialog::RepopulateContent() {
     total_selected_size = 0;
     ui->main->clear();
     ui->main->setSortingEnabled(false);
+    disconnect(ui->main, &QTreeWidget::itemChanged, this, &ImportDialog::OnItemChanged);
 
     std::map<u64, QString> title_name_map;       // title ID -> title name
     std::map<u64, QPixmap> title_icon_map;       // title ID -> title icon
@@ -342,6 +309,7 @@ void ImportDialog::RepopulateContent() {
             title_icon_map.insert_or_assign(i + 1, GetContentTypeIcon(SpecialContentTypeList[i]));
         }
 
+        // Titles
         std::unordered_map<u64, u64> title_row_map;
         for (const auto& [id, name] : title_name_map) {
             InsertTopLevelItem(name, title_icon_map.count(id) ? title_icon_map.at(id) : QPixmap{});
@@ -407,6 +375,7 @@ void ImportDialog::RepopulateContent() {
     }
 
     ui->main->setSortingEnabled(true);
+    connect(ui->main, &QTreeWidget::itemChanged, this, &ImportDialog::OnItemChanged);
 }
 
 void ImportDialog::UpdateSizeDisplay() {
@@ -429,40 +398,14 @@ void ImportDialog::UpdateSizeDisplay() {
                      total_selected_size <= static_cast<u64>(storage.bytesAvailable()));
 }
 
-void ImportDialog::UpdateItemCheckState(QTreeWidgetItem* item) {
-    bool has_checked = false, has_unchecked = false;
-    auto* item_checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item, 0));
-    for (int i = 0; i < item->childCount(); ++i) {
-        auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item->child(i), 0));
-        if (checkBox->isChecked()) {
-            has_checked = true;
-        } else {
-            has_unchecked = true;
-        }
-        if (has_checked && has_unchecked) {
-            program_trigger = true;
-            item_checkBox->setCheckState(Qt::PartiallyChecked);
-            program_trigger = false;
-            return;
-        }
-    }
-    program_trigger = true;
-    if (has_checked) {
-        item_checkBox->setCheckState(Qt::Checked);
-    } else {
-        item_checkBox->setCheckState(Qt::Unchecked);
-    }
-    program_trigger = false;
-}
-
 std::vector<Core::ContentSpecifier> ImportDialog::GetSelectedContentList() {
     std::vector<Core::ContentSpecifier> to_import;
     for (int i = 0; i < ui->main->invisibleRootItem()->childCount(); ++i) {
         const auto* item = ui->main->invisibleRootItem()->child(i);
         for (int j = 0; j < item->childCount(); ++j) {
-            const auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item->child(j), 0));
-            if (checkBox->isChecked()) {
-                to_import.emplace_back(contents[checkBox->property("id").toInt()]);
+            if (item->child(j)->checkState(0) == Qt::Checked) {
+                to_import.emplace_back(
+                    contents[item->child(j)->data(0, SpecifierIndexRole).toInt()]);
             }
         }
     }
@@ -471,8 +414,7 @@ std::vector<Core::ContentSpecifier> ImportDialog::GetSelectedContentList() {
 }
 
 Core::ContentSpecifier ImportDialog::SpecifierFromItem(QTreeWidgetItem* item) const {
-    const auto* checkBox = static_cast<QCheckBox*>(ui->main->itemWidget(item, 0));
-    return contents[checkBox->property("id").toInt()];
+    return contents[item->data(0, SpecifierIndexRole).toInt()];
 }
 
 void ImportDialog::OnContextMenu(const QPoint& point) {

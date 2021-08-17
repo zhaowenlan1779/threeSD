@@ -14,7 +14,7 @@ QString ReadableByteSize(qulonglong size) {
     if (size == 0)
         return QStringLiteral("0");
     int digit_groups = std::min<int>(static_cast<int>(std::log10(size) / std::log10(1024)),
-                                     static_cast<int>(units.size()));
+                                     static_cast<int>(units.size() - 1));
     return QStringLiteral("%L1 %2")
         .arg(size / std::pow(1024, digit_groups), 0, 'f', 1)
         .arg(QObject::tr(units[digit_groups], "FrontendCommon"));
