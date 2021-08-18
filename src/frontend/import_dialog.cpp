@@ -12,8 +12,6 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMouseEvent>
-#include <QProgressBar>
-#include <QProgressDialog>
 #include <QStorageInfo>
 #include <QtConcurrent/QtConcurrentRun>
 #include "common/assert.h"
@@ -23,6 +21,7 @@
 #include "frontend/cia_build_dialog.h"
 #include "frontend/helpers/frontend_common.h"
 #include "frontend/helpers/multi_job.h"
+#include "frontend/helpers/rate_limited_progress_dialog.h"
 #include "frontend/helpers/simple_job.h"
 #include "frontend/import_dialog.h"
 #include "frontend/title_info_dialog.h"
@@ -128,12 +127,9 @@ void ImportDialog::SetContentSizes(int previous_width, int previous_height) {
 }
 
 void ImportDialog::RelistContent() {
-    auto* dialog = new QProgressDialog(tr("Loading Contents..."), tr("Cancel"), 0, 0, this);
-    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    dialog->setWindowModality(Qt::WindowModal);
+    auto* dialog =
+        new RateLimitedProgressDialog(tr("Loading Contents..."), tr("Cancel"), 0, 0, this);
     dialog->setCancelButton(nullptr);
-    dialog->setMinimumDuration(0);
-    dialog->setValue(0);
 
     using FutureWatcher = QFutureWatcher<void>;
     auto* future_watcher = new FutureWatcher(this);
@@ -601,48 +597,47 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     label->setWordWrap(true);
     label->setFixedWidth(600);
 
-    // We need to create the bar ourselves to circumvent an issue caused by modal ProgressDialog's
-    // event handling.
-    auto* bar = new QProgressBar(this);
-    bar->setRange(0, static_cast<int>(total_size / multiplier));
-    bar->setValue(0);
-
-    auto* dialog = new QProgressDialog(tr("Initializing..."), tr("Cancel"), 0, 0, this);
-    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    dialog->setWindowModality(Qt::WindowModal);
-    dialog->setBar(bar);
+    auto* dialog = new RateLimitedProgressDialog(tr("Initializing..."), tr("Cancel"), 0,
+                                                 static_cast<int>(total_size / multiplier), this);
     dialog->setLabel(label);
-    dialog->setMinimumDuration(0);
 
     connect(job, &MultiJob::NextContent, this,
-            [this, dialog, total_count](std::size_t count,
-                                        const Core::ContentSpecifier& next_content, int eta) {
-                dialog->setLabelText(
-                    tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
-                        .arg(count)
-                        .arg(total_count)
-                        .arg(GetContentName(next_content))
-                        .arg(GetContentTypeName<false>(next_content.type))
-                        .arg(FormatETA(eta)));
+            [this, dialog, multiplier, total_count](std::size_t count, u64 total_imported_size,
+                                                    const Core::ContentSpecifier& next_content,
+                                                    int eta) {
+                if (dialog->wasCanceled()) {
+                    return;
+                }
+                dialog->Update(static_cast<int>(total_imported_size / multiplier),
+                               tr("<p>(%1/%2) %3 (%4)</p><p>&nbsp;</p><p align=\"right\">%5</p>")
+                                   .arg(count)
+                                   .arg(total_count)
+                                   .arg(GetContentName(next_content))
+                                   .arg(GetContentTypeName<false>(next_content.type))
+                                   .arg(FormatETA(eta)));
                 current_content = next_content;
                 current_count = count;
             });
-    connect(job, &MultiJob::ProgressUpdated, this,
-            [this, bar, dialog, multiplier, total_count](u64 current_imported_size,
-                                                         u64 total_imported_size, int eta) {
-                bar->setValue(static_cast<int>(total_imported_size / multiplier));
-                dialog->setLabelText(tr("<p>(%1/%2) %3 (%4)</p><p align=\"center\">%5 "
-                                        "/ %6</p><p align=\"right\">%7</p>")
-                                         .arg(current_count)
-                                         .arg(total_count)
-                                         .arg(GetContentName(current_content))
-                                         .arg(GetContentTypeName<false>(current_content.type))
-                                         .arg(ReadableByteSize(current_imported_size))
-                                         .arg(ReadableByteSize(current_content.maximum_size))
-                                         .arg(FormatETA(eta)));
-            });
+    connect(
+        job, &MultiJob::ProgressUpdated, this,
+        [this, dialog, multiplier, total_count](u64 current_imported_size, u64 total_imported_size,
+                                                int eta) {
+            if (dialog->wasCanceled()) {
+                return;
+            }
+            dialog->Update(
+                static_cast<int>(total_imported_size / multiplier),
+                tr("<p>(%1/%2) %3 (%4)</p><p align=\"center\">%5 / %6</p><p align=\"right\">%7</p>")
+                    .arg(current_count)
+                    .arg(total_count)
+                    .arg(GetContentName(current_content))
+                    .arg(GetContentTypeName<false>(current_content.type))
+                    .arg(ReadableByteSize(current_imported_size))
+                    .arg(ReadableByteSize(current_content.maximum_size))
+                    .arg(FormatETA(eta)));
+        });
     connect(job, &MultiJob::Completed, this, [this, dialog, job] {
-        dialog->setValue(dialog->maximum());
+        dialog->hide();
 
         const auto failed_contents = job->GetFailedContents();
         if (failed_contents.empty()) {
@@ -662,13 +657,9 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
     });
     connect(dialog, &QProgressDialog::canceled, this, [this, job] {
         // Add yet-another-ProgressDialog to indicate cancel progress
-        auto* cancel_dialog = new QProgressDialog(tr("Canceling..."), tr("Cancel"), 0, 0, this);
-        cancel_dialog->setWindowFlags(cancel_dialog->windowFlags() &
-                                      (~Qt::WindowContextHelpButtonHint));
-        cancel_dialog->setWindowModality(Qt::WindowModal);
+        auto* cancel_dialog =
+            new RateLimitedProgressDialog(tr("Canceling..."), tr("Cancel"), 0, 0, this);
         cancel_dialog->setCancelButton(nullptr);
-        cancel_dialog->setMinimumDuration(0);
-        cancel_dialog->setValue(0);
         connect(job, &MultiJob::Completed, cancel_dialog, &QProgressDialog::hide);
         job->Cancel();
     });

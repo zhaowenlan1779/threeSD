@@ -15,6 +15,8 @@ add_executable(threeSD
   helpers/frontend_common.h
   helpers/multi_job.cpp
   helpers/multi_job.h
+  helpers/rate_limited_progress_dialog.cpp
+  helpers/rate_limited_progress_dialog.h
   helpers/simple_job.cpp
   helpers/simple_job.h
   cia_build_dialog.cpp

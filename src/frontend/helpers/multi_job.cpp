@@ -41,7 +41,8 @@ void MultiJob::run() {
 
     Common::ProgressCallbackWrapper wrapper{total_size};
     for (const auto& content : contents) {
-        emit NextContent(count + 1, content, eta);
+        emit NextContent(count + 1, wrapper.current_done_size + wrapper.current_pending_size,
+                         content, eta);
         if (!execute_func(importer, content, wrapper.Wrap(Callback))) {
             if (!cancelled) {
                 failed_contents.emplace_back(content);
