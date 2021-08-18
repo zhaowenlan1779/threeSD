@@ -119,7 +119,7 @@ void ImportDialog::SetContentSizes(int previous_width, int previous_height) {
     if (previous_width == 0) { // first time
         ui->main->setColumnWidth(0, current_width * 0.66);
         ui->main->setColumnWidth(1, current_width * 0.145);
-        ui->main->setColumnWidth(2, current_width * 0.09);
+        ui->main->setColumnWidth(2, current_width * 0.10);
     } else { // proportionally update column widths
         for (int i : {0, 1, 2}) {
             ui->main->setColumnWidth(i, ui->main->columnWidth(i) * current_width / previous_width);
@@ -510,7 +510,7 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
 
     const bool title_view = ui->title_view_button->isChecked();
 
-    QMenu context_menu;
+    QMenu context_menu(this);
     if (item->parent()) { // Second level
         const auto& specifier = SpecifierFromItem(item);
         if (specifier.type == Core::ContentType::Application) {
