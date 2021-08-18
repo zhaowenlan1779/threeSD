@@ -36,7 +36,8 @@ private:
     void UpdateSizeDisplay();
     std::vector<Core::ContentSpecifier> GetSelectedContentList();
 
-    void InsertTopLevelItem(const QString& text, QPixmap icon = {});
+    void InsertTopLevelItem(QString text, QPixmap icon = {});
+    void InsertTopLevelItem(QString text, QPixmap icon, u64 total_size, QString exists);
     // When replace_name and replace_icon are present they are used instead of those in `content`.
     void InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                std::size_t id, QString replace_name = {},

@@ -161,15 +161,59 @@ void ImportDialog::RelistContent() {
     future_watcher->setFuture(future);
 }
 
-void ImportDialog::InsertTopLevelItem(const QString& text, QPixmap icon) {
+constexpr Qt::ItemDataRole SpecifierIndexRole = Qt::UserRole;
+
+/// Supports readable size display and sorting
+class ContentListItem final : public QTreeWidgetItem {
+public:
+    explicit ContentListItem(QString name, u64 content_size_, QString exists)
+        : QTreeWidgetItem{{std::move(name), ReadableByteSize(content_size_), std::move(exists)}},
+          content_size(content_size_) {}
+
+    explicit ContentListItem(QString name, u64 content_size_, QString exists, std::size_t idx)
+        : QTreeWidgetItem{{std::move(name), ReadableByteSize(content_size_), std::move(exists)}},
+          content_size(content_size_) {
+        setData(0, SpecifierIndexRole, static_cast<int>(idx));
+    }
+    ~ContentListItem() override = default;
+
+private:
+    bool operator<(const QTreeWidgetItem& other_item) const override {
+        const auto* other = dynamic_cast<const ContentListItem*>(&other_item);
+        if (!other) {
+            return false;
+        }
+
+        const int column = treeWidget()->sortColumn();
+        if (column == 1) { // size
+            return content_size < other->content_size;
+        } else {
+            return text(column) < other->text(column);
+        }
+    }
+
+    u64 content_size;
+};
+
+void ImportDialog::InsertTopLevelItem(QString text, QPixmap icon) {
     auto* item = new QTreeWidgetItem{{text}};
-    item->setIcon(0, QIcon(icon));
+    item->setIcon(0, QIcon(std::move(icon)));
 
     item->setFlags(item->flags() | Qt::ItemIsAutoTristate);
     item->setCheckState(0, Qt::Unchecked); // required to give the item a checkbox
 
     ui->main->invisibleRootItem()->addChild(item);
     item->setFirstColumnSpanned(true);
+}
+
+void ImportDialog::InsertTopLevelItem(QString text, QPixmap icon, u64 total_size, QString exists) {
+    auto* item = new ContentListItem{std::move(text), total_size, std::move(exists)};
+    item->setIcon(0, QIcon(std::move(icon)));
+
+    item->setFlags(item->flags() | Qt::ItemIsAutoTristate);
+    item->setCheckState(0, Qt::Unchecked); // required to give the item a checkbox
+
+    ui->main->invisibleRootItem()->addChild(item);
 }
 
 // Content types that themselves form a 'Title' like entity.
@@ -179,8 +223,6 @@ constexpr std::array<Core::ContentType, 4> SpecialContentTypeList{{
     Core::ContentType::SystemTitle,
     Core::ContentType::SystemApplet,
 }};
-
-constexpr Qt::ItemDataRole SpecifierIndexRole = Qt::UserRole;
 
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                          std::size_t id, QString replace_name,
@@ -206,9 +248,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         name = replace_name;
     }
 
-    auto* item = new QTreeWidgetItem{{name, ReadableByteSize(content.maximum_size),
-                                      content.already_exists ? tr("Yes") : tr("No")}};
-    item->setData(0, SpecifierIndexRole, static_cast<int>(id));
+    auto* item = new ContentListItem{name, content.maximum_size,
+                                     content.already_exists ? tr("Yes") : tr("No"), id};
 
     // Set icon
     QPixmap icon;
@@ -241,7 +282,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
 
 void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {
     // Only handle second level items (with checkboxes)
-    if (column != 0 || item->parent() == ui->main->invisibleRootItem()) {
+    if (column != 0 || !item->parent()) {
         return;
     }
 
@@ -286,40 +327,80 @@ void ImportDialog::RepopulateContent() {
     ui->main->setSortingEnabled(false);
     disconnect(ui->main, &QTreeWidget::itemChanged, this, &ImportDialog::OnItemChanged);
 
-    std::map<u64, QString> title_name_map;       // title ID -> title name
-    std::map<u64, QPixmap> title_icon_map;       // title ID -> title icon
+    struct TitleMapEntry {
+        QString name;
+        QPixmap icon;
+        std::vector<const Core::ContentSpecifier*> contents;
+    };
+    std::map<u64, TitleMapEntry> title_map;
     std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
     for (const auto& content : contents) {
         if (content.type == Core::ContentType::Application) {
-            title_name_map.emplace(content.id, GetContentName(content));
-            title_icon_map.emplace(content.id, GetContentIcon(content));
+            title_map[content.id].name = GetContentName(content);
+            title_map[content.id].icon = GetContentIcon(content);
             extdata_id_map.emplace(content.extdata_id, content.id);
+        }
+    }
+    for (const auto& content : contents) {
+        if (content.type == Core::ContentType::Extdata) {
+            if (extdata_id_map.count(content.id)) {
+                const u64 title_id = extdata_id_map.at(content.id);
+                title_map[title_id].contents.emplace_back(&content);
+            }
+        } else if (content.type == Core::ContentType::Application ||
+                   content.type == Core::ContentType::Update ||
+                   content.type == Core::ContentType::DLC ||
+                   content.type == Core::ContentType::Savegame) {
+            if (title_map.count(content.id)) {
+                title_map[content.id].contents.emplace_back(&content);
+            }
         }
     }
 
     const bool use_title_view = ui->title_view_button->isChecked();
     if (use_title_view) {
         // Create 'Ungrouped' category.
-        title_name_map.insert_or_assign(0, tr("Ungrouped"));
-        title_icon_map.insert_or_assign(0, QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24));
+        InsertTopLevelItem(tr("Ungrouped"), QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24));
 
         // Create categories for special content types.
         for (std::size_t i = 0; i < SpecialContentTypeList.size(); ++i) {
-            title_name_map.insert_or_assign(i + 1, GetContentTypeName(SpecialContentTypeList[i]));
-            title_icon_map.insert_or_assign(i + 1, GetContentTypeIcon(SpecialContentTypeList[i]));
+            InsertTopLevelItem(GetContentTypeName(SpecialContentTypeList[i]),
+                               GetContentTypeIcon(SpecialContentTypeList[i]));
         }
 
         // Titles
         std::unordered_map<u64, u64> title_row_map;
-        for (const auto& [id, name] : title_name_map) {
-            InsertTopLevelItem(name, title_icon_map.count(id) ? title_icon_map.at(id) : QPixmap{});
-            title_row_map[id] = ui->main->invisibleRootItem()->childCount() - 1;
+        for (auto& [id, entry] : title_map) {
+            // Process the title's contents
+            u64 total_size = 0;
+            bool has_exist = false, has_non_exist = false;
+            for (const auto* content : entry.contents) {
+                total_size += content->maximum_size;
+                if (content->already_exists) {
+                    has_exist = true;
+                } else {
+                    has_non_exist = true;
+                }
+            }
+
+            QString exist_text;
+            if (!has_exist) {
+                exist_text = tr("No");
+            } else if (!has_non_exist) {
+                exist_text = tr("Yes");
+            } else {
+                exist_text = tr("Part");
+            }
+
+            InsertTopLevelItem(std::move(entry.name), std::move(entry.icon), total_size,
+                               std::move(exist_text));
+            title_row_map.emplace(id, ui->main->invisibleRootItem()->childCount() - 1);
         }
 
         for (std::size_t i = 0; i < contents.size(); ++i) {
             const auto& content = contents[i];
 
-            std::size_t row = title_row_map.at(0);
+            std::size_t row = 0; // 0 for ungrouped (default)
             switch (content.type) {
             case Core::ContentType::Application:
             case Core::ContentType::Update:
@@ -327,14 +408,15 @@ void ImportDialog::RepopulateContent() {
             case Core::ContentType::Savegame: {
                 // Fix the id
                 const auto real_id = content.id & 0xffffff00ffffffff;
-                row =
-                    title_row_map.count(real_id) ? title_row_map.at(real_id) : title_row_map.at(0);
+                row = title_row_map.count(real_id) ? title_row_map.at(real_id) : 0;
                 break;
             }
             case Core::ContentType::Extdata: {
-                const auto real_id =
-                    extdata_id_map.count(content.id) ? extdata_id_map.at(content.id) : 0;
-                row = title_row_map.at(real_id);
+                if (extdata_id_map.count(content.id)) {
+                    row = title_row_map.at(extdata_id_map.at(content.id));
+                } else {
+                    row = 0; // Ungrouped
+                }
                 break;
             }
             default: {
@@ -342,7 +424,7 @@ void ImportDialog::RepopulateContent() {
                                                   SpecialContentTypeList.end(), content.type) -
                                         SpecialContentTypeList.begin();
                 ASSERT_MSG(idx < SpecialContentTypeList.size(), "Content Type not handled");
-                row = title_row_map.at(idx + 1);
+                row = idx + 1;
                 break;
             }
             }
@@ -357,16 +439,18 @@ void ImportDialog::RepopulateContent() {
         for (std::size_t i = 0; i < contents.size(); ++i) {
             const auto& content = contents[i];
 
-            QString name;
-            QPixmap icon;
+            QString name{};
+            QPixmap icon{};
             if (content.type == Core::ContentType::Savegame) {
-                name = title_name_map.count(content.id) ? title_name_map.at(content.id) : QString{};
-                icon = title_icon_map.count(content.id) ? title_icon_map.at(content.id) : QPixmap{};
+                if (title_map.count(content.id)) {
+                    name = title_map.at(content.id).name;
+                    icon = title_map.at(content.id).icon;
+                }
             } else if (content.type == Core::ContentType::Extdata) {
                 if (extdata_id_map.count(content.id)) {
                     u64 title_id = extdata_id_map.at(content.id);
-                    name = title_name_map.count(title_id) ? title_name_map.at(title_id) : QString{};
-                    icon = title_icon_map.count(title_id) ? title_icon_map.at(title_id) : QPixmap{};
+                    name = title_map.at(title_id).name;
+                    icon = title_map.at(title_id).icon;
                 }
             }
 
