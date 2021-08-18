@@ -514,16 +514,13 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
     if (item->parent()) { // Second level
         const auto& specifier = SpecifierFromItem(item);
         if (specifier.type == Core::ContentType::Application) {
-            QAction* dump_cxi = context_menu.addAction(tr("Dump CXI file"));
-            connect(dump_cxi, &QAction::triggered,
-                    [this, specifier] { StartDumpingCXISingle(specifier); });
+            context_menu.addAction(tr("Dump CXI file"),
+                                   [this, specifier] { StartDumpingCXISingle(specifier); });
         }
         if (Core::IsTitle(specifier.type)) {
-            QAction* build_cia = context_menu.addAction(tr("Build CIA..."));
-            connect(build_cia, &QAction::triggered,
-                    [this, specifier] { StartBuildingCIASingle(specifier); });
-            QAction* show_title_info = context_menu.addAction(tr("Show Title Info"));
-            connect(show_title_info, &QAction::triggered, [this, specifier] {
+            context_menu.addAction(tr("Build CIA..."),
+                                   [this, specifier] { StartBuildingCIASingle(specifier); });
+            context_menu.addAction(tr("Show Title Info"), [this, specifier] {
                 TitleInfoDialog dialog(this, *importer, specifier);
                 dialog.exec();
             });
@@ -536,20 +533,16 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
         for (int i = 0; i < item->childCount(); ++i) {
             const auto& specifier = SpecifierFromItem(item->child(i));
             if (specifier.type == Core::ContentType::Application) {
-                QAction* dump_base_cxi = context_menu.addAction(tr("Dump Base CXI file"));
-                connect(dump_base_cxi, &QAction::triggered,
-                        [this, specifier] { StartDumpingCXISingle(specifier); });
-                QAction* build_base_cia = context_menu.addAction(tr("Build Base CIA"));
-                connect(build_base_cia, &QAction::triggered,
-                        [this, specifier] { StartBuildingCIASingle(specifier); });
+                context_menu.addAction(tr("Dump Base CXI file"),
+                                       [this, specifier] { StartDumpingCXISingle(specifier); });
+                context_menu.addAction(tr("Build Base CIA"),
+                                       [this, specifier] { StartBuildingCIASingle(specifier); });
             } else if (specifier.type == Core::ContentType::Update) {
-                QAction* build_update_cia = context_menu.addAction(tr("Build Update CIA"));
-                connect(build_update_cia, &QAction::triggered,
-                        [this, specifier] { StartBuildingCIASingle(specifier); });
+                context_menu.addAction(tr("Build Update CIA"),
+                                       [this, specifier] { StartBuildingCIASingle(specifier); });
             } else if (specifier.type == Core::ContentType::DLC) {
-                QAction* build_dlc_cia = context_menu.addAction(tr("Build DLC CIA"));
-                connect(build_dlc_cia, &QAction::triggered,
-                        [this, specifier] { StartBuildingCIASingle(specifier); });
+                context_menu.addAction(tr("Build DLC CIA"),
+                                       [this, specifier] { StartBuildingCIASingle(specifier); });
             }
         }
     }
@@ -582,12 +575,8 @@ void ImportDialog::ShowAdvancedMenu() {
     }
 
     AdvancedMenu menu(this);
-
-    QAction* batch_dump_cxi = menu.addAction(tr("Batch Dump CXI"));
-    connect(batch_dump_cxi, &QAction::triggered, this, &ImportDialog::StartBatchDumpingCXI);
-
-    QAction* batch_build_cia = menu.addAction(tr("Batch Build CIA"));
-    connect(batch_build_cia, &QAction::triggered, this, &ImportDialog::StartBatchBuildingCIA);
+    menu.addAction(tr("Batch Dump CXI"), this, &ImportDialog::StartBatchDumpingCXI);
+    menu.addAction(tr("Batch Build CIA"), this, &ImportDialog::StartBatchBuildingCIA);
 
     menu.exec(ui->advanced_button->mapToGlobal(ui->advanced_button->rect().bottomLeft()));
 }
