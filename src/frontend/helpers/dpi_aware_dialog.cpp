@@ -27,7 +27,8 @@ void DPIAwareDialog::showEvent(QShowEvent* event) {
 #ifdef __APPLE__
     // Note: macOS implements system level virtualization, so there's no need to connect here.
     // but we still need to call SetContentSizes() at least once to set up the UI
-    resize(original_width, original_height);
+    // macOS style has more padding. Make the dialog larger for compensation.
+    resize(original_width * 1.25, original_height * 1.25);
     SetContentSizes();
 #else
     resized = false;

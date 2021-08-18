@@ -460,6 +460,7 @@ void ImportDialog::RepopulateContent() {
 
     ui->main->setSortingEnabled(true);
     connect(ui->main, &QTreeWidget::itemChanged, this, &ImportDialog::OnItemChanged);
+    UpdateSizeDisplay();
 }
 
 void ImportDialog::UpdateSizeDisplay() {
