@@ -79,10 +79,9 @@ struct Config {
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
 
-    std::string seed_db_path;       ///< Path to seeddb.bin (Sysdata 2)
-    std::string secret_sector_path; ///< Path to secret sector (New3DS only) (Sysdata 3)
-    // Note: Sysdata 4 is aes_keys.txt (slot0x25KeyX)
-    std::string config_savegame_path; ///< Path to config savegame (Sysdata 5)
+    std::string seed_db_path;       ///< Path to seeddb.bin (Sysdata 1)
+    std::string secret_sector_path; ///< Path to secret sector (New3DS only) (Sysdata 2)
+    // Note: Sysdata 3 is aes_keys.txt (slot0x25KeyX)
 
     std::string system_titles_path; ///< Path to system titles.
     std::string nand_data_path;     ///< Path to NAND data. (Extdata and savedata)

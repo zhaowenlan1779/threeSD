@@ -29,7 +29,7 @@
 
 // content type, singular name, plural name, icon name
 // clang-format off
-static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 9>
+static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 8>
     ContentTypeMap{{
         {Core::ContentType::Application, QT_TR_NOOP("Application"), QT_TR_NOOP("Applications"), "app"},
         {Core::ContentType::Update, QT_TR_NOOP("Update"),  QT_TR_NOOP("Updates"), "update"},

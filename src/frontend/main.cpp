@@ -39,8 +39,7 @@ bool IsConfigGood(const Core::Config& config) {
 bool IsConfigComplete(const Core::Config& config) {
     return IsConfigGood(config) && !config.certs_db_path.empty() &&
            !config.nand_title_db_path.empty() && !config.ticket_db_path.empty() &&
-           !config.config_savegame_path.empty() && !config.system_titles_path.empty() &&
-           !config.nand_data_path.empty();
+           !config.system_titles_path.empty() && !config.nand_data_path.empty();
 }
 
 MainDialog::MainDialog(QWidget* parent)

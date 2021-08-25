@@ -308,7 +308,7 @@ bool SDMCImporter::ImportSysdata(u64 id,
         }
         return FileUtil::Copy(config.bootrom_path, target_path);
     }
-    case 2: { // seed db
+    case 1: { // seed db
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
         LOG_INFO(Core, "Dumping SeedDB from {} to {}", SEED_DB, config.seed_db_path, target_path);
 
@@ -332,7 +332,7 @@ bool SDMCImporter::ImportSysdata(u64 id,
         }
         return target.Save(target_path);
     }
-    case 3: { // secret sector
+    case 2: { // secret sector
         const auto target_path =
             FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SECRET_SECTOR;
         LOG_INFO(Core, "Copying {} from {} to {}", SECRET_SECTOR, config.secret_sector_path,
@@ -342,7 +342,7 @@ bool SDMCImporter::ImportSysdata(u64 id,
         }
         return FileUtil::Copy(config.secret_sector_path, target_path);
     }
-    case 4: { // aes_keys.txt
+    case 3: { // aes_keys.txt
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + AES_KEYS;
         if (!FileUtil::CreateFullPath(target_path)) {
             return false;
@@ -355,36 +355,6 @@ bool SDMCImporter::ImportSysdata(u64 id,
         file.WriteString("slot0x18KeyX=" + Key::KeyToString(Key::GetKeyX(0x18)) + "\n");
         file.WriteString("slot0x1BKeyX=" + Key::KeyToString(Key::GetKeyX(0x1B)) + "\n");
         return true;
-    }
-    case 5: { // Config savegame
-        FileUtil::IOFile file(config.config_savegame_path, "rb");
-        std::vector<u8> data = file.GetData();
-        if (data.empty()) {
-            return false;
-        }
-
-        DataContainer container(data);
-        if (!container.IsGood()) {
-            return false;
-        }
-
-        std::vector<std::vector<u8>> container_data;
-        if (!container.GetIVFCLevel4Data(container_data)) {
-            return false;
-        }
-
-        Savegame save(std::move(container_data));
-        if (!save.IsGood()) {
-            return false;
-        }
-
-        const auto target_path =
-            fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/00000000/",
-                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir));
-        if (!FileUtil::CreateFullPath(target_path)) {
-            return false;
-        }
-        return save.ExtractDirectory(target_path, 1); // 1 = root
     }
     default:
         UNREACHABLE_MSG("Unexpected sysdata id {}", id);
@@ -1030,19 +1000,15 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
     {
         const auto sysdata_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir);
         CheckContent(0, config.bootrom_path, sysdata_path + BOOTROM9, BOOTROM9);
-        CheckContent(3, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
+        CheckContent(2, config.secret_sector_path, sysdata_path + SECRET_SECTOR, SECRET_SECTOR);
         if (!config.bootrom_path.empty()) {
             // Check in case there was an older version
             const bool exists = FileUtil::Exists(sysdata_path + AES_KEYS) &&
                                 FileUtil::GetSize(sysdata_path + AES_KEYS) >= 46 * 3;
             // 47 bytes = "slot0xIDKeyX=<32>\r\n" is only for Windows,
             // but it's maximum_size so probably okay
-            out.push_back({ContentType::Sysdata, 4, exists, 47 * 3, AES_KEYS});
+            out.push_back({ContentType::Sysdata, 3, exists, 47 * 3, AES_KEYS});
         }
-        CheckContent(5, config.config_savegame_path,
-                     fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
-                                 FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)),
-                     "Config savegame");
     }
 
     // Check for seeddb
@@ -1071,7 +1037,7 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
         }
     }
     out.push_back(
-        {ContentType::Sysdata, 2, exists, FileUtil::GetSize(config.seed_db_path), SEED_DB});
+        {ContentType::Sysdata, 1, exists, FileUtil::GetSize(config.seed_db_path), SEED_DB});
 }
 
 void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
@@ -1141,19 +1107,14 @@ void SDMCImporter::DeleteSysdata(u64 id) const {
     case 0: { // boot9.bin
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9);
     }
-    case 2: { // seed db
+    case 1: { // seed db
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB);
     }
-    case 3: { // secret sector
+    case 2: { // secret sector
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SECRET_SECTOR);
     }
-    case 4: { // aes_keys.txt
+    case 3: { // aes_keys.txt
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + AES_KEYS);
-    }
-    case 5: { // Config savegame
-        FileUtil::DeleteDirRecursively(
-            fmt::format("{}data/00000000000000000000000000000000/sysdata/00010017/",
-                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)));
     }
     default:
         UNREACHABLE_MSG("Unexpected sysdata id {}", id);
@@ -1187,7 +1148,6 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(ticket_db_path, TICKET_DB);
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);
-        LOAD_DATA(config_savegame_path, "config.sav");
         LOAD_DATA(system_titles_path, "title/");
         LOAD_DATA(nand_data_path, "data/");
 #undef LOAD_DATA
