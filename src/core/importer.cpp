@@ -142,8 +142,6 @@ bool SDMCImporter::ImportContentImpl(const ContentSpecifier& specifier,
         } else {
             return ImportNandExtdata(specifier.id, callback);
         }
-    case ContentType::SystemArchive:
-        return ImportSystemArchive(specifier.id, callback);
     case ContentType::Sysdata:
         return ImportSysdata(specifier.id, callback);
     case ContentType::SystemTitle:
@@ -299,30 +297,6 @@ bool SDMCImporter::ImportNandExtdata(u64 id,
                            "data/00000000000000000000000000000000/" + path);
 }
 
-bool SDMCImporter::ImportSystemArchive(u64 id,
-                                       [[maybe_unused]] const Common::ProgressCallback& callback) {
-    const auto path = fmt::format("{}{:08x}/{:08x}.app", config.system_archives_path, (id >> 32),
-                                  (id & 0xFFFFFFFF));
-    FileUtil::IOFile file(path, "rb");
-    std::vector<u8> data = file.GetData();
-    if (data.empty()) {
-        LOG_ERROR(Core, "Failed to read from {}", path);
-        return false;
-    }
-
-    const auto& romfs = LoadSharedRomFS(data);
-
-    const auto target_path = fmt::format(
-        "{}00000000000000000000000000000000/title/{:08x}/{:08x}/content/00000000.app.romfs",
-        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id >> 32), (id & 0xFFFFFFFF));
-    if (!FileUtil::CreateFullPath(target_path)) {
-        LOG_ERROR(Core, "Could not create path {}", target_path);
-        return false;
-    }
-
-    return FileUtil::WriteBytesToFile(target_path, romfs.data(), romfs.size());
-}
-
 bool SDMCImporter::ImportSysdata(u64 id,
                                  [[maybe_unused]] const Common::ProgressCallback& callback) {
     switch (id) {
@@ -333,36 +307,6 @@ bool SDMCImporter::ImportSysdata(u64 id,
             return false;
         }
         return FileUtil::Copy(config.bootrom_path, target_path);
-    }
-    case 1: { // safe mode firm
-        // Our GM9 script dumps to different folders for different version (new/old)
-        std::string real_path;
-        bool is_new_3ds = false;
-        if (FileUtil::Exists(config.safe_mode_firm_path + "new/")) {
-            real_path = config.safe_mode_firm_path + "new/";
-            is_new_3ds = true;
-        } else {
-            real_path = config.safe_mode_firm_path + "old/";
-        }
-        return FileUtil::ForeachDirectoryEntry(
-            nullptr, real_path,
-            [is_new_3ds](u64* /*num_entries_out*/, const std::string& directory,
-                         const std::string& virtual_name) {
-                if (FileUtil::IsDirectory(directory + virtual_name)) {
-                    return true;
-                }
-
-                const auto target_path =
-                    fmt::format("{}00000000000000000000000000000000/title/00040138/{}/content/{}",
-                                FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
-                                (is_new_3ds ? "20000003" : "00000003"), virtual_name);
-
-                if (!FileUtil::CreateFullPath(target_path)) {
-                    return false;
-                }
-
-                return FileUtil::Copy(directory + virtual_name, target_path);
-            });
     }
     case 2: { // seed db
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
@@ -453,7 +397,6 @@ std::vector<ContentSpecifier> SDMCImporter::ListContent() const {
     ListNandTitle(content_list);
     ListNandSavegame(content_list);
     ListExtdata(content_list);
-    ListSystemArchive(content_list);
     ListSysdata(content_list);
     return content_list;
 }
@@ -558,11 +501,24 @@ std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifi
 using TitleData = std::tuple<std::string, u64, std::vector<u16>>;
 
 static TitleData LoadTitleData(NCCHContainer& ncch) {
-    std::string codeset_name;
-    ncch.ReadCodesetName(codeset_name);
+    static const std::unordered_map<u64, const char*> NamedTitles{{
+        {0x0004009b'00010202, "Mii Data"},
+        {0x0004009b'00010402, "Region Manifest"},
+        {0x0004009b'00014002, "Shared Font (JPN/EUR/USA)"},
+        {0x0004009b'00014102, "Shared Font (CHN)"},
+        {0x0004009b'00014202, "Shared Font (KOR)"},
+        {0x0004009b'00014302, "Shared Font (TWN)"},
+        {0x000400db'00010302, "Bad word list"},
+    }};
 
     u64 program_id{};
     ncch.ReadProgramId(program_id);
+    if (NamedTitles.count(program_id)) {
+        return TitleData{NamedTitles.at(program_id), 0, {}};
+    }
+
+    std::string codeset_name;
+    ncch.ReadCodesetName(codeset_name);
 
     std::string title_name_from_codeset;
     if (!codeset_name.empty()) {
@@ -983,8 +939,10 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
     ProcessDirectory(0x00040010);
     ProcessDirectory(0x0004001b);
     ProcessDirectory(0x00040030);
+    ProcessDirectory(0x0004009b);
     ProcessDirectory(0x000400db);
     ProcessDirectory(0x00040130);
+    ProcessDirectory(0x00040138);
 }
 
 void SDMCImporter::ListNandSavegame(std::vector<ContentSpecifier>& out) const {
@@ -1059,30 +1017,6 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
                          "data/00000000000000000000000000000000/extdata/00048000/{}");
 }
 
-void SDMCImporter::ListSystemArchive(std::vector<ContentSpecifier>& out) const {
-    constexpr std::array<std::pair<u64, const char*>, 8> SystemArchives{{
-        {0x0004009b'00010202, "Mii Data"},
-        {0x0004009b'00010402, "Region Manifest"},
-        {0x0004009b'00014002, "Shared Font (JPN/EUR/USA)"},
-        {0x0004009b'00014102, "Shared Font (CHN)"},
-        {0x0004009b'00014202, "Shared Font (KOR)"},
-        {0x0004009b'00014302, "Shared Font (TWN)"},
-        {0x000400db'00010302, "Bad word list"},
-    }};
-
-    for (const auto& [id, name] : SystemArchives) {
-        const auto path = fmt::format("{}{:08x}/{:08x}.app", config.system_archives_path,
-                                      (id >> 32), (id & 0xFFFFFFFF));
-        if (FileUtil::Exists(path)) {
-            const auto target_path = fmt::format(
-                "{}00000000000000000000000000000000/title/{:08x}/{:08x}/content/",
-                FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id >> 32), (id & 0xFFFFFFFF));
-            out.push_back({ContentType::SystemArchive, id, FileUtil::Exists(target_path),
-                           FileUtil::GetSize(path), name});
-        }
-    }
-}
-
 void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
     const auto CheckContent = [&out](u64 id, const std::string& var_path,
                                      const std::string& citra_path,
@@ -1110,30 +1044,6 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
                                  FileUtil::GetUserPath(FileUtil::UserPath::NANDDir)),
                      "Config savegame");
     }
-
-    do {
-        if (config.safe_mode_firm_path.empty()) {
-            break;
-        }
-
-        bool is_new = false;
-        if (FileUtil::Exists(config.safe_mode_firm_path + "new/")) {
-            is_new = true;
-        }
-        if (!is_new && !FileUtil::Exists(config.safe_mode_firm_path + "old/")) {
-            LOG_ERROR(Core, "Safe mode firm path specified but not found");
-            break;
-        }
-
-        const auto citra_path = fmt::format(
-            "{}00000000000000000000000000000000/title/00040138/{}/content/",
-            FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (is_new ? "20000003" : "00000003"));
-        if (!config.safe_mode_firm_path.empty()) {
-            out.push_back({ContentType::Sysdata, 1, FileUtil::Exists(citra_path),
-                           FileUtil::GetDirectoryTreeSize(config.safe_mode_firm_path),
-                           "Safe mode firm"});
-        }
-    } while (0);
 
     // Check for seeddb
     if (config.seed_db_path.empty()) {
@@ -1174,8 +1084,6 @@ void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
         return DeleteSavegame(specifier.id);
     case ContentType::Extdata:
         return DeleteExtdata(specifier.id);
-    case ContentType::SystemArchive:
-        return DeleteSystemArchive(specifier.id);
     case ContentType::Sysdata:
         return DeleteSysdata(specifier.id);
     case ContentType::SystemTitle:
@@ -1228,24 +1136,10 @@ void SDMCImporter::DeleteExtdata(u64 id) const {
     }
 }
 
-void SDMCImporter::DeleteSystemArchive(u64 id) const {
-    FileUtil::DeleteDirRecursively(fmt::format(
-        "{}00000000000000000000000000000000/title/{:08x}/{:08x}/content/",
-        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir), (id >> 32), (id & 0xFFFFFFFF)));
-}
-
 void SDMCImporter::DeleteSysdata(u64 id) const {
     switch (id) {
     case 0: { // boot9.bin
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + BOOTROM9);
-    }
-    case 1: { // safe mode firm
-        const bool is_new_3ds = FileUtil::Exists(config.safe_mode_firm_path + "new/");
-        const auto target_path =
-            fmt::format("{}00000000000000000000000000000000/title/00040138/{}/",
-                        FileUtil::GetUserPath(FileUtil::UserPath::NANDDir),
-                        (is_new_3ds ? "20000003" : "00000003"));
-        FileUtil::DeleteDirRecursively(target_path);
     }
     case 2: { // seed db
         FileUtil::Delete(FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB);
@@ -1291,11 +1185,9 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         LOAD_DATA(certs_db_path, CERTS_DB);
         LOAD_DATA(nand_title_db_path, TITLE_DB);
         LOAD_DATA(ticket_db_path, TICKET_DB);
-        LOAD_DATA(safe_mode_firm_path, "firm/");
         LOAD_DATA(seed_db_path, SEED_DB);
         LOAD_DATA(secret_sector_path, SECRET_SECTOR);
         LOAD_DATA(config_savegame_path, "config.sav");
-        LOAD_DATA(system_archives_path, "sysarchives/");
         LOAD_DATA(system_titles_path, "title/");
         LOAD_DATA(nand_data_path, "data/");
 #undef LOAD_DATA

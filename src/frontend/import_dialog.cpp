@@ -36,7 +36,6 @@ static constexpr std::array<std::tuple<Core::ContentType, const char*, const cha
         {Core::ContentType::DLC, QT_TR_NOOP("DLC"), QT_TR_NOOP("DLCs"), "dlc"},
         {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), QT_TR_NOOP("Save Data"), "save_data"},
         {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), QT_TR_NOOP("Extra Data"), "save_data"},
-        {Core::ContentType::SystemArchive, QT_TR_NOOP("System Archive"), QT_TR_NOOP("System Archives"), "system_archive"},
         {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), QT_TR_NOOP("System Data"), "system_data"},
         {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), QT_TR_NOOP("System Titles"), "hos"},
         {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), QT_TR_NOOP("System Applets"), "hos"},
@@ -213,8 +212,7 @@ void ImportDialog::InsertTopLevelItem(QString text, QPixmap icon, u64 total_size
 }
 
 // Content types that themselves form a 'Title' like entity.
-constexpr std::array<Core::ContentType, 4> SpecialContentTypeList{{
-    Core::ContentType::SystemArchive,
+constexpr std::array<Core::ContentType, 3> SpecialContentTypeList{{
     Core::ContentType::Sysdata,
     Core::ContentType::SystemTitle,
     Core::ContentType::SystemApplet,
@@ -255,9 +253,8 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
             content.type != Core::ContentType::SystemApplet) {
             icon = GetContentTypeIcon(content.type);
         } else {
-            // When not in title view, System Data and System Archive groups use category icons.
-            const bool use_category_icon = content.type == Core::ContentType::Sysdata ||
-                                           content.type == Core::ContentType::SystemArchive;
+            // When not in title view, System Data groups use category icons.
+            const bool use_category_icon = content.type == Core::ContentType::Sysdata;
             icon = GetContentIcon(content, use_category_icon);
         }
     } else {
@@ -296,8 +293,7 @@ void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {
         total_selected_size += specifier.maximum_size;
     } else {
         if (!system_warning_shown && !specifier.already_exists &&
-            (specifier.type == Core::ContentType::SystemArchive ||
-             specifier.type == Core::ContentType::Sysdata ||
+            (specifier.type == Core::ContentType::Sysdata ||
              specifier.type == Core::ContentType::SystemTitle)) {
 
             QMessageBox::warning(this, tr("Warning"),

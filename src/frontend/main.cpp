@@ -36,6 +36,13 @@ bool IsConfigGood(const Core::Config& config) {
            !config.movable_sed_path.empty() && !config.bootrom_path.empty();
 }
 
+bool IsConfigComplete(const Core::Config& config) {
+    return IsConfigGood(config) && !config.certs_db_path.empty() &&
+           !config.nand_title_db_path.empty() && !config.ticket_db_path.empty() &&
+           !config.config_savegame_path.empty() && !config.system_titles_path.empty() &&
+           !config.nand_data_path.empty();
+}
+
 MainDialog::MainDialog(QWidget* parent)
     : DPIAwareDialog(parent, 640, 256), ui(std::make_unique<Ui::MainDialog>()) {
 
@@ -145,10 +152,7 @@ void MainDialog::LoadPresetConfig() {
                 status = tr("No Configuration Found");
             } else if (list[i].version != Core::CurrentDumperVersion) {
                 status = tr("Version Dismatch");
-            } else if (list[i].safe_mode_firm_path.empty() ||
-                       list[i].config_savegame_path.empty() ||
-                       list[i].system_archives_path.empty()) {
-
+            } else if (!IsConfigComplete(list[i])) {
                 status = tr("Missing System Files");
             } else if (list[i].seed_db_path.empty()) {
                 status = tr("Good, Missing Seeds");
@@ -217,8 +221,7 @@ void MainDialog::LaunchImportDialog() {
         return;
     }
 
-    if (config.safe_mode_firm_path.empty() || config.config_savegame_path.empty() ||
-        config.system_archives_path.empty()) {
+    if (!IsConfigComplete(config)) {
         QMessageBox::warning(
             this, tr("Warning"),
             tr("Certain system files are missing from your configuration.<br>Some contents "

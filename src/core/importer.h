@@ -31,7 +31,6 @@ enum class ContentType {
     DLC,
     Savegame,
     Extdata,
-    SystemArchive,
     Sysdata,
     SystemTitle,
     SystemApplet, // This should belong to System Title, but they cause problems so a new category.
@@ -75,20 +74,18 @@ struct Config {
     // Optional, used while building CIA, but usually missing these files won't hinder CIA building.
     std::string nand_title_db_path;      ///< Path to NAND title.db. Entirely optional.
     std::string ticket_db_path;          ///< Path to ticket.db. Entirely optional.
-    std::string enc_title_keys_bin_path; ///< Path to encTitleKeys.bin. Entireley optional.
+    std::string enc_title_keys_bin_path; ///< Path to encTitleKeys.bin. Entirely optional.
 
     // The following system files are optional for importing and are only copied so that Citra
     // will be able to decrypt imported encrypted ROMs.
 
-    std::string safe_mode_firm_path; ///< Path to safe mode firm (A folder) (Sysdata 1)
-    std::string seed_db_path;        ///< Path to seeddb.bin (Sysdata 2)
-    std::string secret_sector_path;  ///< Path to secret sector (New3DS only) (Sysdata 3)
+    std::string seed_db_path;       ///< Path to seeddb.bin (Sysdata 2)
+    std::string secret_sector_path; ///< Path to secret sector (New3DS only) (Sysdata 3)
     // Note: Sysdata 4 is aes_keys.txt (slot0x25KeyX)
     std::string config_savegame_path; ///< Path to config savegame (Sysdata 5)
 
-    std::string system_archives_path; ///< Path to system archives.
-    std::string system_titles_path;   ///< Path to system titles.
-    std::string nand_data_path;       ///< Path to NAND data. (Extdata and savedata)
+    std::string system_titles_path; ///< Path to system titles.
+    std::string nand_data_path;     ///< Path to NAND data. (Extdata and savedata)
 
     int version = 0; ///< Version of the dumper used.
 };
@@ -201,14 +198,12 @@ private:
     bool ImportNandSavegame(u64 id, const Common::ProgressCallback& callback);
     bool ImportExtdata(u64 id, const Common::ProgressCallback& callback);
     bool ImportNandExtdata(u64 id, const Common::ProgressCallback& callback);
-    bool ImportSystemArchive(u64 id, const Common::ProgressCallback& callback);
     bool ImportSysdata(u64 id, const Common::ProgressCallback& callback);
 
     void ListTitle(std::vector<ContentSpecifier>& out) const;
     void ListNandTitle(std::vector<ContentSpecifier>& out) const;
     void ListNandSavegame(std::vector<ContentSpecifier>& out) const;
     void ListExtdata(std::vector<ContentSpecifier>& out) const;
-    void ListSystemArchive(std::vector<ContentSpecifier>& out) const;
     void ListSysdata(std::vector<ContentSpecifier>& out) const;
 
     void DeleteContent(const ContentSpecifier& specifier) const;
@@ -216,7 +211,6 @@ private:
     void DeleteNandTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;
     void DeleteExtdata(u64 id) const;
-    void DeleteSystemArchive(u64 id) const;
     void DeleteSysdata(u64 id) const;
 
     bool is_good{};
