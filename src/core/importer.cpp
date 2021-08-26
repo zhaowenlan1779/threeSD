@@ -126,9 +126,7 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
 bool SDMCImporter::ImportContentImpl(const ContentSpecifier& specifier,
                                      const Common::ProgressCallback& callback) {
     switch (specifier.type) {
-    case ContentType::Application:
-    case ContentType::Update:
-    case ContentType::DLC:
+    case ContentType::Title:
         return ImportTitle(specifier, callback);
     case ContentType::Savegame:
         return ImportSavegame(specifier.id, callback);
@@ -140,8 +138,7 @@ bool SDMCImporter::ImportContentImpl(const ContentSpecifier& specifier,
         return ImportNandExtdata(specifier.id, callback);
     case ContentType::Sysdata:
         return ImportSysdata(specifier.id, callback);
-    case ContentType::SystemTitle:
-    case ContentType::SystemApplet:
+    case ContentType::NandTitle:
         return ImportNandTitle(specifier, callback);
     default:
         UNREACHABLE();
@@ -454,7 +451,7 @@ std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifi
     } else {
         // For DLCs, there one subfolder every 256 titles, but in practice hardcoded 00000000
         // should be fine (also matches GodMode9 behaviour)
-        const auto format_str = specifier.type == ContentType::DLC
+        const auto format_str = (specifier.id >> 32) == 0x0004008c
                                     ? "/title/{:08x}/{:08x}/content/00000000/{:08x}.app"
                                     : "/title/{:08x}/{:08x}/content/{:08x}.app";
         const auto path =
@@ -565,8 +562,9 @@ static std::string GetTitleFileName(NCCHContainer& ncch) {
 bool SDMCImporter::DumpCXI(const ContentSpecifier& specifier, std::string destination,
                            const Common::ProgressCallback& callback, bool auto_filename) {
 
-    if (specifier.type != ContentType::Application) {
-        LOG_ERROR(Core, "Unsupported specifier type {}", static_cast<int>(specifier.type));
+    // not an Application
+    if (specifier.type != ContentType::Title || (specifier.id >> 32) != 0x00040000) {
+        LOG_ERROR(Core, "Unsupported specifier (id={:016x})", specifier.id);
         return false;
     }
 
@@ -767,13 +765,12 @@ bool SDMCImporter::CheckTitleContents(const ContentSpecifier& specifier,
 constexpr u64 TitleSizeAllowance = 0xA000;
 
 void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [this, &out, &sdmc_path = config.sdmc_path](ContentType type,
-                                                                              u64 high_id) {
+    const auto ProcessDirectory = [this, &out, &sdmc_path = config.sdmc_path](u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
             nullptr, fmt::format("{}title/{:08x}/", sdmc_path, high_id),
-            [this, &sdmc_path, type, high_id, &out](u64* /*num_entries_out*/,
-                                                    const std::string& directory,
-                                                    const std::string& virtual_name) {
+            [this, &sdmc_path, high_id, &out](u64* /*num_entries_out*/,
+                                              const std::string& directory,
+                                              const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
                     return true;
                 }
@@ -792,8 +789,9 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(directory + virtual_name + "/content/")) {
                     do {
                         TitleMetadata tmd;
-                        if (!LoadTMD(type, id, tmd)) {
-                            out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
+                        if (!LoadTMD(ContentType::Title, id, tmd)) {
+                            out.push_back({ContentType::Title, id,
+                                           FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(directory + virtual_name +
                                                                           "/content/")});
                             break;
@@ -806,7 +804,8 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                             std::make_shared<SDMCFile>(sdmc_path, boot_content_path, "rb"));
                         if (!ncch.Load()) {
                             LOG_WARNING(Core, "Could not load NCCH {}", boot_content_path);
-                            out.push_back({type, id, FileUtil::Exists(citra_path + "content/"),
+                            out.push_back({ContentType::Title, id,
+                                           FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(directory + virtual_name +
                                                                           "/content/")});
                             break;
@@ -816,12 +815,13 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;
-                        out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
-                                       name, extdata_id, icon});
+                        out.push_back({ContentType::Title, id,
+                                       FileUtil::Exists(citra_path + "content/"), size, name,
+                                       extdata_id, icon});
                     } while (false);
                 }
 
-                if (type != ContentType::Application) {
+                if (high_id != 0x00040000) { // Check savegame only for applications
                     return true;
                 }
                 if (FileUtil::Exists(directory + virtual_name + "/data/")) {
@@ -842,9 +842,9 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
             });
     };
 
-    ProcessDirectory(ContentType::Application, 0x00040000);
-    ProcessDirectory(ContentType::Update, 0x0004000e);
-    ProcessDirectory(ContentType::DLC, 0x0004008c);
+    ProcessDirectory(0x00040000);
+    ProcessDirectory(0x0004000e);
+    ProcessDirectory(0x0004008c);
 }
 
 // TODO: Simplify.
@@ -872,8 +872,8 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                 if (FileUtil::Exists(content_path)) {
                     do {
                         TitleMetadata tmd;
-                        if (!LoadTMD(ContentType::SystemTitle, id, tmd)) {
-                            out.push_back({ContentType::SystemTitle, id,
+                        if (!LoadTMD(ContentType::NandTitle, id, tmd)) {
+                            out.push_back({ContentType::NandTitle, id,
                                            FileUtil::Exists(citra_path + "content/"),
                                            FileUtil::GetDirectoryTreeSize(content_path)});
                             break;
@@ -889,13 +889,12 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                         }
 
                         const auto& [name, extdata_id, icon] = LoadTitleData(ncch);
-                        const auto type = (id >> 32) == 0x00040030 ? ContentType::SystemApplet
-                                                                   : ContentType::SystemTitle;
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;
-                        out.push_back({type, id, FileUtil::Exists(citra_path + "content/"), size,
-                                       name, extdata_id, icon});
+                        out.push_back({ContentType::NandTitle, id,
+                                       FileUtil::Exists(citra_path + "content/"), size, name,
+                                       extdata_id, icon});
                     } while (false);
                 }
                 return true;
@@ -1038,9 +1037,7 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
 
 void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
     switch (specifier.type) {
-    case ContentType::Application:
-    case ContentType::Update:
-    case ContentType::DLC:
+    case ContentType::Title:
         return DeleteTitle(specifier.id);
     case ContentType::Savegame:
         return DeleteSavegame(specifier.id);
@@ -1052,8 +1049,7 @@ void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
         return DeleteNandExtdata(specifier.id);
     case ContentType::Sysdata:
         return DeleteSysdata(specifier.id);
-    case ContentType::SystemTitle:
-    case ContentType::SystemApplet:
+    case ContentType::NandTitle:
         return DeleteNandTitle(specifier.id);
     default:
         UNREACHABLE();

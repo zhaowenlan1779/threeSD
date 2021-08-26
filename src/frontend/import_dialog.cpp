@@ -27,55 +27,126 @@
 #include "frontend/title_info_dialog.h"
 #include "ui_import_dialog.h"
 
-// content type, singular name, plural name, icon name
+// Groups that are used in the frontend. This is organized in a slightly different way than Core.
+enum class DisplayGroup {
+    Application,
+    Update,
+    DLC,
+    Savegame,
+    Extdata,
+    Sysdata,
+    SystemTitle,
+    SystemApplet,
+};
+
 // clang-format off
-static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 10>
-    ContentTypeMap{{
-        {Core::ContentType::Application, QT_TR_NOOP("Application"), QT_TR_NOOP("Applications"), "app"},
-        {Core::ContentType::Update, QT_TR_NOOP("Update"),  QT_TR_NOOP("Updates"), "update"},
-        {Core::ContentType::DLC, QT_TR_NOOP("DLC"), QT_TR_NOOP("DLCs"), "dlc"},
-        {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), QT_TR_NOOP("Save Data"), "save_data"},
-        {Core::ContentType::NandSavegame, QT_TR_NOOP("System Save Data"), QT_TR_NOOP("System Save Data"), "save_data"},
-        {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), QT_TR_NOOP("Extra Data"), "save_data"},
-        {Core::ContentType::NandExtdata, QT_TR_NOOP("System Extra Data"), QT_TR_NOOP("System Extra Data"), "save_data"},
-        {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), QT_TR_NOOP("System Data"), "system_data"},
-        {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), QT_TR_NOOP("System Titles"), "hos"},
-        {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), QT_TR_NOOP("System Applets"), "hos"},
+// group, singular name, plural name, icon name
+constexpr std::array<std::tuple<DisplayGroup, const char*, const char*, const char*>, 8>
+    DisplayGroupMap{{
+        {DisplayGroup::Application, QT_TR_NOOP("Application"), QT_TR_NOOP("Applications"), "app"},
+        {DisplayGroup::Update, QT_TR_NOOP("Update"), QT_TR_NOOP("Updates"), "update"},
+        {DisplayGroup::DLC, QT_TR_NOOP("DLC"), QT_TR_NOOP("DLCs"), "dlc"},
+        {DisplayGroup::Savegame, QT_TR_NOOP("Save Data"), QT_TR_NOOP("Save Data"), "save_data"},
+        {DisplayGroup::Extdata, QT_TR_NOOP("Extra Data"), QT_TR_NOOP("Extra Data"), "save_data"},
+        {DisplayGroup::Sysdata, QT_TR_NOOP("System Data"), QT_TR_NOOP("System Data"), "system_data"},
+        {DisplayGroup::SystemTitle, QT_TR_NOOP("System Title"), QT_TR_NOOP("System Titles"), "hos"},
+        {DisplayGroup::SystemApplet, QT_TR_NOOP("System Applet"), QT_TR_NOOP("System Applets"), "hos"},
     }};
 // clang-format on
 
+static DisplayGroup GetDisplayGroup(const Core::ContentSpecifier& specifier) {
+    if (specifier.type == Core::ContentType::Title) {
+        switch (specifier.id >> 32) {
+        case 0x00040000:
+            return DisplayGroup::Application;
+        case 0x0004000e:
+            return DisplayGroup::Update;
+        case 0x0004008c:
+            return DisplayGroup::DLC;
+        default:
+            UNREACHABLE();
+        }
+    }
+    if (specifier.type == Core::ContentType::Savegame) {
+        return DisplayGroup::Savegame;
+    }
+    if (specifier.type == Core::ContentType::Extdata) {
+        return DisplayGroup::Extdata;
+    }
+    if (specifier.type == Core::ContentType::NandSavegame ||
+        specifier.type == Core::ContentType::NandExtdata ||
+        specifier.type == Core::ContentType::Sysdata) { // These are grouped together
+
+        return DisplayGroup::Sysdata;
+    }
+    if (specifier.type == Core::ContentType::NandTitle) {
+        return (specifier.id >> 32) == 0x00040030 ? DisplayGroup::SystemApplet
+                                                  : DisplayGroup::SystemTitle;
+    }
+    UNREACHABLE();
+}
+
 static QString GetContentName(const Core::ContentSpecifier& specifier) {
+    if (specifier.type == Core::ContentType::NandSavegame) {
+        return QObject::tr("System Save 0x%1", "ImportDialog")
+            .arg(specifier.id, 16, 16, QLatin1Char('0'));
+    }
+    if (specifier.type == Core::ContentType::NandExtdata) {
+        return QObject::tr("System Extra 0x%1", "ImportDialog")
+            .arg(specifier.id, 16, 16, QLatin1Char('0'));
+    }
     return specifier.name.empty()
                ? QStringLiteral("0x%1").arg(specifier.id, 16, 16, QLatin1Char('0'))
                : QString::fromStdString(specifier.name);
 }
 
 template <bool Plural = true>
-static QString GetContentTypeName(Core::ContentType type) {
+static QString GetDisplayGroupName(DisplayGroup group) {
     if constexpr (Plural) {
-        return QObject::tr(std::get<2>(ContentTypeMap.at(static_cast<std::size_t>(type))),
+        return QObject::tr(std::get<2>(DisplayGroupMap.at(static_cast<std::size_t>(group))),
                            "ImportDialog");
     } else {
-        return QObject::tr(std::get<1>(ContentTypeMap.at(static_cast<std::size_t>(type))),
+        return QObject::tr(std::get<1>(DisplayGroupMap.at(static_cast<std::size_t>(group))),
                            "ImportDialog");
     }
 }
 
-static QPixmap GetContentTypeIcon(Core::ContentType type) {
+template <bool Plural = true>
+static QString GetDisplayGroupName(const Core::ContentSpecifier& specifier) {
+    return GetDisplayGroupName<Plural>(GetDisplayGroup(specifier));
+}
+
+static QPixmap GetDisplayGroupIcon(DisplayGroup group) {
     return QIcon::fromTheme(
-               QString::fromUtf8(std::get<3>(ContentTypeMap.at(static_cast<std::size_t>(type)))))
+               QString::fromUtf8(std::get<3>(DisplayGroupMap.at(static_cast<std::size_t>(group)))))
         .pixmap(24);
 }
 
-static QPixmap GetContentIcon(const Core::ContentSpecifier& specifier,
-                              bool use_category_icon = false) {
-    if (specifier.icon.empty()) {
-        // Return a category icon, or a null icon
-        return use_category_icon ? GetContentTypeIcon(specifier.type)
-                                 : QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24);
+static QPixmap GetContentIcon(const Core::ContentSpecifier& specifier) {
+    if (!specifier.icon.empty()) {
+        return QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(specifier.icon.data()), 24,
+                                         24, QImage::Format::Format_RGB16));
     }
-    return QPixmap::fromImage(QImage(reinterpret_cast<const uchar*>(specifier.icon.data()), 24, 24,
-                                     QImage::Format::Format_RGB16));
+
+    // Use a category icon to distinguish between different types of System Data
+    if (specifier.type == Core::ContentType::NandSavegame ||
+        specifier.type == Core::ContentType::NandExtdata) {
+        return GetDisplayGroupIcon(DisplayGroup::Savegame);
+    }
+    if (specifier.type == Core::ContentType::Sysdata) {
+        return GetDisplayGroupIcon(DisplayGroup::Sysdata);
+    }
+
+    // Use a special icon for NAND non-executable archives
+    if (specifier.type == Core::ContentType::NandTitle) {
+        const auto id_high = specifier.id >> 32;
+        if (id_high == 0x0004001b || id_high == 0x0004009b || id_high == 0x000400db) {
+            return QIcon::fromTheme(QStringLiteral("system_archive")).pixmap(24);
+        }
+    }
+
+    // Return a null icon otherwise
+    return QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24);
 }
 
 ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
@@ -214,29 +285,28 @@ void ImportDialog::InsertTopLevelItem(QString text, QPixmap icon, u64 total_size
 }
 
 // Content types that themselves form a 'Title' like entity.
-constexpr std::array<Core::ContentType, 5> SpecialContentTypeList{{
-    Core::ContentType::NandSavegame,
-    Core::ContentType::NandExtdata,
-    Core::ContentType::Sysdata,
-    Core::ContentType::SystemTitle,
-    Core::ContentType::SystemApplet,
+constexpr std::array<DisplayGroup, 3> SpecialDisplayGroupList{{
+    DisplayGroup::Sysdata,
+    DisplayGroup::SystemTitle,
+    DisplayGroup::SystemApplet,
 }};
 
 void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpecifier& content,
                                          std::size_t id, QString replace_name,
                                          QPixmap replace_icon) {
     const bool use_title_view = ui->title_view_button->isChecked();
+    const auto group = GetDisplayGroup(content);
 
     QString name;
     if (use_title_view) {
         if (row == 0) {
             name = QStringLiteral("%1 (%2)")
                        .arg(GetContentName(content))
-                       .arg(GetContentTypeName<false>(content.type));
-        } else if (row <= SpecialContentTypeList.size()) {
+                       .arg(GetDisplayGroupName<false>(group));
+        } else if (row <= SpecialDisplayGroupList.size()) {
             name = GetContentName(content);
         } else {
-            name = GetContentTypeName<false>(content.type);
+            name = GetDisplayGroupName<false>(group);
         }
     } else {
         name = GetContentName(content);
@@ -252,14 +322,13 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     // Set icon
     QPixmap icon;
     if (replace_icon.isNull()) {
-        // Exclude system titles, they are a single group but have own icons.
-        if (use_title_view && content.type != Core::ContentType::SystemTitle &&
-            content.type != Core::ContentType::SystemApplet) {
-            icon = GetContentTypeIcon(content.type);
+        const bool in_special_group =
+            std::find(SpecialDisplayGroupList.begin(), SpecialDisplayGroupList.end(), group) !=
+            SpecialDisplayGroupList.end();
+        if (use_title_view && !in_special_group) {
+            icon = GetDisplayGroupIcon(group);
         } else {
-            // When not in title view, System Data groups use category icons.
-            const bool use_category_icon = content.type == Core::ContentType::Sysdata;
-            icon = GetContentIcon(content, use_category_icon);
+            icon = GetContentIcon(content);
         }
     } else {
         icon = replace_icon;
@@ -267,7 +336,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
     item->setIcon(0, QIcon(icon));
 
     // Skip System Applets, but enable everything else by default.
-    if (!content.already_exists && content.type != Core::ContentType::SystemApplet) {
+    if (!content.already_exists && group != DisplayGroup::SystemApplet) {
         item->setCheckState(0, Qt::Checked);
         total_selected_size += content.maximum_size;
     } else {
@@ -284,9 +353,10 @@ void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {
     }
 
     const auto& specifier = SpecifierFromItem(item);
+    const auto group = GetDisplayGroup(specifier);
     if (item->checkState(0) == Qt::Checked) {
         if (!applet_warning_shown && !specifier.already_exists &&
-            specifier.type == Core::ContentType::SystemApplet) {
+            group == DisplayGroup::SystemApplet) {
 
             QMessageBox::warning(
                 this, tr("Warning"),
@@ -297,8 +367,7 @@ void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {
         total_selected_size += specifier.maximum_size;
     } else {
         if (!system_warning_shown && !specifier.already_exists &&
-            (specifier.type == Core::ContentType::Sysdata ||
-             specifier.type == Core::ContentType::SystemTitle)) {
+            (group == DisplayGroup::Sysdata || group == DisplayGroup::SystemTitle)) {
 
             QMessageBox::warning(this, tr("Warning"),
                                  tr("You are de-selecting important files that may be necessary "
@@ -331,7 +400,8 @@ void ImportDialog::RepopulateContent() {
     std::map<u64, TitleMapEntry> title_map;
     std::unordered_map<u64, u64> extdata_id_map; // extdata ID -> title ID
     for (const auto& content : contents) {
-        if (content.type == Core::ContentType::Application) {
+        // Applications
+        if (content.type == Core::ContentType::Title && (content.id >> 32) == 0x00040000) {
             title_map[content.id].name = GetContentName(content);
             title_map[content.id].icon = GetContentIcon(content);
             extdata_id_map.emplace(content.extdata_id, content.id);
@@ -343,9 +413,7 @@ void ImportDialog::RepopulateContent() {
                 const u64 title_id = extdata_id_map.at(content.id);
                 title_map[title_id].contents.emplace_back(&content);
             }
-        } else if (content.type == Core::ContentType::Application ||
-                   content.type == Core::ContentType::Update ||
-                   content.type == Core::ContentType::DLC ||
+        } else if (content.type == Core::ContentType::Title ||
                    content.type == Core::ContentType::Savegame) {
             if (title_map.count(content.id)) {
                 title_map[content.id].contents.emplace_back(&content);
@@ -358,16 +426,16 @@ void ImportDialog::RepopulateContent() {
         // Create 'Ungrouped' category.
         InsertTopLevelItem(tr("Ungrouped"), QIcon::fromTheme(QStringLiteral("unknown")).pixmap(24));
 
-        // Create categories for special content types.
-        for (std::size_t i = 0; i < SpecialContentTypeList.size(); ++i) {
-            InsertTopLevelItem(GetContentTypeName(SpecialContentTypeList[i]),
-                               GetContentTypeIcon(SpecialContentTypeList[i]));
+        // Create categories for special display groups.
+        for (std::size_t i = 0; i < SpecialDisplayGroupList.size(); ++i) {
+            InsertTopLevelItem(GetDisplayGroupName(SpecialDisplayGroupList[i]),
+                               GetDisplayGroupIcon(SpecialDisplayGroupList[i]));
         }
 
-        // Titles
+        // Applications
         std::unordered_map<u64, u64> title_row_map;
         for (auto& [id, entry] : title_map) {
-            // Process the title's contents
+            // Process the application's contents
             u64 total_size = 0;
             bool has_exist = false, has_non_exist = false;
             for (const auto* content : entry.contents) {
@@ -398,9 +466,7 @@ void ImportDialog::RepopulateContent() {
 
             std::size_t row = 0; // 0 for ungrouped (default)
             switch (content.type) {
-            case Core::ContentType::Application:
-            case Core::ContentType::Update:
-            case Core::ContentType::DLC:
+            case Core::ContentType::Title:
             case Core::ContentType::Savegame: {
                 // Fix the id
                 const auto real_id = content.id & 0xffffff00ffffffff;
@@ -416,10 +482,11 @@ void ImportDialog::RepopulateContent() {
                 break;
             }
             default: {
-                const std::size_t idx = std::find(SpecialContentTypeList.begin(),
-                                                  SpecialContentTypeList.end(), content.type) -
-                                        SpecialContentTypeList.begin();
-                ASSERT_MSG(idx < SpecialContentTypeList.size(), "Content Type not handled");
+                const std::size_t idx =
+                    std::find(SpecialDisplayGroupList.begin(), SpecialDisplayGroupList.end(),
+                              GetDisplayGroup(content)) -
+                    SpecialDisplayGroupList.begin();
+                ASSERT_MSG(idx < SpecialDisplayGroupList.size(), "Display Group not handled");
                 row = idx + 1;
                 break;
             }
@@ -428,8 +495,8 @@ void ImportDialog::RepopulateContent() {
             InsertSecondLevelItem(row, content, i);
         }
     } else {
-        for (const auto& [type, singular_name, plural_name, icon_name] : ContentTypeMap) {
-            InsertTopLevelItem(tr(plural_name), GetContentTypeIcon(type));
+        for (const auto& [group, singular_name, plural_name, icon_name] : DisplayGroupMap) {
+            InsertTopLevelItem(tr(plural_name), GetDisplayGroupIcon(group));
         }
 
         for (std::size_t i = 0; i < contents.size(); ++i) {
@@ -450,7 +517,8 @@ void ImportDialog::RepopulateContent() {
                 }
             }
 
-            InsertSecondLevelItem(static_cast<std::size_t>(content.type), content, i, name, icon);
+            InsertSecondLevelItem(static_cast<std::size_t>(GetDisplayGroup(content)), content, i,
+                                  name, icon);
         }
     }
 
@@ -509,7 +577,8 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
     QMenu context_menu(this);
     if (item->parent()) { // Second level
         const auto& specifier = SpecifierFromItem(item);
-        if (specifier.type == Core::ContentType::Application) {
+        const auto group = GetDisplayGroup(specifier);
+        if (group == DisplayGroup::Application) {
             context_menu.addAction(tr("Dump CXI file"),
                                    [this, specifier] { StartDumpingCXISingle(specifier); });
         }
@@ -528,15 +597,16 @@ void ImportDialog::OnContextMenu(const QPoint& point) {
 
         for (int i = 0; i < item->childCount(); ++i) {
             const auto& specifier = SpecifierFromItem(item->child(i));
-            if (specifier.type == Core::ContentType::Application) {
+            const auto group = GetDisplayGroup(specifier);
+            if (group == DisplayGroup::Application) {
                 context_menu.addAction(tr("Dump Base CXI file"),
                                        [this, specifier] { StartDumpingCXISingle(specifier); });
                 context_menu.addAction(tr("Build Base CIA"),
                                        [this, specifier] { StartBuildingCIASingle(specifier); });
-            } else if (specifier.type == Core::ContentType::Update) {
+            } else if (group == DisplayGroup::Update) {
                 context_menu.addAction(tr("Build Update CIA"),
                                        [this, specifier] { StartBuildingCIASingle(specifier); });
-            } else if (specifier.type == Core::ContentType::DLC) {
+            } else if (group == DisplayGroup::DLC) {
                 context_menu.addAction(tr("Build DLC CIA"),
                                        [this, specifier] { StartBuildingCIASingle(specifier); });
             }
@@ -613,7 +683,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
                                    .arg(count)
                                    .arg(total_count)
                                    .arg(GetContentName(next_content))
-                                   .arg(GetContentTypeName<false>(next_content.type))
+                                   .arg(GetDisplayGroupName<false>(next_content))
                                    .arg(FormatETA(eta)));
                 current_content = next_content;
                 current_count = count;
@@ -631,7 +701,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
                     .arg(current_count)
                     .arg(total_count)
                     .arg(GetContentName(current_content))
-                    .arg(GetContentTypeName<false>(current_content.type))
+                    .arg(GetDisplayGroupName<false>(current_content))
                     .arg(ReadableByteSize(current_imported_size))
                     .arg(ReadableByteSize(current_content.maximum_size))
                     .arg(FormatETA(eta)));
@@ -647,7 +717,7 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
             for (const auto& content : failed_contents) {
                 list_content.append(QStringLiteral("<li>%1 (%2)</li>")
                                         .arg(GetContentName(content))
-                                        .arg(GetContentTypeName<false>(content.type)));
+                                        .arg(GetDisplayGroupName<false>(content)));
             }
             QMessageBox::critical(this, tr("threeSD"),
                                   tr("List of failed contents:<ul>%1</ul>").arg(list_content));
@@ -715,7 +785,7 @@ void ImportDialog::StartBatchDumpingCXI() {
 
     const auto removed_iter = std::remove_if(
         to_import.begin(), to_import.end(), [](const Core::ContentSpecifier& specifier) {
-            return specifier.type != Core::ContentType::Application;
+            return specifier.type != Core::ContentType::Title || (specifier.id >> 32) != 0x00040000;
         });
     if (removed_iter == to_import.begin()) { // No Applications selected
         QMessageBox::critical(this, tr("threeSD"),

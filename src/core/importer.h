@@ -26,25 +26,21 @@ class TitleMetadata;
  * Applications, updates and DLCs are all considered titles.
  */
 enum class ContentType {
-    Application,
-    Update,
-    DLC,
+    Title,
     Savegame,
     NandSavegame,
     Extdata,
     NandExtdata,
     Sysdata,
-    SystemTitle,
-    SystemApplet, // This should belong to System Title, but they cause problems so a new category.
+    NandTitle,
 };
+constexpr std::size_t ContentTypeCount = 7;
 
 constexpr bool IsTitle(ContentType type) {
-    return type == ContentType::Application || type == ContentType::Update ||
-           type == ContentType::DLC || type == ContentType::SystemTitle ||
-           type == ContentType::SystemApplet;
+    return type == ContentType::Title || type == ContentType::NandTitle;
 }
 constexpr bool IsNandTitle(ContentType type) {
-    return type == ContentType::SystemTitle || type == ContentType::SystemApplet;
+    return type == ContentType::NandTitle;
 }
 
 /**
