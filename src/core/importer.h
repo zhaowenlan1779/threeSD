@@ -30,7 +30,9 @@ enum class ContentType {
     Update,
     DLC,
     Savegame,
+    NandSavegame,
     Extdata,
+    NandExtdata,
     Sysdata,
     SystemTitle,
     SystemApplet, // This should belong to System Title, but they cause problems so a new category.
@@ -209,7 +211,9 @@ private:
     void DeleteTitle(u64 id) const;
     void DeleteNandTitle(u64 id) const;
     void DeleteSavegame(u64 id) const;
+    void DeleteNandSavegame(u64 id) const;
     void DeleteExtdata(u64 id) const;
+    void DeleteNandExtdata(u64 id) const;
     void DeleteSysdata(u64 id) const;
 
     bool is_good{};

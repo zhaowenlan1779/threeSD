@@ -29,13 +29,15 @@
 
 // content type, singular name, plural name, icon name
 // clang-format off
-static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 8>
+static constexpr std::array<std::tuple<Core::ContentType, const char*, const char*, const char*>, 10>
     ContentTypeMap{{
         {Core::ContentType::Application, QT_TR_NOOP("Application"), QT_TR_NOOP("Applications"), "app"},
         {Core::ContentType::Update, QT_TR_NOOP("Update"),  QT_TR_NOOP("Updates"), "update"},
         {Core::ContentType::DLC, QT_TR_NOOP("DLC"), QT_TR_NOOP("DLCs"), "dlc"},
         {Core::ContentType::Savegame, QT_TR_NOOP("Save Data"), QT_TR_NOOP("Save Data"), "save_data"},
+        {Core::ContentType::NandSavegame, QT_TR_NOOP("System Save Data"), QT_TR_NOOP("System Save Data"), "save_data"},
         {Core::ContentType::Extdata, QT_TR_NOOP("Extra Data"), QT_TR_NOOP("Extra Data"), "save_data"},
+        {Core::ContentType::NandExtdata, QT_TR_NOOP("System Extra Data"), QT_TR_NOOP("System Extra Data"), "save_data"},
         {Core::ContentType::Sysdata, QT_TR_NOOP("System Data"), QT_TR_NOOP("System Data"), "system_data"},
         {Core::ContentType::SystemTitle, QT_TR_NOOP("System Title"), QT_TR_NOOP("System Titles"), "hos"},
         {Core::ContentType::SystemApplet, QT_TR_NOOP("System Applet"), QT_TR_NOOP("System Applets"), "hos"},
@@ -212,7 +214,9 @@ void ImportDialog::InsertTopLevelItem(QString text, QPixmap icon, u64 total_size
 }
 
 // Content types that themselves form a 'Title' like entity.
-constexpr std::array<Core::ContentType, 3> SpecialContentTypeList{{
+constexpr std::array<Core::ContentType, 5> SpecialContentTypeList{{
+    Core::ContentType::NandSavegame,
+    Core::ContentType::NandExtdata,
     Core::ContentType::Sysdata,
     Core::ContentType::SystemTitle,
     Core::ContentType::SystemApplet,
