@@ -2,6 +2,8 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#pragma once
+
 #include <memory>
 #include "core/file_sys/smdh.h"
 #include "frontend/helpers/dpi_aware_dialog.h"
