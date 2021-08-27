@@ -460,58 +460,77 @@ std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifi
     }
 }
 
-// English short title name, extdata id, icon
-using TitleData = std::tuple<std::string, u64, std::vector<u16>>;
-
+struct TitleData {
+    std::string name;
+    u64 extdata_id;
+    std::vector<u16> icon;
+};
 static TitleData LoadTitleData(NCCHContainer& ncch) {
     static const std::unordered_map<u64, const char*> NamedTitles{{
+        // System Applications (to avoid confusion)
+        {0x00040010'2002c800, "New 3DS HOME Menu manual (JPN)"},
+        {0x00040010'2002cf00, "New 3DS HOME Menu manual (USA)"},
+        {0x00040010'2002d000, "New 3DS HOME Menu manual (EUR)"},
+        {0x00040010'2002d700, "New 3DS HOME Menu manual (KOR)"},
+        {0x00040010'2002c900, "New 3DS Friend List manual (JPN)"},
+        {0x00040010'2002d100, "New 3DS Friend List manual (USA)"},
+        {0x00040010'2002d200, "New 3DS Friend List manual (EUR)"},
+        {0x00040010'2002d800, "New 3DS Friend List manual (KOR)"},
+        {0x00040010'2002ca00, "New 3DS Notifications manual (JPN)"},
+        {0x00040010'2002d300, "New 3DS Notifications manual (USA)"},
+        {0x00040010'2002d400, "New 3DS Notifications manual (EUR)"},
+        {0x00040010'2002d900, "New 3DS Notifications manual (KOR)"},
+        {0x00040010'2002cb00, "New 3DS Game Notes manual (JPN)"},
+        {0x00040010'2002d500, "New 3DS Game Notes manual (USA)"},
+        {0x00040010'2002d600, "New 3DS Game Notes manual (EUR)"},
+        {0x00040010'2002da00, "New 3DS Game Notes manual (KOR)"},
+        // System Archives
+        {0x0004001b'00010002, "ClCertA"},
         {0x0004009b'00010202, "Mii Data"},
         {0x0004009b'00010402, "Region Manifest"},
         {0x0004009b'00014002, "Shared Font (JPN/EUR/USA)"},
         {0x0004009b'00014102, "Shared Font (CHN)"},
         {0x0004009b'00014202, "Shared Font (KOR)"},
         {0x0004009b'00014302, "Shared Font (TWN)"},
-        {0x000400db'00010302, "Bad word list"},
+        {0x000400db'00010302, "NGWord Bad word list"},
     }};
 
     u64 program_id{};
     ncch.ReadProgramId(program_id);
-    if (NamedTitles.count(program_id)) {
-        return TitleData{NamedTitles.at(program_id), 0, {}};
-    }
-
-    std::string codeset_name;
-    ncch.ReadCodesetName(codeset_name);
-
-    std::string title_name_from_codeset;
-    if (!codeset_name.empty()) {
-        title_name_from_codeset =
-            fmt::format("{} (0x{:016x})", std::move(codeset_name), program_id);
-    }
-
-    std::vector<u8> smdh_buffer;
-    if (!ncch.LoadSectionExeFS("icon", smdh_buffer)) {
-        LOG_WARNING(Core, "Failed to load icon in ExeFS");
-        TitleData data{};
-        std::get<0>(data) = std::move(title_name_from_codeset);
-        return data;
-    }
-
-    if (smdh_buffer.size() != sizeof(SMDH)) {
-        LOG_ERROR(Core, "ExeFS icon section size is not correct");
-        TitleData data{};
-        std::get<0>(data) = std::move(title_name_from_codeset);
-        return data;
-    }
-
-    SMDH smdh;
-    std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
 
     u64 extdata_id{};
     ncch.ReadExtdataId(extdata_id);
 
-    return {Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English)), extdata_id,
-            smdh.GetIcon(false)};
+    // Determine title name from codeset name
+    std::string codeset_name;
+    ncch.ReadCodesetName(codeset_name);
+
+    std::string title_name;
+    if (!codeset_name.empty()) {
+        title_name = fmt::format("{} (0x{:016x})", std::move(codeset_name), program_id);
+    }
+    if (NamedTitles.count(program_id)) { // Override name
+        title_name = NamedTitles.at(program_id);
+    }
+
+    // Load SMDH (for name and icon)
+    std::vector<u8> smdh_buffer;
+    if (!ncch.LoadSectionExeFS("icon", smdh_buffer)) {
+        LOG_WARNING(Core, "Failed to load icon in ExeFS");
+        return TitleData{std::move(title_name), extdata_id};
+    }
+
+    if (smdh_buffer.size() != sizeof(SMDH)) {
+        LOG_ERROR(Core, "ExeFS icon section size is not correct");
+        return TitleData{std::move(title_name), extdata_id};
+    }
+
+    SMDH smdh;
+    std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
+    if (!NamedTitles.count(program_id)) { // Name was not overridden
+        title_name = Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+    }
+    return TitleData{std::move(title_name), extdata_id, smdh.GetIcon(false)};
 }
 
 static std::string NormalizeFilename(std::string filename) {
