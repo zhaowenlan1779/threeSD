@@ -404,7 +404,7 @@ static std::string FindTMD(const std::string& path) {
 }
 
 bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
-    const bool is_nand = IsNandTitle(type);
+    const bool is_nand = type == ContentType::NandTitle;
 
     auto& title_db = is_nand ? nand_title_db : sdmc_title_db;
     const auto physical_path =
@@ -443,7 +443,7 @@ bool SDMCImporter::LoadTMD(const ContentSpecifier& specifier, TitleMetadata& out
 
 std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifier& specifier,
                                                             u32 content_id) const {
-    if (IsNandTitle(specifier.type)) {
+    if (specifier.type == ContentType::NandTitle) {
         const auto path =
             fmt::format("{}{:08x}/{:08x}/content/{:08x}.app", config.system_titles_path,
                         (specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id);

@@ -39,9 +39,6 @@ constexpr std::size_t ContentTypeCount = 7;
 constexpr bool IsTitle(ContentType type) {
     return type == ContentType::Title || type == ContentType::NandTitle;
 }
-constexpr bool IsNandTitle(ContentType type) {
-    return type == ContentType::NandTitle;
-}
 
 /**
  * Struct that specifies an importable content.
