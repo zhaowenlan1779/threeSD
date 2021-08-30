@@ -45,7 +45,7 @@ bool SeedDB::AddFromFile(const std::string& path) {
     return true;
 }
 
-bool SeedDB::Save(const std::string& path) {
+bool SeedDB::Save(const std::string& path) const {
     if (!FileUtil::CreateFullPath(path)) {
         LOG_ERROR(Service_FS, "Failed to create seed database");
         return false;
@@ -79,6 +79,10 @@ bool SeedDB::Save(const std::string& path) {
         file.Seek(SEEDDB_ENTRY_PADDING_BYTES, SEEK_CUR);
     }
     return true;
+}
+
+std::size_t SeedDB::GetSize() const {
+    return sizeof(u32) + SEEDDB_PADDING_BYTES + seeds.size() * SEEDDB_ENTRY_SIZE;
 }
 
 } // namespace Core
