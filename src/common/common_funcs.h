@@ -19,9 +19,9 @@
 #define CONCAT2(x, y) DO_CONCAT2(x, y)
 #define DO_CONCAT2(x, y) x##y
 
-#define TRY(x, fail)                                                                               \
+#define TRY(x, ...)                                                                                \
     if (!(x)) {                                                                                    \
-        fail;                                                                                      \
+        __VA_ARGS__;                                                                               \
         return false;                                                                              \
     }
 
