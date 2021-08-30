@@ -31,17 +31,6 @@ Q_IMPORT_PLUGIN(QWindowsVistaStylePlugin)
 #endif
 #endif
 
-bool IsConfigGood(const Core::Config& config) {
-    return !config.sdmc_path.empty() && !config.user_path.empty() &&
-           !config.movable_sed_path.empty() && !config.bootrom_path.empty();
-}
-
-bool IsConfigComplete(const Core::Config& config) {
-    return IsConfigGood(config) && !config.certs_db_path.empty() &&
-           !config.nand_title_db_path.empty() && !config.ticket_db_path.empty() &&
-           !config.system_titles_path.empty() && !config.nand_data_path.empty();
-}
-
 MainDialog::MainDialog(QWidget* parent)
     : DPIAwareDialog(parent, 640, 256), ui(std::make_unique<Ui::MainDialog>()) {
 
@@ -116,8 +105,6 @@ void MainDialog::SetContentSizes(int previous_width, int previous_height) {
     }
 }
 
-static const std::regex sdmc_path_regex{"(.+)([/\\\\])Nintendo 3DS/([0-9a-f]{32})/([0-9a-f]{32})/"};
-
 void MainDialog::LoadPresetConfig() {
     ui->main->clear();
     preset_config_list.clear();
@@ -137,24 +124,16 @@ void MainDialog::LoadPresetConfig() {
             }
 
             // Get ID0
-            QString id0 = tr("Unknown");
-            std::smatch match;
-            if (std::regex_match(list[i].sdmc_path, match, sdmc_path_regex)) {
-                if (match.size() >= 5) {
-                    id0 = QString::fromStdString(match[3].str());
-                }
-            }
+            QString id0 = QString::fromStdString(list[i].id0);
 
             // Get status
             QString status = tr("Good");
-            if (!IsConfigGood(list[i])) {
-                status = tr("No Configuration Found");
-            } else if (list[i].version != Core::CurrentDumperVersion) {
+            if (list[i].version != Core::CurrentDumperVersion) {
                 status = tr("Version Dismatch");
+            } else if (!IsConfigGood(list[i])) {
+                status = tr("No Configuration Found");
             } else if (!IsConfigComplete(list[i])) {
                 status = tr("Missing System Files");
-            } else if (list[i].seed_db_path.empty()) {
-                status = tr("Good, Missing Seeds");
             }
 
             auto* item = new QTreeWidgetItem{{path, id0, status}};
@@ -201,7 +180,14 @@ void MainDialog::LaunchImportDialog() {
         config = preset_config_list.at(index);
     }
 
-    // Check config integrity
+    // Display info regarding status
+    if (config.version != Core::CurrentDumperVersion) {
+        QMessageBox::critical(this, tr("Version Dismatch"),
+                              tr("You are using an unsupported version of threeSDumper.<br>Please "
+                                 "ensure that you are using the most recent version of both "
+                                 "threeSD and threeSDumper and try again."));
+        return;
+    }
     if (!IsConfigGood(config)) {
         QMessageBox::critical(
             this, tr("Error"),
@@ -211,15 +197,6 @@ void MainDialog::LaunchImportDialog() {
                "guide</a> correctly."));
         return;
     }
-
-    if (config.version != Core::CurrentDumperVersion) {
-        QMessageBox::critical(this, tr("Version Dismatch"),
-                              tr("You are using an unsupported version of threeSDumper.<br>Please "
-                                 "ensure that you are using the most recent version of both "
-                                 "threeSD and threeSDumper and try again."));
-        return;
-    }
-
     if (!IsConfigComplete(config)) {
         QMessageBox::warning(
             this, tr("Warning"),
@@ -227,11 +204,6 @@ void MainDialog::LaunchImportDialog() {
                "may not be importable, or may not run.<br>Please check if you have followed the <a "
                "href='https://github.com/zhaowenlan1779/threeSD/wiki/Quickstart-Guide'>guide</a> "
                "correctly."));
-    } else if (config.seed_db_path.empty()) {
-        QMessageBox::warning(this, tr("Warning"),
-                             tr("Seed database is missing from your configuration.<br>Your system "
-                                "likely does not have any seeds.<br>However, if it does have any, "
-                                "imported games using seed encryption may not work."));
     }
 
     ImportDialog dialog(this, config);

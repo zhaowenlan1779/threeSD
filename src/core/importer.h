@@ -58,34 +58,49 @@ struct ContentSpecifier {
  * All paths to directories shall end with a '/' (will be automatically added when not present)
  */
 struct Config {
-    std::string sdmc_path; ///< SDMC root path ("Nintendo 3DS/<ID0>/<ID1>")
+    int version = 0; ///< Version of the dumper used.
+
     std::string user_path; ///< Target user path of Citra
+    std::string sdmc_path; ///< SDMC root path ("Nintendo 3DS/<ID0>/<ID1>")
+    std::string id0;       ///< ID0 of the SDMC used in this configuration.
 
-    // Necessary system files keys are loaded from.
-    std::string movable_sed_path; ///< Path to movable.sed
-    std::string bootrom_path;     ///< Path to bootrom (boot9.bin) (Sysdata 0)
-    std::string certs_db_path;    ///< Path to certs.db. Used while building CIA.
-
-    // Optional, used while building CIA, but usually missing these files won't hinder CIA building.
-    std::string nand_title_db_path;      ///< Path to NAND title.db. Entirely optional.
-    std::string ticket_db_path;          ///< Path to ticket.db. Entirely optional.
+    // Necessary system files
+    std::string bootrom_path;            ///< Path to bootrom (boot9.bin) (Sysdata 0)
+    std::string secret_sector_path;      ///< Path to secret sector (New3DS only) (Sysdata 2)
     std::string enc_title_keys_bin_path; ///< Path to encTitleKeys.bin. Entirely optional.
 
-    // The following system files are optional for importing and are only copied so that Citra
-    // will be able to decrypt imported encrypted ROMs.
+    struct NandConfig {
+        std::string nand_name;        ///< Name of the NAND used in this configuration.
+        std::string movable_sed_path; ///< Path to movable.sed
 
-    std::string seed_db_path;       ///< Path to seeddb.bin (Sysdata 1)
-    std::string secret_sector_path; ///< Path to secret sector (New3DS only) (Sysdata 2)
-    // Note: Sysdata 3 is aes_keys.txt (slot0x25KeyX)
+        std::string certs_db_path;  ///< Path to certs.db. Used while building CIA.
+        std::string ticket_db_path; ///< Path to ticket.db. Entirely optional.
+        std::string title_db_path;  ///< Path to NAND title.db. Entirely optional.
+        std::string seed_db_path;   ///< Path to seeddb.bin
 
-    std::string system_titles_path; ///< Path to system titles.
-    std::string nand_data_path;     ///< Path to NAND data. (Extdata and savedata)
-
-    int version = 0; ///< Version of the dumper used.
+        std::string title_path; ///< Path to system titles.
+        std::string data_path;  ///< Path to NAND data. (Extdata and savedata)
+    };
+    /// A list of NandConfigs with the same ID0 (linked NANDs).
+    /// The order of the NANDs matter: the importer will merge the dbs, but will only load NAND
+    /// titles and data from the *first* NAND.
+    std::vector<NandConfig> nands;
 };
 
 // Version of the current dumper.
 constexpr int CurrentDumperVersion = 4;
+
+constexpr bool IsConfigGood(const Config& config) {
+    return config.version == CurrentDumperVersion && !config.user_path.empty() &&
+           !config.sdmc_path.empty() && !config.bootrom_path.empty() && !config.nands.empty() &&
+           !config.nands[0].movable_sed_path.empty();
+}
+
+constexpr bool IsConfigComplete(const Config& config) {
+    // We are skipping the DBs here. Need more work regarding that
+    return IsConfigGood(config) && !config.nands[0].title_path.empty() &&
+           !config.nands[0].data_path.empty();
+}
 
 class SDMCFile;
 class NCCHContainer;
@@ -94,7 +109,6 @@ class SDMCImporter {
 public:
     /**
      * Initializes the importer.
-     * @param root_folder Path to the "Nintendo 3DS/<ID0>/<ID1>" folder.
      */
     explicit SDMCImporter(const Config& config);
 
@@ -211,6 +225,7 @@ private:
 
     bool is_good{};
     Config config;
+    Config::NandConfig nand_config; // Main NAND config
     std::unique_ptr<SDMCDecryptor> sdmc_decryptor;
     FileDecryptor file_decryptor;
 
@@ -227,6 +242,9 @@ private:
 
 /**
  * Look for and load preset config for a SD card mounted at mount_point.
+ * Note: This returns only one config per ID0.
+ *       The frontend should allow the user to change the order of the NANDs.
+ *
  * @return a list of preset config available. can be empty
  */
 std::vector<Config> LoadPresetConfig(std::string mount_point);

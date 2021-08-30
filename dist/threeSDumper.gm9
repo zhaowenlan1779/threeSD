@@ -5,124 +5,109 @@
 # GM9 Script for dumping necessary files automatically.
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779"
-set OUT "0:/threeSD"
-if not find $[OUT] NULL
-    mkdir $[OUT]
-end
-
-if not ask "Execute threeSD Dumper?"
+if not ask "Execute threeSD Dumper?\n \nRequires GodMode9 v2.0.0\nYou are on $[GM9VER]\n \nRequired Space: ~400MB for each NAND"
     goto Exit
 end
 
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nWorking..."
 
-# === movable.sed
-cp -w -n "1:/private/movable.sed" $[OUT]/movable.sed
+set OUT "0:/threeSD"
+if exist $[OUT]
+    rm $[OUT]
+end
+mkdir $[OUT]
 
-# === bootrom
-if find "M:/boot9.bin" NULL
+# === General data (independent of NANDs)
+
+# Version
+dumptxt $[OUT]/version.txt 4
+
+# bootrom
+if exist "M:/boot9.bin"
     cp -w -n "M:/boot9.bin" $[OUT]/boot9.bin
-elif find "0:/3DS/boot9.bin" NULL
+elif exist "0:/3DS/boot9.bin"
     cp -w -n "0:/3DS/boot9.bin" $[OUT]/boot9.bin
 else
     echo "ERROR: \nboot9.bin not found. \nIf you use fastboot3ds, hold HOME while booting, \nand go to Miscellaneous... > Dump bootroms & OTP. \nWhen finished, simply execute this script again."
     goto Exit
 end
 
-# === certs.db
-if chk $[RDTYPE] "devkit"
-    echo "WARNING: \nDev kit detected. \nCIA building will not be usable."
-else
-    cp -w -n "1:/dbs/certs.db" $[OUT]/certs.db
-end
-
-# === ticket.db
-cp -w -n "1:/dbs/ticket.db" $[OUT]/ticket.db
-
-# === title.db
-cp -w -n "1:/dbs/title.db" $[OUT]/title.db
-
-# === Secret sector (N3DS only)
+# Secret sector (N3DS only)
 if chk $[ONTYPE] "N3DS"
     cp -w -n "S:/sector0x96.bin" $[OUT]/sector0x96.bin
 end
 
-# === NAND data
-if not find $[OUT]/data NULL
-    mkdir $[OUT]/data
+# === NANDs
+
+# Start with SysNAND
+set NAND "1:"
+set NAND_NAME "Sys"
+set ID0 $[SYSID0]
+
+@Loop
+set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nWorking ($[NAND_NAME])..."
+set OUT "0:/threeSD/$[NAND_NAME]"
+mkdir $[OUT]
+
+# movable.sed
+cp -w -n $[NAND]/private/movable.sed $[OUT]/movable.sed
+
+# certs.db
+if chk $[RDTYPE] "devkit"
+    echo "WARNING: \nDev kit detected. \nCIA building will not be usable."
+else
+    cp -w -n $[NAND]/dbs/certs.db $[OUT]/certs.db
 end
 
-if not find $[OUT]/data/extdata NULL
-    mkdir $[OUT]/data/extdata
-end
-cp -w -n "1:/data/$[SYSID0]/extdata" $[OUT]/data/extdata
+# ticket.db
+cp -w -n $[NAND]/dbs/ticket.db $[OUT]/ticket.db
 
-if not find $[OUT]/data/sysdata NULL
-    mkdir $[OUT]/data/sysdata
-end
-cp -w -n "1:/data/$[SYSID0]/sysdata" $[OUT]/data/sysdata
+# title.db
+cp -w -n $[NAND]/dbs/title.db $[OUT]/title.db
 
-# === Other system titles
-if find $[OUT]/title NULL
-    rm $[OUT]/title
+# seeddb.bin
+# Note: this contains both SysNAND and EmuNAND seeds when built, but only the current EmuNAND
+if exist 0:/gm9/out/seedd.bin
+    rm 0:/gm9/out/seeddb.bin
 end
-mkdir $[OUT]/title
-
-# System Applications
-if not find $[OUT]/title/00040010 NULL
-    mkdir $[OUT]/title/00040010
-end
-cp -w -n "1:/title/00040010" $[OUT]/title/00040010
-
-# System Data Archives
-if not find $[OUT]/title/0004001b NULL
-    mkdir $[OUT]/title/0004001b
-end
-cp -w -n "1:/title/0004001b" $[OUT]/title/0004001b
-
-# System Applets
-if not find $[OUT]/title/00040030 NULL
-    mkdir $[OUT]/title/00040030
-end
-cp -w -n "1:/title/00040030" $[OUT]/title/00040030
-
-# Shared Data Archives
-if not find $[OUT]/title/0004009b NULL
-    mkdir $[OUT]/title/0004009b
-end
-cp -w -n "1:/title/0004009b" $[OUT]/title/0004009b
-
-# System Data Archives
-if not find $[OUT]/title/000400db NULL
-    mkdir $[OUT]/title/000400db
-end
-cp -w -n "1:/title/000400db" $[OUT]/title/000400db
-
-# System Modules
-if not find $[OUT]/title/00040130 NULL
-    mkdir $[OUT]/title/00040130
-end
-cp -w -n "1:/title/00040130" $[OUT]/title/00040130
-
-# System Firmware
-if not find $[OUT]/title/00040138 NULL
-    mkdir $[OUT]/title/00040138
-end
-cp -w -n "1:/title/00040138" $[OUT]/title/00040138
-
-# === seeddb.bin
 sdump -o -s -w seeddb.bin
-if not find 0:/gm9/out/seeddb.bin NULL
+if not exist 0:/gm9/out/seeddb.bin
     echo "WARNING: \nseeddb.bin couldn't be built. \nThis may be because your system \ndoes not have any seeds. \nOtherwise, imported games may fail \nto run if they use seed encryption."
 else
     cp -w -n "0:/gm9/out/seeddb.bin" $[OUT]/seeddb.bin
     rm "0:/gm9/out/seeddb.bin"
 end
 
-# === Write version
-dumptxt $[OUT]/version.txt 4
+# data
+cp -w -n $[NAND]/data/$[ID0] $[OUT]/data
 
+# title
+cp -w -n $[NAND]/title $[OUT]/title
+
+# Loop Control
+if chk $[NAND] "1:"
+    # Start EmuNAND
+    if not exist "4:/title"
+        goto Finish
+    end
+    set NAND "4:"
+else
+    # Next EmuNAND
+    set LASTEMU $[EMUBASE]
+    nextemu
+    if chk $[EMUBASE] $[LASTEMU]
+        # All EmuNANDs done
+        goto Finish
+    end
+end
+set NAND_NAME "Emu$[EMUBASE]"
+set ID0 $[EMUID0]
+goto Loop
+
+@Finish
 set PREVIEW_MODE "threeSD Dumper\nby zhaowenlan1779\n \nSuccess!"
-echo "Successfully dumped necessary\nfiles for threeSD."
+if ask "Successfully dumped necessary\nfiles for threeSD.\n \nPower off now?"
+    poweroff
+end
 
 @Exit

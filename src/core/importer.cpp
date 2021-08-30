@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <map>
 #include <regex>
 #include <cryptopp/sha.h>
 #include "common/assert.h"
@@ -32,13 +33,12 @@ SDMCImporter::SDMCImporter(const Config& config_) : config(config_) {
 SDMCImporter::~SDMCImporter() {
     // Unload global DBs
     Certs::Clear();
-    Seeds::Clear();
+    g_seed_db.seeds.clear();
 }
 
 bool SDMCImporter::Init() {
-    ASSERT_MSG(!config.sdmc_path.empty() && !config.user_path.empty() &&
-                   !config.bootrom_path.empty() && !config.movable_sed_path.empty(),
-               "Config is not good");
+    ASSERT_MSG(IsConfigGood(config), "Config is not good");
+    nand_config = config.nands[0];
 
     // Fix paths
     if (config.sdmc_path.back() != '/' && config.sdmc_path.back() != '\\') {
@@ -51,28 +51,29 @@ bool SDMCImporter::Init() {
 
     Key::ClearKeys();
     Key::LoadBootromKeys(config.bootrom_path);
-    Key::LoadMovableSedKeys(config.movable_sed_path);
+    Key::LoadMovableSedKeys(nand_config.movable_sed_path);
 
     if (!Key::IsNormalKeyAvailable(Key::SDKey)) {
         LOG_ERROR(Core, "SDKey is not available");
         return false;
     }
 
-    // Load global DBs
-    if (!config.seed_db_path.empty()) {
-        Seeds::Load(config.seed_db_path);
-    }
-    if (!config.certs_db_path.empty()) {
-        Certs::Load(config.certs_db_path);
-    }
-
-    // Load Ticket DB
-    if (!config.ticket_db_path.empty()) {
-        ticket_db = std::make_shared<TicketDB>(config.ticket_db_path);
-    }
-    if (!ticket_db || !ticket_db->IsGood()) {
-        LOG_WARNING(Core, "ticket.db not present or is invalid");
-        ticket_db.reset();
+    // Load and merge global DBs
+    ticket_db = std::make_shared<TicketDB>();
+    nand_title_db = std::make_unique<TitleDB>();
+    for (const auto& nand : config.nands) {
+        if (!nand.certs_db_path.empty()) {
+            TRY(Certs::Load(nand.certs_db_path));
+        }
+        if (!nand.ticket_db_path.empty()) {
+            TRY(ticket_db->AddFromFile(nand.ticket_db_path));
+        }
+        if (!nand.title_db_path.empty()) {
+            TRY(nand_title_db->AddFromFile(nand.title_db_path));
+        }
+        if (!nand.seed_db_path.empty()) {
+            TRY(g_seed_db.AddFromFile(nand.seed_db_path));
+        }
     }
 
     // Create children
@@ -84,21 +85,9 @@ bool SDMCImporter::Init() {
         DataContainer container(sdmc_decryptor->DecryptFile("/dbs/title.db"));
         std::vector<std::vector<u8>> data;
         if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
-            sdmc_title_db = std::make_unique<TitleDB>(std::move(data[0]));
+            sdmc_title_db = std::make_unique<TitleDB>();
+            TRY(sdmc_title_db->AddFromData(std::move(data[0])));
         }
-    }
-    if (!sdmc_title_db || !sdmc_title_db->IsGood()) {
-        LOG_WARNING(Core, "SDMC title.db invalid");
-        sdmc_title_db.reset();
-    }
-
-    // Load NAND Title DB
-    if (!config.nand_title_db_path.empty()) {
-        nand_title_db = std::make_unique<TitleDB>(config.nand_title_db_path);
-    }
-    if (!nand_title_db || !nand_title_db->IsGood()) {
-        LOG_WARNING(Core, "NAND title.db invalid");
-        nand_title_db.reset();
     }
 
     FileUtil::SetUserPath(config.user_path);
@@ -193,8 +182,7 @@ bool SDMCImporter::ImportTitle(const ContentSpecifier& specifier,
 bool SDMCImporter::ImportNandTitle(const ContentSpecifier& specifier,
                                    const Common::ProgressCallback& callback) {
 
-    const auto base_path =
-        config.system_titles_path.substr(0, config.system_titles_path.size() - 6);
+    const auto base_path = nand_config.title_path.substr(0, nand_config.title_path.size() - 6);
     return ImportTitleGeneric(
         base_path, specifier, callback,
         [this, &base_path](const std::string& filepath,
@@ -242,7 +230,7 @@ bool SDMCImporter::ImportNandSavegame(u64 id,
                                       [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("sysdata/{:08x}/00000000", (id & 0xFFFFFFFF));
 
-    FileUtil::IOFile file(config.nand_data_path + path, "rb");
+    FileUtil::IOFile file(nand_config.data_path + path, "rb");
     std::vector<u8> data = file.GetData();
     if (data.empty()) {
         LOG_ERROR(Core, "Failed to read from {}", path);
@@ -281,7 +269,7 @@ bool SDMCImporter::ImportExtdata(u64 id,
 bool SDMCImporter::ImportNandExtdata(u64 id,
                                      [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("extdata/{:08x}/{:08x}/", (id >> 32), (id & 0xFFFFFFFF));
-    Extdata extdata(config.nand_data_path + path);
+    Extdata extdata(nand_config.data_path + path);
     if (!extdata.IsGood()) {
         return false;
     }
@@ -303,27 +291,11 @@ bool SDMCImporter::ImportSysdata(u64 id,
     }
     case 1: { // seed db
         const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
-        LOG_INFO(Core, "Dumping SeedDB from {} to {}", SEED_DB, config.seed_db_path, target_path);
+        LOG_INFO(Core, "Dumping SeedDB to {}", SEED_DB, target_path);
 
-        SeedDB target;
-        if (!target.Load(target_path)) {
-            LOG_ERROR(Core, "Could not load seeddb from {}", target_path);
-            return false;
-        }
-
-        SeedDB source;
-        if (!source.Load(config.seed_db_path)) {
-            LOG_ERROR(Core, "Could not load seeddb from {}", config.seed_db_path);
-            return false;
-        }
-
-        for (const auto& seed : source) {
-            if (!target.Get(seed.title_id)) {
-                LOG_INFO(Core, "Adding seed for {:16X}", seed.title_id);
-                target.Add(seed);
-            }
-        }
-        return target.Save(target_path);
+        SeedDB merged_seed_db{g_seed_db};
+        merged_seed_db.AddFromFile(target_path);
+        return merged_seed_db.Save(target_path);
     }
     case 2: { // secret sector
         const auto target_path =
@@ -407,11 +379,11 @@ bool SDMCImporter::LoadTMD(ContentType type, u64 id, TitleMetadata& out) const {
     const bool is_nand = type == ContentType::NandTitle;
 
     auto& title_db = is_nand ? nand_title_db : sdmc_title_db;
-    const auto physical_path =
-        is_nand ? fmt::format("{}{:08x}/{:08x}/content/", config.system_titles_path, (id >> 32),
-                              (id & 0xFFFFFFFF))
-                : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path, (id >> 32),
-                              (id & 0xFFFFFFFF));
+    const auto physical_path = is_nand
+                                   ? fmt::format("{}{:08x}/{:08x}/content/", nand_config.title_path,
+                                                 (id >> 32), (id & 0xFFFFFFFF))
+                                   : fmt::format("{}title/{:08x}/{:08x}/content/", config.sdmc_path,
+                                                 (id >> 32), (id & 0xFFFFFFFF));
 
     std::string tmd_path;
     if (title_db && title_db->titles.count(id)) {
@@ -445,7 +417,7 @@ std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifi
                                                             u32 content_id) const {
     if (specifier.type == ContentType::NandTitle) {
         const auto path =
-            fmt::format("{}{:08x}/{:08x}/content/{:08x}.app", config.system_titles_path,
+            fmt::format("{}{:08x}/{:08x}/content/{:08x}.app", nand_config.title_path,
                         (specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id);
         return std::make_shared<FileUtil::IOFile>(path, "rb");
     } else {
@@ -868,10 +840,9 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
 
 // TODO: Simplify.
 void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
-    const auto ProcessDirectory = [this, &out,
-                                   &system_titles_path = config.system_titles_path](u64 high_id) {
+    const auto ProcessDirectory = [this, &out, &title_path = nand_config.title_path](u64 high_id) {
         FileUtil::ForeachDirectoryEntry(
-            nullptr, fmt::format("{}{:08x}/", system_titles_path, high_id),
+            nullptr, fmt::format("{}{:08x}/", title_path, high_id),
             [this, high_id, &out](u64* /*num_entries_out*/, const std::string& directory,
                                   const std::string& virtual_name) {
                 if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
@@ -931,7 +902,7 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
 
 void SDMCImporter::ListNandSavegame(std::vector<ContentSpecifier>& out) const {
     FileUtil::ForeachDirectoryEntry(
-        nullptr, fmt::format("{}sysdata/", config.nand_data_path),
+        nullptr, fmt::format("{}sysdata/", nand_config.data_path),
         [&out](u64* /*num_entries_out*/, const std::string& directory,
                const std::string& virtual_name) {
             if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
@@ -996,7 +967,7 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
                          "3DS/00000000000000000000000000000000/00000000000000000000000000000000/"
                          "extdata/00000000/{}");
     ProcessDirectory(0x00048000, ContentType::NandExtdata,
-                     fmt::format("{}extdata/00048000/", config.nand_data_path),
+                     fmt::format("{}extdata/00048000/", nand_config.data_path),
                      FileUtil::GetUserPath(FileUtil::UserPath::NANDDir) +
                          "data/00000000000000000000000000000000/extdata/00048000/{}");
 }
@@ -1026,32 +997,25 @@ void SDMCImporter::ListSysdata(std::vector<ContentSpecifier>& out) const {
     }
 
     // Check for seeddb
-    if (config.seed_db_path.empty()) {
+    if (g_seed_db.seeds.empty()) {
         return;
     }
 
     const auto target_path = FileUtil::GetUserPath(FileUtil::UserPath::SysDataDir) + SEED_DB;
     SeedDB target;
-    if (!target.Load(target_path)) {
+    if (!target.AddFromFile(target_path)) {
         LOG_ERROR(Core, "Could not load seeddb from {}", target_path);
         return;
     }
 
-    SeedDB source;
-    if (!source.Load(config.seed_db_path)) {
-        LOG_ERROR(Core, "Could not load seeddb from {}", config.seed_db_path);
-        return;
-    }
-
     bool exists = true; // Whether the DB already 'exists', i.e. no new seeds can be found
-    for (const auto& seed : source) {
-        if (!target.Get(seed.title_id)) {
+    for (const auto& [title_id, seed] : g_seed_db.seeds) {
+        if (!target.seeds.count(title_id)) {
             exists = false;
             break;
         }
     }
-    out.push_back(
-        {ContentType::Sysdata, 1, exists, FileUtil::GetSize(config.seed_db_path), SEED_DB});
+    out.push_back({ContentType::Sysdata, 1, exists, g_seed_db.GetSize(), SEED_DB});
 }
 
 void SDMCImporter::DeleteContent(const ContentSpecifier& specifier) const {
@@ -1136,6 +1100,67 @@ void SDMCImporter::DeleteSysdata(u64 id) const {
     }
 }
 
+static std::string GetID0(const std::string& movable_sed_path) {
+    FileUtil::IOFile file(movable_sed_path, "rb");
+    if (!file || file.GetSize() < 0x120) {
+        LOG_ERROR(Core, "Couldn't open file {}, or file too small", movable_sed_path);
+        return {};
+    }
+
+    // Check magic
+    u32_le magic{};
+    if (file.ReadBytes(&magic, sizeof(magic)) != sizeof(magic) ||
+        magic != MakeMagic('S', 'E', 'E', 'D')) {
+
+        LOG_ERROR(Core, "File {} is invalid", movable_sed_path);
+        return {};
+    }
+
+    // Calculate ID0
+    file.Seek(0x110, SEEK_SET); // KeyY offset
+    std::array<u8, 0x10> keyY;
+    if (file.ReadBytes(keyY.data(), keyY.size()) != keyY.size()) {
+        LOG_ERROR(Core, "Could not read keyY from {}", movable_sed_path);
+        return {};
+    }
+
+    CryptoPP::SHA256 sha;
+    sha.Update(keyY.data(), keyY.size());
+
+    std::array<u32_le, CryptoPP::SHA256::DIGESTSIZE / sizeof(u32_le)> hash;
+    sha.Final(reinterpret_cast<CryptoPP::byte*>(hash.data()));
+
+    // ID0 is generated from the first half of the hash, with the four u32s byte-flipped
+    return fmt::format("{:08x}{:08x}{:08x}{:08x}", hash[0], hash[1], hash[2], hash[3]);
+}
+
+// Gets SDMC path (Nintendo 3DS/<ID0>/<ID1>) from ID0 folder. Basically just takes the first
+// folder contained within, that matches the ID regex.
+static std::string GetSDMCPath(const std::string& id0_folder) {
+    static const std::regex IdRegex{"[0-9a-f]{32}"};
+
+    std::string result;
+    FileUtil::ForeachDirectoryEntry(
+        nullptr, id0_folder,
+        [&result](u64* /*num_entries_out*/, const std::string& directory,
+                  const std::string& virtual_name) {
+            if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
+                return true;
+            }
+            if (!std::regex_match(virtual_name, IdRegex)) {
+                return true;
+            }
+            result = virtual_name;
+            return false; // halt searching
+        });
+
+    if (result.empty()) {
+        LOG_ERROR(Core, "Could not find ID1 folder in {}", id0_folder);
+        return {};
+    }
+    return id0_folder + result + "/";
+}
+
 std::vector<Config> LoadPresetConfig(std::string mount_point) {
     if (mount_point.back() != '/' && mount_point.back() != '\\') {
         mount_point += '/';
@@ -1148,80 +1173,89 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
 
     Config config_template{};
     config_template.user_path = FileUtil::GetUserPath(FileUtil::UserPath::UserDir);
-
-    // Load dumped data paths if using our dumper
-    if (FileUtil::Exists(mount_point + "threeSD/")) {
-#define LOAD_DATA(var, path)                                                                       \
-    if (FileUtil::Exists(mount_point + "threeSD/" + path)) {                                       \
-        config_template.var = mount_point + "threeSD/" + path;                                     \
+    if (!FileUtil::Exists(mount_point + "threeSD/")) {
+        // Still return the config for display in frontend to notify the user
+        return {config_template};
     }
 
-        LOAD_DATA(movable_sed_path, MOVABLE_SED);
-        LOAD_DATA(bootrom_path, BOOTROM9);
-        LOAD_DATA(certs_db_path, CERTS_DB);
-        LOAD_DATA(nand_title_db_path, TITLE_DB);
-        LOAD_DATA(ticket_db_path, TICKET_DB);
-        LOAD_DATA(seed_db_path, SEED_DB);
-        LOAD_DATA(secret_sector_path, SECRET_SECTOR);
-        LOAD_DATA(system_titles_path, "title/");
-        LOAD_DATA(nand_data_path, "data/");
+    // Check version first
+    if (FileUtil::Exists(mount_point + "threeSD/version.txt")) {
+        std::ifstream stream;
+        OpenFStream(stream, mount_point + "threeSD/version.txt", std::ios::in);
+        stream >> config_template.version;
+    }
+    if (config_template.version != CurrentDumperVersion) {
+        return {config_template}; // Notify the user
+    }
+
+#define LOAD_DATA(var, path)                                                                       \
+    if (FileUtil::Exists(mount_point + path)) {                                                    \
+        config_template.var = mount_point + path;                                                  \
+    }
+
+    // General data
+    LOAD_DATA(bootrom_path, "threeSD/" BOOTROM9);
+    LOAD_DATA(secret_sector_path, "threeSD/" SECRET_SECTOR);
+    LOAD_DATA(enc_title_keys_bin_path, "gm9/support/" ENC_TITLE_KEYS_BIN);
 #undef LOAD_DATA
 
-        // encTitleKeys.bin
-        if (FileUtil::Exists(mount_point + "gm9/support/" ENC_TITLE_KEYS_BIN)) {
-            config_template.enc_title_keys_bin_path =
-                mount_point + "gm9/support/" ENC_TITLE_KEYS_BIN;
+    // Load NANDs
+    std::vector<Config::NandConfig> nands;
+    const auto Callback = [&nands](u64* /*num_entries_out*/, const std::string& directory,
+                                   const std::string& virtual_name) {
+        const std::string nand_dir = directory + virtual_name + "/";
+        if (!FileUtil::IsDirectory(nand_dir)) {
+            return true;
         }
 
-        // Load version
-        if (FileUtil::Exists(mount_point + "threeSD/version.txt")) {
-            std::ifstream stream;
-            OpenFStream(stream, mount_point + "threeSD/version.txt", std::ios::in);
-            stream >> config_template.version;
+        Config::NandConfig config;
+        config.nand_name = virtual_name;
+
+#define LOAD_DATA(var, path)                                                                       \
+    if (FileUtil::Exists(nand_dir + path)) {                                                       \
+        config.var = nand_dir + path;                                                              \
+    }
+        LOAD_DATA(movable_sed_path, MOVABLE_SED);
+        LOAD_DATA(certs_db_path, CERTS_DB);
+        LOAD_DATA(ticket_db_path, TICKET_DB);
+        LOAD_DATA(title_db_path, TITLE_DB);
+        LOAD_DATA(seed_db_path, SEED_DB);
+        LOAD_DATA(title_path, "title/");
+        LOAD_DATA(data_path, "data/");
+#undef LOAD_DATA
+
+        nands.emplace_back(std::move(config));
+        return true;
+    };
+    FileUtil::ForeachDirectoryEntry(nullptr, mount_point + "threeSD/", Callback);
+
+    // Group NAND configs by ID0 to generate configs
+    std::map<std::string, Config> config_map; // id0 -> config
+    for (const auto& nand : nands) {
+        const auto id0 = GetID0(nand.movable_sed_path);
+        if (id0.empty()) {
+            continue;
         }
+
+        if (!config_map.count(id0)) {
+            // Create config for this ID0
+            config_map[id0] = config_template;
+            config_map[id0].id0 = id0;
+
+            auto sdmc_path = GetSDMCPath(fmt::format("{}Nintendo 3DS/{}/", mount_point, id0));
+            if (sdmc_path.empty()) {
+                continue;
+            }
+            config_map[id0].sdmc_path = std::move(sdmc_path);
+        }
+        config_map[id0].nands.emplace_back(nand);
     }
 
-    // Regex for 3DS ID0 and ID1
-    const std::regex id_regex{"[0-9a-f]{32}"};
-
-    // Load SDMC dir
+    // Convert to a vector
     std::vector<Config> out;
-    const auto ProcessDirectory = [&id_regex, &config_template, &out](const std::string& path) {
-        return FileUtil::ForeachDirectoryEntry(
-            nullptr, path,
-            [&id_regex, &config_template, &out](u64* /*num_entries_out*/,
-                                                const std::string& directory,
-                                                const std::string& virtual_name) {
-                if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
-                    return true;
-                }
-
-                if (!std::regex_match(virtual_name, id_regex)) {
-                    return true;
-                }
-
-                Config config = config_template;
-                config.sdmc_path = directory + virtual_name + "/";
-                out.push_back(config);
-                return true;
-            });
-    };
-
-    FileUtil::ForeachDirectoryEntry(
-        nullptr, mount_point + "Nintendo 3DS/",
-        [&id_regex, &ProcessDirectory](u64* /*num_entries_out*/, const std::string& directory,
-                                       const std::string& virtual_name) {
-            if (!FileUtil::IsDirectory(directory + virtual_name + "/")) {
-                return true;
-            }
-
-            if (!std::regex_match(virtual_name, id_regex)) {
-                return true;
-            }
-
-            return ProcessDirectory(directory + virtual_name + "/");
-        });
-
+    for (auto& [id0, config] : config_map) {
+        out.emplace_back(std::move(config));
+    }
     return out;
 }
 
