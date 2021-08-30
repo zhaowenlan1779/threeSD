@@ -79,13 +79,8 @@ bool NCCHContainer::Load() {
             if (!ncch_header.seed_crypto) {
                 key_y_secondary = key_y_primary;
             } else {
-                auto opt{Seeds::GetSeed(ncch_header.program_id)};
-                if (!opt.has_value()) {
-                    LOG_ERROR(Service_FS, "Seed for program {:016X} not found",
-                              ncch_header.program_id);
-                    failed_to_decrypt = true;
-                } else {
-                    auto seed{*opt};
+                if (g_seed_db.seeds.count(ncch_header.program_id)) {
+                    const auto& seed = g_seed_db.seeds.at(ncch_header.program_id);
                     std::array<u8, 32> input;
                     std::memcpy(input.data(), key_y_primary.data(), key_y_primary.size());
                     std::memcpy(input.data() + key_y_primary.size(), seed.data(), seed.size());
@@ -93,6 +88,10 @@ bool NCCHContainer::Load() {
                     std::array<u8, CryptoPP::SHA256::DIGESTSIZE> hash;
                     sha.CalculateDigest(hash.data(), input.data(), input.size());
                     std::memcpy(key_y_secondary.data(), hash.data(), key_y_secondary.size());
+                } else {
+                    LOG_ERROR(Service_FS, "Seed for program {:016X} not found",
+                              ncch_header.program_id);
+                    failed_to_decrypt = true;
                 }
             }
 

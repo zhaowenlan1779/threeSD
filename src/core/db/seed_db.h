@@ -2,67 +2,26 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
-// Modified from Citra's implementation to allow multiple instances
-
 #pragma once
 
 #include <array>
-#include <optional>
-#include <vector>
+#include <unordered_map>
 #include "common/common_types.h"
-#include "common/swap.h"
 
 namespace Core {
 
 constexpr std::size_t SEEDDB_PADDING_BYTES{12};
+constexpr std::size_t SEEDDB_ENTRY_PADDING_BYTES{8};
 
-struct Seed {
-    using Data = std::array<u8, 16>;
-
-    u64_le title_id;
-    Data data;
-    std::array<u8, 8> reserved;
-};
-
+using Seed = std::array<u8, 16>;
 class SeedDB {
 public:
-    bool Load(const std::string& path);
+    bool AddFromFile(const std::string& path);
     bool Save(const std::string& path);
 
-    void Add(const Seed& seed);
-    std::size_t Size() const;
-    std::optional<Seed::Data> Get(u64 title_id) const;
-
-    void Clear() {
-        seeds.clear();
-    }
-
-    auto begin() {
-        return seeds.begin();
-    }
-
-    auto begin() const {
-        return seeds.begin();
-    }
-
-    auto end() {
-        return seeds.end();
-    }
-
-    auto end() const {
-        return seeds.end();
-    }
-
-private:
-    std::vector<Seed> seeds;
+    std::unordered_map<u64, Seed> seeds;
 };
 
-namespace Seeds {
-
-void Load(const std::string& path);
-void Clear();
-std::optional<Seed::Data> GetSeed(u64 title_id);
-
-} // namespace Seeds
+inline SeedDB g_seed_db;
 
 } // namespace Core

@@ -9,24 +9,22 @@
 
 namespace Core {
 
-TitleDB::TitleDB(std::vector<u8> data) {
-    is_good = Init(std::move(data));
+bool TitleDB::AddFromData(std::vector<u8> data) {
+    return Init(std::move(data));
 }
 
-TitleDB::TitleDB(const std::string& path) {
+bool TitleDB::AddFromFile(const std::string& path) {
     FileUtil::IOFile file(path, "rb");
     DataContainer container(file.GetData());
     std::vector<std::vector<u8>> data;
     if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
-        is_good = Init(std::move(data[0]));
+        return Init(std::move(data[0]));
+    } else {
+        return false;
     }
 }
 
 TitleDB::~TitleDB() = default;
-
-bool TitleDB::IsGood() const {
-    return is_good;
-}
 
 bool TitleDB::Init(std::vector<u8> data) {
     if (!InnerFAT_TitleDB::Init({std::move(data)})) {
@@ -76,24 +74,18 @@ bool TitleDB::LoadTitleInfo(u32 index) {
     return true;
 }
 
-TicketDB::TicketDB(std::vector<u8> data) {
-    is_good = Init(std::move(data));
-}
-
-TicketDB::TicketDB(const std::string& path) {
+bool TicketDB::AddFromFile(const std::string& path) {
     FileUtil::IOFile file(path, "rb");
     DataContainer container(file.GetData());
     std::vector<std::vector<u8>> data;
     if (container.IsGood() && container.GetIVFCLevel4Data(data)) {
-        is_good = Init(std::move(data[0]));
+        return Init(std::move(data[0]));
+    } else {
+        return false;
     }
 }
 
 TicketDB::~TicketDB() = default;
-
-bool TicketDB::IsGood() const {
-    return is_good;
-}
 
 bool TicketDB::Init(std::vector<u8> data) {
     if (!InnerFAT_TicketDB::Init({std::move(data)})) {

@@ -69,11 +69,9 @@ using InnerFAT_TitleDB = InnerFAT<TitleDB, TitleDBPreheader, TitleDBDirectoryEnt
 
 class TitleDB final : public InnerFAT_TitleDB {
 public:
-    explicit TitleDB(std::vector<u8> data);
-    explicit TitleDB(const std::string& path);
+    bool AddFromData(std::vector<u8> data);
+    bool AddFromFile(const std::string& path);
     ~TitleDB();
-
-    bool IsGood() const;
 
     std::unordered_map<u64, TitleInfoEntry> titles;
 
@@ -81,8 +79,6 @@ private:
     bool Init(std::vector<u8> data);
     bool CheckMagic() const;
     bool LoadTitleInfo(u32 index);
-
-    bool is_good = false;
 
     friend InnerFAT_TitleDB;
 };
@@ -98,11 +94,8 @@ using InnerFAT_TicketDB = InnerFAT<TicketDB, TicketDBPreheader, TitleDBDirectory
                                    TitleDBFileEntryTableEntry>;
 class TicketDB final : public InnerFAT_TicketDB {
 public:
-    explicit TicketDB(std::vector<u8> data);
-    explicit TicketDB(const std::string& path);
+    bool AddFromFile(const std::string& path);
     ~TicketDB();
-
-    bool IsGood() const;
 
     std::unordered_map<u64, Ticket> tickets;
 
@@ -111,7 +104,6 @@ private:
     bool CheckMagic() const;
     bool LoadTicket(u32 index);
 
-    bool is_good = false;
     friend InnerFAT_TicketDB;
 };
 
