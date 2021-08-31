@@ -20,11 +20,11 @@ SelectNandDialog::SelectNandDialog(QWidget* parent,
 
         // TODO: this is currently hardcoded
         QString display_name;
-        if (nand.nand_name == "Sys") {
+        if (nand.nand_name == Core::SysNANDName) {
             display_name = tr("SysNAND");
         } else {
-            display_name =
-                tr("EmuNAND at 0x%1").arg(QString::fromStdString(nand.nand_name.substr(3)));
+            const std::string emu_offset = nand.nand_name.substr(Core::EmuNANDPrefix.size());
+            display_name = tr("EmuNAND at 0x%1").arg(QString::fromStdString(emu_offset));
         }
 
         QRadioButton* button = new QRadioButton(display_name);

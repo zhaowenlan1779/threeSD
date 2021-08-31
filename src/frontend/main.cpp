@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <algorithm>
 #include <regex>
 #include <string>
 #include <QApplication>
@@ -105,6 +106,32 @@ void MainDialog::SetContentSizes(int previous_width, int previous_height) {
     }
 }
 
+static QString GetNANDText(const Core::Config& config, bool has_multiple_sdmc) {
+    const bool has_sys = std::any_of(
+        config.nands.begin(), config.nands.end(),
+        [](const Core::Config::NandConfig& nand) { return nand.nand_name == Core::SysNANDName; });
+
+    if (config.nands.size() > 1) {
+        if (has_sys) {
+            if (config.nands.size() > 2) {
+                return MainDialog::tr("SysNAND, %1 EmuNAND(s)").arg(config.nands.size() - 1);
+            } else {
+                return MainDialog::tr("SysNAND, EmuNAND");
+            }
+        } else {
+            return MainDialog::tr("%1 EmuNAND(s)").arg(config.nands.size());
+        }
+    } else if (has_multiple_sdmc) {
+        if (has_sys) {
+            return MainDialog::tr("SysNAND");
+        } else {
+            return MainDialog::tr("EmuNAND");
+        }
+    } else {
+        return MainDialog::tr("OK");
+    }
+}
+
 void MainDialog::LoadPresetConfig() {
     ui->main->clear();
     preset_config_list.clear();
@@ -127,7 +154,7 @@ void MainDialog::LoadPresetConfig() {
             QString id0 = QString::fromStdString(list[i].id0);
 
             // Get status
-            QString status = tr("Good");
+            QString status = GetNANDText(list[i], list.size() > 1);
             if (list[i].version != Core::CurrentDumperVersion) {
                 status = tr("Version Dismatch");
             } else if (!IsConfigGood(list[i])) {

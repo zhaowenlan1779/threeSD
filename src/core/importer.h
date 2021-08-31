@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 #include "common/common_types.h"
 #include "common/progress_callback.h"
@@ -86,6 +87,9 @@ struct Config {
     /// titles and data from the *first* NAND.
     std::vector<NandConfig> nands;
 };
+
+constexpr std::string_view SysNANDName = "Sys";
+constexpr std::string_view EmuNANDPrefix = "Emu";
 
 // Version of the current dumper.
 constexpr int CurrentDumperVersion = 4;
