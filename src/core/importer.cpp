@@ -1207,6 +1207,12 @@ std::vector<Config> LoadPresetConfig(std::string mount_point) {
         if (!FileUtil::IsDirectory(nand_dir)) {
             return true;
         }
+        if (virtual_name != SysNANDName &&
+            virtual_name.substr(0, EmuNANDPrefix.size()) != EmuNANDPrefix) {
+
+            // Not a NAND folder
+            return true;
+        }
 
         Config::NandConfig config;
         config.nand_name = virtual_name;
