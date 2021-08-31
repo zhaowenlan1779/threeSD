@@ -23,5 +23,5 @@ private:
     std::unique_ptr<Ui::SelectNandDialog> ui;
 
     const std::vector<Core::Config::NandConfig>& nands;
-    int result = -1;
+    int result = 0;
 };

@@ -28,16 +28,17 @@ SelectNandDialog::SelectNandDialog(QWidget* parent,
         }
 
         QRadioButton* button = new QRadioButton(display_name);
+        if (i == 0) { // Select one by default
+            button->setChecked(true);
+        }
         connect(button, &QRadioButton::toggled, this, [this, i](bool checked) {
             if (checked) {
-                ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
                 result = i;
             }
         });
         ui->contentLayout->addWidget(button);
     }
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     connect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
