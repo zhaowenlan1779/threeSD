@@ -31,6 +31,9 @@ add_executable(threeSD
   select_files_dialog.cpp
   select_files_dialog.h
   select_files_dialog.ui
+  select_nand_dialog.cpp
+  select_nand_dialog.h
+  select_nand_dialog.ui
   title_info_dialog.cpp
   title_info_dialog.h
   title_info_dialog.ui

@@ -14,6 +14,7 @@
 #include "common/file_util.h"
 #include "frontend/import_dialog.h"
 #include "frontend/main.h"
+#include "frontend/select_nand_dialog.h"
 #include "frontend/utilities.h"
 #include "ui_main.h"
 
@@ -203,6 +204,15 @@ void MainDialog::LaunchImportDialog() {
                "may not be importable, or may not run.<br>Please check if you have followed the <a "
                "href='https://github.com/zhaowenlan1779/threeSD/wiki/Quickstart-Guide'>guide</a> "
                "correctly."));
+    }
+
+    if (config.nands.size() > 1) {
+        SelectNandDialog dialog(this, config.nands);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        // Swap the selected NAND to the front
+        std::swap(config.nands[0], config.nands[dialog.GetResult()]);
     }
 
     ImportDialog dialog(this, config);
