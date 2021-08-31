@@ -12,6 +12,8 @@ namespace Common {
 // (current_size, total_size)
 using ProgressCallback = std::function<void(u64, u64)>;
 
+// Note on using this: it is important to ensure that the progress callback is at least
+// invoked once. Typically a `callback(total, total)` at the end will work fine.
 class ProgressCallbackWrapper {
 public:
     // (total imported size, total size)

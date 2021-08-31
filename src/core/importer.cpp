@@ -109,6 +109,7 @@ bool SDMCImporter::ImportContent(const ContentSpecifier& specifier,
         DeleteContent(specifier);
         return false;
     }
+    callback(specifier.maximum_size, specifier.maximum_size);
     return true;
 }
 

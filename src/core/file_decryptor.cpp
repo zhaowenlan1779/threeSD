@@ -171,6 +171,9 @@ void FileDecryptor::DataWriteLoop() {
         current_buffer = (current_buffer + 1) % buffers.size();
     }
 
+    if (imported_size == total_size) { // Completed
+        callback(total_size, total_size);
+    }
     completion_event.Set();
 }
 
