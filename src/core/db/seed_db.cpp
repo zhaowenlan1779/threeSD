@@ -39,7 +39,10 @@ bool SeedDB::AddFromFile(const std::string& path) {
             LOG_ERROR(Service_FS, "Failed to read seed {} data", i);
             return false;
         }
-        file.Seek(SEEDDB_ENTRY_PADDING_BYTES, SEEK_CUR);
+        if (!file.Seek(SEEDDB_ENTRY_PADDING_BYTES, SEEK_CUR)) {
+            LOG_ERROR(Service_FS, "Failed to skip past seed {} padding", i);
+            return false;
+        }
         seeds.emplace(title_id, std::move(seed));
     }
     return true;
@@ -76,7 +79,11 @@ bool SeedDB::Save(const std::string& path) const {
             LOG_ERROR(Service_FS, "Failed to write seed {:016x} data fully", title_id);
             return false;
         }
-        file.Seek(SEEDDB_ENTRY_PADDING_BYTES, SEEK_CUR);
+        static constexpr std::array<u8, SEEDDB_ENTRY_PADDING_BYTES> Padding{};
+        if (file.WriteBytes(Padding.data(), Padding.size()) != Padding.size()) {
+            LOG_ERROR(Service_FS, "Failed to write seed {:016x} padding fully", title_id);
+            return false;
+        }
     }
     return true;
 }
