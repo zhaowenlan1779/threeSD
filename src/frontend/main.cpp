@@ -156,7 +156,7 @@ void MainDialog::LoadPresetConfig() {
             // Get status
             QString status = GetNANDText(list[i], list.size() > 1);
             if (list[i].version != Core::CurrentDumperVersion) {
-                status = tr("Version Dismatch");
+                status = tr("Version Mismatch");
             } else if (!IsConfigGood(list[i])) {
                 status = tr("No Configuration Found");
             } else if (!IsConfigComplete(list[i])) {
@@ -209,7 +209,7 @@ void MainDialog::LaunchImportDialog() {
 
     // Display info regarding status
     if (config.version != Core::CurrentDumperVersion) {
-        QMessageBox::critical(this, tr("Version Dismatch"),
+        QMessageBox::critical(this, tr("Version Mismatch"),
                               tr("You are using an unsupported version of threeSDumper.<br>Please "
                                  "ensure that you are using the most recent version of both "
                                  "threeSD and threeSDumper and try again."));
