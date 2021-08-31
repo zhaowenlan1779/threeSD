@@ -16,7 +16,6 @@ CIABuildDialog::CIABuildDialog(QWidget* parent, bool is_dir_, bool is_nand, bool
       is_dir(is_dir_) {
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     if (is_dir) {
         setWindowTitle(tr("Batch Build CIA"));

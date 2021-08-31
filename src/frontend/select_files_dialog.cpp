@@ -13,7 +13,6 @@ SelectFilesDialog::SelectFilesDialog(QWidget* parent, bool source_is_dir_, bool 
       source_is_dir(source_is_dir_), destination_is_dir(destination_is_dir_) {
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     connect(ui->buttonBox, &QDialogButtonBox::accepted, [this] {
         if (ui->source->text().isEmpty() || ui->destination->text().isEmpty()) {

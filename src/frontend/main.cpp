@@ -35,7 +35,6 @@ MainDialog::MainDialog(QWidget* parent)
     : DPIAwareDialog(parent, 640, 256), ui(std::make_unique<Ui::MainDialog>()) {
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Ok)->setEnabled(false);
     ui->buttonBox->button(QDialogButtonBox::StandardButton::Reset)->setText(tr("Refresh"));

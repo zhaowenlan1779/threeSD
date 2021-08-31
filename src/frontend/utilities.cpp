@@ -6,7 +6,6 @@
 #include <QFileDialog>
 #include <QFutureWatcher>
 #include <QMessageBox>
-#include <QProgressDialog>
 #include <QtConcurrent/QtConcurrentRun>
 #include "core/file_sys/data/data_container.h"
 #include "core/file_sys/data/extdata.h"
@@ -14,6 +13,7 @@
 #include "core/file_sys/ncch_container.h"
 #include "core/key/key.h"
 #include "core/sdmc_decryptor.h"
+#include "frontend/helpers/rate_limited_progress_dialog.h"
 #include "frontend/select_files_dialog.h"
 #include "frontend/utilities.h"
 #include "ui_utilities.h"
@@ -22,7 +22,6 @@ UtilitiesDialog::UtilitiesDialog(QWidget* parent)
     : DPIAwareDialog(parent, 640, 384), ui(std::make_unique<Ui::UtilitiesDialog>()) {
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     connect(ui->useSdDecryption, &QCheckBox::clicked, [this] {
         const bool checked = ui->useSdDecryption->isChecked();
@@ -121,12 +120,8 @@ bool UtilitiesDialog::LoadSDKeys() {
 }
 
 void UtilitiesDialog::ShowProgressDialog(std::function<bool()> operation) {
-    auto* dialog = new QProgressDialog(tr("Processing..."), tr("Cancel"), 0, 0, this);
-    dialog->setWindowFlags(dialog->windowFlags() & (~Qt::WindowContextHelpButtonHint));
-    dialog->setWindowModality(Qt::WindowModal);
+    auto* dialog = new RateLimitedProgressDialog(tr("Processing..."), tr("Cancel"), 0, 0, this);
     dialog->setCancelButton(nullptr);
-    dialog->setMinimumDuration(0);
-    dialog->setValue(0);
 
     using FutureWatcher = QFutureWatcher<void>;
     auto* future_watcher = new FutureWatcher(this);

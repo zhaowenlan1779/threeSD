@@ -24,7 +24,6 @@ TitleInfoDialog::TitleInfoDialog(QWidget* parent, Core::SDMCImporter& importer_,
       importer(importer_), specifier(std::move(specifier_)) {
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     LoadInfo();
 

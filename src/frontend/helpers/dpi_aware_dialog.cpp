@@ -8,7 +8,10 @@
 #include "frontend/helpers/dpi_aware_dialog.h"
 
 DPIAwareDialog::DPIAwareDialog(QWidget* parent, int width, int height)
-    : QDialog(parent), original_width(width), original_height(height) {}
+    : QDialog(parent), original_width(width), original_height(height) {
+
+    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
+}
 
 DPIAwareDialog::~DPIAwareDialog() = default;
 

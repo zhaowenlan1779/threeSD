@@ -157,7 +157,6 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
     qRegisterMetaType<Core::ContentSpecifier>();
 
     ui->setupUi(this);
-    setWindowFlags(windowFlags() & (~Qt::WindowContextHelpButtonHint));
 
     RelistContent();
     UpdateSizeDisplay();
