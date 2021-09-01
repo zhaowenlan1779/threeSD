@@ -589,16 +589,20 @@ static_assert(sizeof(RomFSIVFCHeader) == 0x60, "Size of RomFSIVFCHeader is incor
 
 std::vector<u8> LoadSharedRomFS(const std::vector<u8>& data) {
     NCCH_Header header;
-    ASSERT_MSG(data.size() >= sizeof(header), "NCCH size is too small");
-    std::memcpy(&header, data.data(), sizeof(header));
+    if (!CheckedMemcpy(&header, data, 0, sizeof(header))) {
+        return {};
+    }
 
     const std::size_t offset = header.romfs_offset * 0x200; // 0x200: Media unit
     RomFSIVFCHeader ivfc;
-    ASSERT_MSG(data.size() >= offset + sizeof(ivfc), "NCCH size is too small");
-    std::memcpy(&ivfc, data.data() + offset, sizeof(ivfc));
+    if (!CheckedMemcpy(&ivfc, data, offset, sizeof(ivfc))) {
+        return {};
+    }
 
-    ASSERT_MSG(ivfc.magic == MakeMagic('I', 'V', 'F', 'C'), "IVFC magic is incorrect");
-    ASSERT_MSG(ivfc.version == 0x10000, "IVFC version is incorrect");
+    if (ivfc.magic != MakeMagic('I', 'V', 'F', 'C') || ivfc.version != 0x10000) {
+        LOG_ERROR(Core, "IVFC magic/version is wrong");
+        return {};
+    }
 
     std::vector<u8> result(ivfc.levels[2].size);
 
@@ -606,8 +610,9 @@ std::vector<u8> LoadSharedRomFS(const std::vector<u8>& data) {
     const std::size_t data_offset =
         offset + Common::AlignUp(sizeof(ivfc) + ivfc.master_hash_size,
                                  std::pow(2, ivfc.levels[2].block_size));
-    ASSERT_MSG(data.size() >= data_offset + ivfc.levels[2].size);
-    std::memcpy(result.data(), data.data() + data_offset, ivfc.levels[2].size);
+    if (!CheckedMemcpy(result.data(), data, data_offset, ivfc.levels[2].size)) {
+        return {};
+    }
 
     return result;
 }

@@ -189,24 +189,8 @@ void UtilitiesDialog::SaveDataExtractionTool() {
         // TODO: Add Progress reporting
         ShowProgressDialog([sdmc_root = sdmc_root, relative_source = relative_source,
                             source = source, destination = destination] {
-            const auto size = FileUtil::GetSize(source.toStdString());
-            std::vector<u8> data(size);
             Core::SDMCFile file(sdmc_root, relative_source, "rb");
-            if (file.ReadBytes(data.data(), size) != size) {
-                return false;
-            }
-
-            Core::DataContainer container(data);
-            if (!container.IsGood()) {
-                return false;
-            }
-
-            std::vector<std::vector<u8>> container_data;
-            if (!container.GetIVFCLevel4Data(container_data)) {
-                return false;
-            }
-
-            Core::Savegame save(std::move(container_data));
+            Core::Savegame save(file.GetData());
             if (!save.IsGood()) {
                 return false;
             }
@@ -217,22 +201,7 @@ void UtilitiesDialog::SaveDataExtractionTool() {
         // TODO: Add Progress reporting
         ShowProgressDialog([source = source, destination = destination] {
             FileUtil::IOFile file(source.toStdString(), "rb");
-            std::vector<u8> data = file.GetData();
-            if (data.empty()) {
-                return false;
-            }
-
-            Core::DataContainer container(data);
-            if (!container.IsGood()) {
-                return false;
-            }
-
-            std::vector<std::vector<u8>> container_data;
-            if (!container.GetIVFCLevel4Data(container_data)) {
-                return false;
-            }
-
-            Core::Savegame save(std::move(container_data));
+            Core::Savegame save(file.GetData());
             if (!save.IsGood()) {
                 return false;
             }
@@ -276,12 +245,10 @@ void UtilitiesDialog::RomFSExtractionTool() {
 
     ShowProgressDialog([source = source, destination = destination] {
         FileUtil::IOFile src_file(source.toStdString(), "rb");
-        std::vector<u8> data = src_file.GetData();
-        if (data.empty()) {
+        const auto& shared_romfs = Core::LoadSharedRomFS(src_file.GetData());
+        if (shared_romfs.empty()) {
             return false;
         }
-
-        const auto& shared_romfs = Core::LoadSharedRomFS(data);
         return FileUtil::WriteBytesToFile(destination.toStdString(), shared_romfs.data(),
                                           shared_romfs.size());
     });

@@ -10,13 +10,15 @@ namespace Core {
 
 class Savegame final : public Archive<Savegame> {
 public:
-    explicit Savegame(std::vector<std::vector<u8>> partitions);
+    /// @param data Data of the DISA archive
+    explicit Savegame(std::vector<u8> data);
     ~Savegame();
 
     bool IsGood() const;
     bool Extract(std::string path) const;
 
 private:
+    bool Init(std::vector<u8> data);
     bool CheckMagic() const;
     bool ExtractFile(const std::string& path, std::size_t index) const;
     ArchiveFormatInfo GetFormatInfo() const;

@@ -2,15 +2,31 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include "core/file_sys/data/data_container.h"
 #include "core/file_sys/data/savegame.h"
 
 namespace Core {
 
-Savegame::Savegame(std::vector<std::vector<u8>> partitions) {
-    is_good = Archive<Savegame>::Init(std::move(partitions));
+Savegame::Savegame(std::vector<u8> data) {
+    is_good = Init(std::move(data));
 }
 
 Savegame::~Savegame() = default;
+
+bool Savegame::Init(std::vector<u8> data) {
+    if (data.empty()) {
+        return false;
+    }
+
+    DataContainer container(std::move(data));
+
+    std::vector<std::vector<u8>> partitions;
+    if (!container.IsGood() || !container.GetIVFCLevel4Data(partitions)) {
+        return false;
+    }
+
+    return Archive<Savegame>::Init(std::move(partitions));
+}
 
 bool Savegame::CheckMagic() const {
     if (header.fat_header.magic != MakeMagic('S', 'A', 'V', 'E') ||

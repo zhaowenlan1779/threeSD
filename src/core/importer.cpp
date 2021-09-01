@@ -100,18 +100,11 @@ bool SDMCImporter::Init() {
 
 void SDMCImporter::LoadSystemLanguage() {
     FileUtil::IOFile file(nand_config.data_path + "sysdata/00010017/00000000", "rb");
-    if (!file) {
-        LOG_ERROR(Core, "Could not open config savegame");
+    Savegame save(file.GetData());
+    if (!save.IsGood()) {
         return;
     }
 
-    DataContainer container(file.GetData());
-    std::vector<std::vector<u8>> raw_data;
-    if (!container.IsGood() || !container.GetIVFCLevel4Data(raw_data)) {
-        return;
-    }
-
-    Savegame save(raw_data);
     // Find index of the 'config' file
     for (std::size_t i = 0; i < save.file_entry_table.size(); ++i) {
         if (std::strncmp(save.file_entry_table[i].name.data(), "config", 16) != 0) {
@@ -246,17 +239,7 @@ bool SDMCImporter::ImportSavegame(u64 id,
                                   [[maybe_unused]] const Common::ProgressCallback& callback) {
     const auto path = fmt::format("title/{:08x}/{:08x}/data/", (id >> 32), (id & 0xFFFFFFFF));
 
-    DataContainer container(sdmc_decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
-    if (!container.IsGood()) {
-        return false;
-    }
-
-    std::vector<std::vector<u8>> container_data;
-    if (!container.GetIVFCLevel4Data(container_data)) {
-        return false;
-    }
-
-    Savegame save(std::move(container_data));
+    Savegame save(sdmc_decryptor->DecryptFile(fmt::format("/{}00000001.sav", path)));
     if (!save.IsGood()) {
         return false;
     }
@@ -271,19 +254,7 @@ bool SDMCImporter::ImportNandSavegame(u64 id,
     const auto path = fmt::format("sysdata/{:08x}/00000000", (id & 0xFFFFFFFF));
 
     FileUtil::IOFile file(nand_config.data_path + path, "rb");
-    std::vector<u8> data = file.GetData();
-    if (data.empty()) {
-        LOG_ERROR(Core, "Failed to read from {}", path);
-        return false;
-    }
-
-    DataContainer container(std::move(data));
-    std::vector<std::vector<u8>> container_data;
-    if (!container.GetIVFCLevel4Data(container_data)) {
-        return false;
-    }
-
-    Savegame save(std::move(container_data));
+    Savegame save(file.GetData());
     if (!save.IsGood()) {
         return false;
     }
