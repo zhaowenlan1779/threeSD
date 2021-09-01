@@ -102,15 +102,6 @@ jobs:
       - name: Query tag name
         uses: little-core-labs/get-git-tag@v3.0.2
         id: tagName
-      - name: Create release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.tagName.outputs.tag }}
-          release_name: ${{ steps.tagName.outputs.tag }}
-          draft: false
-          prerelease: false
       - name: Upload artifacts
         uses: alexellis/upload-assets@0.2.3
         env:
