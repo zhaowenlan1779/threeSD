@@ -145,7 +145,7 @@ void TitleInfoDialog::InitializeLanguageComboBox() {
         }
 
         ui->languageComboBox->addItem(tr(LanguageNames.at(i)), static_cast<int>(i));
-        if (i == 1) { // English
+        if (i == static_cast<u8>(importer.GetSystemLanguage())) {
             ui->languageComboBox->setCurrentIndex(ui->languageComboBox->count() - 1);
         }
     }

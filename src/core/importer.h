@@ -13,6 +13,7 @@
 #include "common/progress_callback.h"
 #include "core/file_decryptor.h"
 #include "core/file_sys/cia_common.h"
+#include "core/file_sys/smdh.h"
 
 namespace Core {
 
@@ -196,8 +197,13 @@ public:
         return ticket_db;
     }
 
+    SMDH::TitleLanguage GetSystemLanguage() const {
+        return system_language;
+    }
+
 private:
     bool Init();
+    void LoadSystemLanguage();
 
     // Impl of ImportContent without deleting mechanism.
     bool ImportContentImpl(
@@ -230,6 +236,9 @@ private:
     bool is_good{};
     Config config;
     Config::NandConfig nand_config; // Main NAND config
+    // System language, determined from config savegame. Used to return the title's names.
+    SMDH::TitleLanguage system_language{SMDH::TitleLanguage::English};
+
     std::unique_ptr<SDMCDecryptor> sdmc_decryptor;
     FileDecryptor file_decryptor;
 

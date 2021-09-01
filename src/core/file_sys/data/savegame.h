@@ -25,6 +25,7 @@ private:
 
     friend class Archive<Savegame>;
     friend class InnerFAT<Savegame>;
+    friend class SDMCImporter; // Needed to read config savegame
 };
 
 } // namespace Core

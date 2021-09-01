@@ -2,6 +2,7 @@
 // Licensed under GPLv2 or any later version
 // Refer to the license.txt file included.
 
+#include <cstring>
 #include <map>
 #include <regex>
 #include <cryptopp/sha.h>
@@ -14,6 +15,7 @@
 #include "core/db/seed_db.h"
 #include "core/db/title_db.h"
 #include "core/file_sys/certificate.h"
+#include "core/file_sys/config_savegame.h"
 #include "core/file_sys/data/data_container.h"
 #include "core/file_sys/data/extdata.h"
 #include "core/file_sys/data/savegame.h"
@@ -76,6 +78,8 @@ bool SDMCImporter::Init() {
         }
     }
 
+    LoadSystemLanguage();
+
     // Create children
     sdmc_decryptor = std::make_unique<SDMCDecryptor>(config.sdmc_path);
     cia_builder = std::make_unique<CIABuilder>(config, ticket_db);
@@ -92,6 +96,41 @@ bool SDMCImporter::Init() {
 
     FileUtil::SetUserPath(config.user_path);
     return true;
+}
+
+void SDMCImporter::LoadSystemLanguage() {
+    FileUtil::IOFile file(nand_config.data_path + "sysdata/00010017/00000000", "rb");
+    if (!file) {
+        LOG_ERROR(Core, "Could not open config savegame");
+        return;
+    }
+
+    DataContainer container(file.GetData());
+    std::vector<std::vector<u8>> raw_data;
+    if (!container.IsGood() || !container.GetIVFCLevel4Data(raw_data)) {
+        return;
+    }
+
+    Savegame save(raw_data);
+    // Find index of the 'config' file
+    for (std::size_t i = 0; i < save.file_entry_table.size(); ++i) {
+        if (std::strncmp(save.file_entry_table[i].name.data(), "config", 16) != 0) {
+            continue;
+        }
+
+        // Load 'config' file
+        std::vector<u8> data;
+        if (!save.GetFileData(data, i)) {
+            return;
+        }
+
+        ConfigSavegame config;
+        if (!config.Init(std::move(data))) {
+            return;
+        }
+        system_language = static_cast<SMDH::TitleLanguage>(config.GetSystemLanguage());
+        break;
+    }
 }
 
 bool SDMCImporter::IsGood() const {
@@ -438,7 +477,7 @@ struct TitleData {
     u64 extdata_id;
     std::vector<u16> icon;
 };
-static TitleData LoadTitleData(NCCHContainer& ncch) {
+static TitleData LoadTitleData(NCCHContainer& ncch, SMDH::TitleLanguage language) {
     static const std::unordered_map<u64, const char*> NamedTitles{{
         // System Applications (to avoid confusion)
         {0x00040010'2002c800, "New 3DS HOME Menu manual (JPN)"},
@@ -501,7 +540,11 @@ static TitleData LoadTitleData(NCCHContainer& ncch) {
     SMDH smdh;
     std::memcpy(&smdh, smdh_buffer.data(), smdh_buffer.size());
     if (!NamedTitles.count(program_id)) { // Name was not overridden
-        title_name = Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+        title_name = Common::UTF16BufferToUTF8(smdh.GetShortTitle(language));
+        if (title_name.empty()) { // No title in the language for some reason
+            title_name =
+                Common::UTF16BufferToUTF8(smdh.GetShortTitle(SMDH::TitleLanguage::English));
+        }
     }
     return TitleData{std::move(title_name), extdata_id, smdh.GetIcon(false)};
 }
@@ -803,7 +846,7 @@ void SDMCImporter::ListTitle(std::vector<ContentSpecifier>& out) const {
                             break;
                         }
 
-                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch);
+                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch, system_language);
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;
@@ -879,7 +922,7 @@ void SDMCImporter::ListNandTitle(std::vector<ContentSpecifier>& out) const {
                             break;
                         }
 
-                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch);
+                        const auto& [name, extdata_id, icon] = LoadTitleData(ncch, system_language);
                         const auto size =
                             FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/content/") +
                             TitleSizeAllowance;

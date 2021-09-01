@@ -12,6 +12,8 @@ add_library(core STATIC
   file_sys/certificate.cpp
   file_sys/certificate.h
   file_sys/cia_common.h
+  file_sys/config_savegame.cpp
+  file_sys/config_savegame.h
   file_sys/data/data_container.cpp
   file_sys/data/data_container.h
   file_sys/data/extdata.cpp
