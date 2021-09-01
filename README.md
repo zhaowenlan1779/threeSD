@@ -1,7 +1,7 @@
 threeSD
 ========
 
-threeSD is a tool to help prepare your system for the Nintendo 3DS emulator [Citra](https://citra-emu.org).
+threeSD is a tool to help you import data from a Nintendo 3DS SD Card for [Citra](https://citra-emu.org), or dump CXIs and build CIAs, all directly on your PC!
 
 ## Advantages
 
