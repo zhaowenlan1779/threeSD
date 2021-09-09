@@ -42,9 +42,8 @@ public:
         u8 audit;
         INSERT_PADDING_BYTES(0x42);
         std::array<u8, 0x40> limits;
-        std::array<u8, 0xAC> content_index;
     };
-    static_assert(sizeof(Body) == 0x210, "Ticket body structure size is wrong");
+    static_assert(sizeof(Body) == 0x164, "Ticket body structure size is wrong");
 #pragma pack(pop)
 
     bool Load(const std::vector<u8> file_data, std::size_t offset = 0);
@@ -54,6 +53,7 @@ public:
 
     Signature signature;
     Body body;
+    std::vector<u8> content_index;
 };
 
 Ticket BuildFakeTicket(u64 title_id);

@@ -20,6 +20,24 @@ bool Ticket::Load(const std::vector<u8> file_data, std::size_t offset) {
         return false;
     }
     TRY_MEMCPY(&body, file_data, offset + signature.GetSize(), sizeof(Body));
+
+    // Load content index
+    const std::size_t content_index_offset = offset + signature.GetSize() + sizeof(Body);
+
+    struct ContentIndexHeader {
+        INSERT_PADDING_BYTES(4);
+        u32_be content_index_size;
+    };
+    ContentIndexHeader header;
+
+    TRY_MEMCPY(&header, file_data, content_index_offset, sizeof(header));
+    if (static_cast<u32>(header.content_index_size) > 0x10000) { // sanity limit
+        LOG_ERROR(Core, "Content index size too big");
+        return false;
+    }
+
+    content_index.resize(header.content_index_size);
+    TRY_MEMCPY(content_index.data(), file_data, content_index_offset, content_index.size());
     return true;
 }
 
@@ -35,6 +53,12 @@ bool Ticket::Save(FileUtil::IOFile& file) const {
         return false;
     }
 
+    // content index
+    if (file.WriteBytes(content_index.data(), content_index.size()) != content_index.size()) {
+        LOG_ERROR(Core, "Failed to save content index");
+        return false;
+    }
+
     return true;
 }
 
@@ -43,11 +67,12 @@ bool Ticket::ValidateSignature() const {
         Common::StringFromFixedZeroTerminatedBuffer(body.issuer.data(), body.issuer.size());
     return signature.Verify(issuer, [this](CryptoPP::PK_MessageAccumulator* message) {
         message->Update(reinterpret_cast<const u8*>(&body), sizeof(body));
+        message->Update(content_index.data(), content_index.size());
     });
 }
 
 std::size_t Ticket::GetSize() const {
-    return signature.GetSize() + sizeof(body);
+    return signature.GetSize() + sizeof(body) + content_index.size();
 }
 
 constexpr std::string_view TicketIssuer = "Root-CA00000003-XS0000000c";
@@ -77,9 +102,9 @@ Ticket BuildFakeTicket(u64 title_id) {
     body.title_id = title_id;
     body.common_key_index = 0x00;
     body.audit = 0x01;
-    std::memcpy(body.content_index.data(), TicketContentIndex.data(), TicketContentIndex.size());
+    std::memcpy(ticket.content_index.data(), TicketContentIndex.data(), TicketContentIndex.size());
     // GodMode9 by default sets all remaining 0x80 bytes to 0xFF
-    std::memset(body.content_index.data() + TicketContentIndex.size(), 0xFF, 0x80);
+    std::memset(ticket.content_index.data() + TicketContentIndex.size(), 0xFF, 0x80);
     return ticket;
 }
 
