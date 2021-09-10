@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #include <QMessageBox>
+#include "common/logging/log.h"
 #include "frontend/helpers/frontend_common.h"
 #include "frontend/helpers/rate_limited_progress_dialog.h"
 #include "frontend/helpers/simple_job.h"
@@ -43,8 +44,11 @@ void SimpleJob::StartWithProgressDialog(QWidget* widget) {
                        tr("%1 / %2").arg(ReadableByteSize(current), ReadableByteSize(total)));
     });
     connect(this, &SimpleJob::ErrorOccured, this, [widget, dialog] {
-        QMessageBox::critical(widget, tr("threeSD"),
-                              tr("Operation failed. Please refer to the log."));
+        QMessageBox message_box(QMessageBox::Critical, tr("threeSD"),
+                                tr("Operation failed. Refer to the log for details."),
+                                QMessageBox::Ok, widget);
+        message_box.setDetailedText(QString::fromStdString(Common::Logging::GetLastErrors()));
+        message_box.exec();
         dialog->hide();
     });
     connect(this, &SimpleJob::Completed, dialog, &QProgressDialog::hide);

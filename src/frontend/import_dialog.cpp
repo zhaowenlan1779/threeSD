@@ -209,9 +209,12 @@ void ImportDialog::RelistContent() {
         if (importer->IsGood()) {
             RepopulateContent();
         } else {
-            QMessageBox::critical(
-                this, tr("Importer Error"),
-                tr("Failed to initalize the importer.\nRefer to the log for details."));
+            QMessageBox message_box(
+                QMessageBox::Critical, tr("Importer Error"),
+                tr("Failed to initalize the importer. Refer to the log for details."),
+                QMessageBox::Ok, this);
+            message_box.setDetailedText(QString::fromStdString(Common::Logging::GetLastErrors()));
+            message_box.exec();
             reject();
         }
     });
@@ -713,13 +716,22 @@ void ImportDialog::RunMultiJob(MultiJob* job, std::size_t total_count, u64 total
             QMessageBox::information(this, tr("threeSD"), tr("All contents done successfully."));
         } else {
             QString list_content;
-            for (const auto& content : failed_contents) {
-                list_content.append(QStringLiteral("<li>%1 (%2)</li>")
-                                        .arg(GetContentName(content))
-                                        .arg(GetDisplayGroupName<false>(content)));
+            QString details;
+            for (const auto& [content, error] : failed_contents) {
+                const QString full_name = QStringLiteral("%1 (%2)").arg(
+                    GetContentName(content), GetDisplayGroupName<false>(content));
+
+                list_content.append(QStringLiteral("<li>%1</li>").arg(full_name));
+                details.append(
+                    QStringLiteral("%1:\n%2\n").arg(full_name, QString::fromStdString(error)));
             }
-            QMessageBox::critical(this, tr("threeSD"),
-                                  tr("List of failed contents:<ul>%1</ul>").arg(list_content));
+            QMessageBox message_box(
+                QMessageBox::Critical, tr("threeSD"),
+                tr("List of failed contents (see the log for details):<ul>%1</ul>")
+                    .arg(list_content),
+                QMessageBox::Ok, this);
+            message_box.setDetailedText(details);
+            message_box.exec();
         }
 
         RelistContent();

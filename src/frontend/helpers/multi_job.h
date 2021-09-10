@@ -17,6 +17,8 @@ public:
     using ExecuteFunc = std::function<bool(Core::SDMCImporter&, const Core::ContentSpecifier&,
                                            const Common::ProgressCallback&)>;
     using AbortFunc = std::function<void(Core::SDMCImporter&)>;
+    // (content, error log)
+    using FailedContentList = std::vector<std::pair<Core::ContentSpecifier, std::string>>;
 
     explicit MultiJob(QObject* parent, Core::SDMCImporter& importer,
                       std::vector<Core::ContentSpecifier> contents, ExecuteFunc execute_func,
@@ -26,7 +28,7 @@ public:
     void run() override;
     void Cancel();
 
-    std::vector<Core::ContentSpecifier> GetFailedContents() const;
+    FailedContentList GetFailedContents() const;
 
 signals:
     /**
@@ -48,7 +50,7 @@ private:
     std::atomic_bool cancelled{false};
     Core::SDMCImporter& importer;
     std::vector<Core::ContentSpecifier> contents;
-    std::vector<Core::ContentSpecifier> failed_contents;
+    FailedContentList failed_contents;
     ExecuteFunc execute_func;
     AbortFunc abort_func;
 };

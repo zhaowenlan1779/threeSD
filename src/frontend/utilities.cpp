@@ -258,7 +258,10 @@ void UtilitiesDialog::ShowResult() {
     if (result) {
         QMessageBox::information(this, tr("Success"), tr("Operation completed successfully."));
     } else {
-        QMessageBox::critical(this, tr("Error"),
-                              tr("An error occured while performing the operation."));
+        QMessageBox message_box(QMessageBox::Critical, tr("threeSD"),
+                                tr("Operation failed. Refer to the log for details."),
+                                QMessageBox::Ok, this);
+        message_box.setDetailedText(QString::fromStdString(Common::Logging::GetLastErrors()));
+        message_box.exec();
     }
 }

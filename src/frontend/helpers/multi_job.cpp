@@ -3,6 +3,7 @@
 // Refer to the license.txt file included.
 
 #include <chrono>
+#include "common/logging/log.h"
 #include "frontend/helpers/multi_job.h"
 
 MultiJob::MultiJob(QObject* parent, Core::SDMCImporter& importer_,
@@ -45,7 +46,7 @@ void MultiJob::run() {
                          content, eta);
         if (!execute_func(importer, content, wrapper.Wrap(Callback))) {
             if (!cancelled) {
-                failed_contents.emplace_back(content);
+                failed_contents.emplace_back(content, Common::Logging::GetLastErrors());
             }
         }
         count++;
@@ -62,6 +63,6 @@ void MultiJob::Cancel() {
     abort_func(importer);
 }
 
-std::vector<Core::ContentSpecifier> MultiJob::GetFailedContents() const {
+MultiJob::FailedContentList MultiJob::GetFailedContents() const {
     return failed_contents;
 }
