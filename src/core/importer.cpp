@@ -437,8 +437,9 @@ std::shared_ptr<FileUtil::IOFile> SDMCImporter::OpenContent(const ContentSpecifi
         const auto format_str = (specifier.id >> 32) == 0x0004008c
                                     ? "/title/{:08x}/{:08x}/content/00000000/{:08x}.app"
                                     : "/title/{:08x}/{:08x}/content/{:08x}.app";
-        const auto path =
-            fmt::format(format_str, (specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id);
+        const auto path = fmt::vformat(
+            format_str,
+            fmt::make_format_args((specifier.id >> 32), (specifier.id & 0xFFFFFFFF), content_id));
         return std::make_shared<SDMCFile>(config.sdmc_path, path, "rb");
     }
 }
@@ -970,7 +971,8 @@ void SDMCImporter::ListExtdata(std::vector<ContentSpecifier>& out) const {
                 }
 
                 const u64 id = std::stoull(virtual_name, nullptr, 16);
-                const auto citra_path = fmt::format(citra_path_template, virtual_name);
+                const auto citra_path =
+                    fmt::vformat(citra_path_template, fmt::make_format_args(virtual_name));
                 out.push_back({type, (id_high << 32) | id, FileUtil::Exists(citra_path),
                                FileUtil::GetDirectoryTreeSize(directory + virtual_name + "/")});
                 return true;

@@ -30,7 +30,7 @@ bool LoadTitleKeysBin(TitleKeysMap& out, const std::string& path) {
     }
 
     if (file.Tell() != file.GetSize()) {
-        LOG_ERROR(Core, "File {} has redundant data, may be corrupted");
+        LOG_ERROR(Core, "File {} has redundant data, may be corrupted", path);
         return false;
     }
     return true;
