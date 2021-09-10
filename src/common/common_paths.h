@@ -25,7 +25,7 @@
 #endif
 #define CITRA_EXECUTABLE "citra-qt"
 
-#define LOG_FILE "threeSD.log.txt"
+#define LOG_FILE "threeSD_log.txt"
 
 // Subdirs in the User dir returned by GetUserPath(UserPath::UserDir)
 #define CONFIG_DIR "config"

@@ -6,8 +6,6 @@
 #include <cstdio>
 #ifdef _WIN32
 #include <share.h> // For _SH_DENYWR
-#else
-#define _SH_DENYWR 0
 #endif
 
 #include "common/common_paths.h"
@@ -24,8 +22,12 @@ std::uint64_t GetLoggingTime() {
         .count();
 }
 
-// _SH_DENYWR allows read-only access for other programs. For non-Windows it's defined to 0.
-static FileUtil::IOFile g_log_file{LOG_FILE, "w", _SH_DENYWR};
+#ifdef __WIN32
+// _SH_DENYWR allows read-only access for other programs.
+static FileUtil::IOFile g_log_file{FileUtil::GetExeDirectory() + DIR_SEP LOG_FILE, "w", _SH_DENYWR};
+#else
+static FileUtil::IOFile g_log_file{ROOT_DIR DIR_SEP LOG_FILE, "w"};
+#endif
 
 static std::array<Entry, 3> g_error_buffer{};
 static int g_error_buffer_pos = 0;
