@@ -36,7 +36,7 @@ bool Ticket::Load(const std::vector<u8> file_data, std::size_t offset) {
         return false;
     }
 
-    content_index.resize(header.content_index_size);
+    content_index.resize(static_cast<u32>(header.content_index_size));
     TRY_MEMCPY(content_index.data(), file_data, content_index_offset, content_index.size());
     return true;
 }
