@@ -19,7 +19,7 @@ bool SeedDB::AddFromFile(const std::string& path) {
         LOG_ERROR(Service_FS, "Failed to open seed database");
         return false;
     }
-    u32 count;
+    u32_le count;
     if (!file.ReadBytes(&count, sizeof(count))) {
         LOG_ERROR(Service_FS, "Failed to read seed database count fully");
         return false;
