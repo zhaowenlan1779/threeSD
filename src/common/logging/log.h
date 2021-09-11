@@ -42,8 +42,7 @@ std::string GetLastErrors();
 
 #ifdef _DEBUG
 #define LOG_TRACE(log_class, ...)                                                                  \
-    LOG_PRINT(#log_class, Trace, fmt::fg(fmt::terminal_color::bright_black), __FILE__, __LINE__,   \
-              __func__, __VA_ARGS__)
+    LOG_PRINT(#log_class, Trace, fmt::fg(fmt::terminal_color::bright_black), __VA_ARGS__)
 #else
 #define LOG_TRACE(log_class, fmt, ...) (void(0))
 #endif
