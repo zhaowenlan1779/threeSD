@@ -25,6 +25,8 @@ std::uint64_t GetLoggingTime() {
 #ifdef __WIN32
 // _SH_DENYWR allows read-only access for other programs.
 static FileUtil::IOFile g_log_file{FileUtil::GetExeDirectory() + DIR_SEP LOG_FILE, "w", _SH_DENYWR};
+#elif __APPLE__
+static FileUtil::IOFile g_log_file{FileUtil::GetBundleDirectory() + "/../" LOG_FILE, "w"};
 #else
 static FileUtil::IOFile g_log_file{ROOT_DIR DIR_SEP LOG_FILE, "w"};
 #endif
