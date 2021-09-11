@@ -22,14 +22,16 @@ std::uint64_t GetLoggingTime() {
         .count();
 }
 
+static FileUtil::IOFile g_log_file;
+void InitializeLogging() {
 #ifdef __WIN32
-// _SH_DENYWR allows read-only access for other programs.
-static FileUtil::IOFile g_log_file{FileUtil::GetExeDirectory() + DIR_SEP LOG_FILE, "w", _SH_DENYWR};
+    g_log_file.Open(FileUtil::GetExeDirectory() + DIR_SEP LOG_FILE, "w", _SH_DENYWR);
 #elif __APPLE__
-static FileUtil::IOFile g_log_file{FileUtil::GetBundleDirectory() + "/../" LOG_FILE, "w"};
+    g_log_file.Open(FileUtil::GetXDGDirectory("XDG_DATA_HOME") + DIR_SEP LOG_FILE, "w");
 #else
-static FileUtil::IOFile g_log_file{ROOT_DIR DIR_SEP LOG_FILE, "w"};
+    g_log_file.Open(ROOT_DIR DIR_SEP LOG_FILE, "w");
 #endif
+}
 
 static std::array<Entry, 3> g_error_buffer{};
 static int g_error_buffer_pos = 0;
@@ -39,9 +41,11 @@ void WriteLog(Entry entry) {
     fmt::print(stderr, entry.style, entry.message);
 
     // log file
-    g_log_file.WriteString(entry.message);
-    if (entry.level >= Level::Error) {
-        g_log_file.Flush(); // Do not flush the file too often
+    if (g_log_file.IsOpen()) {
+        g_log_file.WriteString(entry.message);
+        if (entry.level >= Level::Error) {
+            g_log_file.Flush(); // Do not flush the file too often
+        }
     }
 
     // log buffer

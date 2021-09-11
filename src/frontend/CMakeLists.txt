@@ -45,7 +45,9 @@ add_executable(threeSD
 
 target_link_libraries(threeSD PRIVATE common core)
 target_link_libraries(threeSD PRIVATE Qt5::Widgets)
-target_link_libraries(threeSD PRIVATE qdevicewatcher)
+if (NOT APPLE)
+    target_link_libraries(threeSD PRIVATE qdevicewatcher)
+endif()
 target_link_libraries(threeSD PRIVATE ${PLATFORM_LIBRARIES} Threads::Threads)
 
 if (APPLE)

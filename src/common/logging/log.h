@@ -23,6 +23,7 @@ struct Entry {
     std::string message;
 };
 
+void InitializeLogging();
 void WriteLog(Entry entry);
 
 // Returns up to 3 latest error messages

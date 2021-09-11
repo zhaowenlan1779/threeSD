@@ -10,7 +10,6 @@
 #include <QMessageBox>
 #include <QStorageInfo>
 #include <QTreeWidgetItem>
-#include <qdevicewatcher.h>
 #include "common/assert.h"
 #include "common/file_util.h"
 #include "frontend/import_dialog.h"
@@ -22,6 +21,8 @@
 #ifdef __APPLE__
 #include <unistd.h>
 #include "common/common_paths.h"
+#else
+#include <qdevicewatcher.h> // Buggy for macOS, seems to cause strange bugs
 #endif
 
 #ifdef QT_STATICPLUGIN
@@ -84,12 +85,14 @@ MainDialog::MainDialog(QWidget* parent)
 
     ui->main->setIndentation(4);
 
+#ifndef __APPLE__
     // Set up device watcher
     auto* device_watcher = new QDeviceWatcher(this);
     device_watcher->start();
     connect(device_watcher, &QDeviceWatcher::deviceAdded, this, &MainDialog::LoadPresetConfig);
     connect(device_watcher, &QDeviceWatcher::deviceChanged, this, &MainDialog::LoadPresetConfig);
     connect(device_watcher, &QDeviceWatcher::deviceRemoved, this, &MainDialog::LoadPresetConfig);
+#endif
 }
 
 MainDialog::~MainDialog() = default;
@@ -250,6 +253,8 @@ int main(int argc, char* argv[]) {
     // Init settings params
     QCoreApplication::setOrganizationName(QStringLiteral("zhaowenlan1779"));
     QCoreApplication::setApplicationName(QStringLiteral("threeSD"));
+
+    Common::Logging::InitializeLogging();
 
 #ifdef __APPLE__
     std::string bin_path = FileUtil::GetBundleDirectory() + DIR_SEP + "..";

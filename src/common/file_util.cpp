@@ -651,7 +651,7 @@ static const std::string& GetHomeDirectory() {
  * @return The directory path
  * @sa http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
  */
-static const std::string GetUserDirectory(const std::string& envvar) {
+std::string GetXDGDirectory(const std::string& envvar) {
     const char* directory = getenv(envvar.c_str());
 
     std::string user_dir;
@@ -715,7 +715,7 @@ UserPathType GetUserPathType() {
     }
 
     const bool normal_exists =
-        FileUtil::Exists(GetUserDirectory("XDG_DATA_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
+        FileUtil::Exists(GetXDGDirectory("XDG_DATA_HOME") + DIR_SEP EMU_DATA_DIR DIR_SEP);
     const bool flatpak_exists = FileUtil::Exists(
         GetHomeDirectory() + "/.var/app/org.citra_emu.citra/data" + DIR_SEP EMU_DATA_DIR DIR_SEP);
     if (!normal_exists || flatpak_exists) { // Flatpak takes precedence
@@ -785,9 +785,9 @@ void SetUserPath(const std::string& path) {
             break;
         }
         case UserPathType::Normal: {
-            std::string data_dir = GetUserDirectory("XDG_DATA_HOME");
-            std::string config_dir = GetUserDirectory("XDG_CONFIG_HOME");
-            std::string cache_dir = GetUserDirectory("XDG_CACHE_HOME");
+            std::string data_dir = GetXDGDirectory("XDG_DATA_HOME");
+            std::string config_dir = GetXDGDirectory("XDG_CONFIG_HOME");
+            std::string cache_dir = GetXDGDirectory("XDG_CACHE_HOME");
 
             user_path = data_dir + DIR_SEP EMU_DATA_DIR DIR_SEP;
             g_paths.emplace(UserPath::ConfigDir, config_dir + DIR_SEP EMU_DATA_DIR DIR_SEP);
