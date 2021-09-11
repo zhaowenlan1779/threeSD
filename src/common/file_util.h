@@ -157,6 +157,8 @@ std::string GetBundleDirectory();
 #ifdef _WIN32
 const std::string& GetExeDirectory();
 std::string AppDataRoamingDirectory();
+#else
+std::string GetXDGDirectory(const std::string& envvar);
 #endif
 
 std::size_t WriteStringToFile(bool text_file, const std::string& filename, std::string_view str);

@@ -251,6 +251,8 @@ int main(int argc, char* argv[]) {
     QCoreApplication::setOrganizationName(QStringLiteral("zhaowenlan1779"));
     QCoreApplication::setApplicationName(QStringLiteral("threeSD"));
 
+    Common::Logging::InitializeLogging();
+
 #ifdef __APPLE__
     std::string bin_path = FileUtil::GetBundleDirectory() + DIR_SEP + "..";
     chdir(bin_path.c_str());

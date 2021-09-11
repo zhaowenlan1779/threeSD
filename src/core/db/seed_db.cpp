@@ -20,7 +20,7 @@ bool SeedDB::AddFromFile(const std::string& path) {
         return false;
     }
     u32_le count;
-    if (!file.ReadBytes(&count, sizeof(count))) {
+    if (file.ReadBytes(&count, sizeof(count)) != sizeof(count)) {
         LOG_ERROR(Service_FS, "Failed to read seed database count fully");
         return false;
     }
@@ -58,7 +58,7 @@ bool SeedDB::Save(const std::string& path) const {
         LOG_ERROR(Service_FS, "Failed to open seed database");
         return false;
     }
-    u32 count{static_cast<u32>(seeds.size())};
+    u32_le count{static_cast<u32>(seeds.size())};
     if (file.WriteBytes(&count, sizeof(count)) != sizeof(count)) {
         LOG_ERROR(Service_FS, "Failed to write seed database count fully");
         return false;
