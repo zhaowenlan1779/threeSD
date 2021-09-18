@@ -129,6 +129,7 @@ set(cryptopp_SOURCES
         cryptopp/integer.cpp
 
         cryptopp/algparam.cpp
+        cryptopp/allocate.cpp
         cryptopp/asn.cpp
         cryptopp/authenc.cpp
         cryptopp/base64.cpp
@@ -172,10 +173,6 @@ set(cryptopp_SOURCES
         cryptopp/sha.cpp
         cryptopp/sse_simd.cpp
         )
-
-if (MINGW OR WIN32)
-    list(APPEND cryptopp_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/winpipes.cpp)
-endif ()
 
 if(MSVC AND NOT CRYPTOPP_DISABLE_ASM)
     if(${CMAKE_GENERATOR} MATCHES ".*ARM")
