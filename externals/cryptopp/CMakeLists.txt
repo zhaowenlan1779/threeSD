@@ -35,11 +35,6 @@ else()
     set(CRYPTOPP_CROSS_COMPILE 0)
 endif()
 
-# Don't use RPATH's. The resulting binary could fail a security audit.
-if (NOT CMAKE_VERSION VERSION_LESS 2.8.12)
-  set(CMAKE_MACOSX_RPATH 0)
-endif()
-
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     add_definitions(-wd68 -wd186 -wd279 -wd327 -wd161 -wd3180)
 endif()
@@ -129,12 +124,13 @@ set(cryptopp_SOURCES
         cryptopp/integer.cpp
 
         cryptopp/algparam.cpp
+        cryptopp/allocate.cpp
         cryptopp/asn.cpp
         cryptopp/authenc.cpp
         cryptopp/base64.cpp
         cryptopp/basecode.cpp
         cryptopp/ccm.cpp
-        cryptopp/crc-simd.cpp
+        cryptopp/crc_simd.cpp
         cryptopp/des.cpp
         cryptopp/dessp.cpp
         cryptopp/dll.cpp
@@ -143,8 +139,9 @@ set(cryptopp_SOURCES
         cryptopp/files.cpp
         cryptopp/filters.cpp
         cryptopp/fips140.cpp
-        cryptopp/gcm-simd.cpp
+        cryptopp/gcm_simd.cpp
         cryptopp/gf2n.cpp
+        cryptopp/gf2n_simd.cpp
         cryptopp/gfpcrypt.cpp
         cryptopp/hex.cpp
         cryptopp/hmac.cpp
@@ -155,7 +152,7 @@ set(cryptopp_SOURCES
         cryptopp/modes.cpp
         cryptopp/mqueue.cpp
         cryptopp/nbtheory.cpp
-        cryptopp/neon-simd.cpp
+        cryptopp/neon_simd.cpp
         cryptopp/oaep.cpp
         cryptopp/osrng.cpp
         cryptopp/pkcspad.cpp
@@ -163,18 +160,14 @@ set(cryptopp_SOURCES
         cryptopp/queue.cpp
         cryptopp/randpool.cpp
         cryptopp/rdtables.cpp
-        cryptopp/rijndael-simd.cpp
+        cryptopp/rijndael_simd.cpp
         cryptopp/rijndael.cpp
         cryptopp/rng.cpp
         cryptopp/rsa.cpp
-        cryptopp/sha-simd.cpp
+        cryptopp/sha_simd.cpp
         cryptopp/sha.cpp
-        cryptopp/sse-simd.cpp
+        cryptopp/sse_simd.cpp
         )
-
-if (MINGW OR WIN32)
-    list(APPEND cryptopp_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/winpipes.cpp)
-endif ()
 
 if(MSVC AND NOT CRYPTOPP_DISABLE_ASM)
     if(${CMAKE_GENERATOR} MATCHES ".*ARM")
@@ -206,30 +199,34 @@ if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GN
     check_cxx_compiler_flag(-march=armv8-a+crc CRYPTOPP_HAS_ARMV8_CRC32)
     check_cxx_compiler_flag(-march=armv8-a+crypto CRYPTOPP_HAS_ARMV8_CRYPTO)
     if (CRYPTOPP_HAS_MSSE2)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sse-simd.cpp PROPERTIES COMPILE_FLAGS "-msse2")
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sse_simd.cpp PROPERTIES COMPILE_FLAGS "-msse2")
     endif()
     if (CRYPTOPP_HAS_MSSSE3 AND CRYPTOPP_HAS_MAES AND CRYPTOPP_HAS_PCLMUL)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/gcm-simd.cpp
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/gcm_simd.cpp
                                     PROPERTIES COMPILE_FLAGS "-mssse3 -maes -mpclmul")
     endif()
     if (CRYPTOPP_HAS_MSSE41 AND CRYPTOPP_HAS_MAES)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/rijndael-simd.cpp PROPERTIES COMPILE_FLAGS "-msse4.1 -maes")
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/rijndael_simd.cpp PROPERTIES COMPILE_FLAGS "-msse4.1 -maes")
     endif()
     if (CRYPTOPP_HAS_MSSE42)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/crc-simd.cpp
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/crc_simd.cpp
                                     PROPERTIES COMPILE_FLAGS "-msse4.2")
     endif()
     if (CRYPTOPP_HAS_MSSE42 AND CRYPTOPP_HAS_MSHA)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sha-simd.cpp PROPERTIES COMPILE_FLAGS "-msse4.2 -msha")
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sha_simd.cpp PROPERTIES COMPILE_FLAGS "-msse4.2 -msha")
     endif()
     if (CRYPTOPP_HAS_ARMV8_CRC32)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/crc-simd.cpp
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/crc_simd.cpp
                                     PROPERTIES COMPILE_FLAGS "-march=armv8-a+crc")
     endif()
     if (CRYPTOPP_HAS_ARMV8_CRYPTO)
-        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/rijndael-simd.cpp
-                                    ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sha-simd.cpp
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/rijndael_simd.cpp
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/sha_simd.cpp
                                     PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto")
+    endif()
+    if (CRYPTOPP_HAS_PCLMUL)
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/gf2n_simd.cpp
+                                    PROPERTIES COMPILE_FLAGS "-mpclmul")
     endif()
 endif()
 
@@ -242,9 +239,6 @@ target_include_directories(cryptopp INTERFACE .)
 #============================================================================
 # Third-party libraries
 #============================================================================
-
-find_package(Threads)
-target_link_libraries(cryptopp PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 
 if(ANDROID)
     include(AndroidNdkModules)

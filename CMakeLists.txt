@@ -11,8 +11,7 @@ include(DownloadExternals)
 include(CMakeDependentOption)
 
 if (POLICY CMP0076)
-    # TODO: set this to NEW
-    cmake_policy(SET CMP0076 OLD)
+    cmake_policy(SET CMP0076 NEW)
 endif()
 
 project(threeSD)
