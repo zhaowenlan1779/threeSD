@@ -51,8 +51,8 @@ void DPIAwareDialog::OnScreenChanged() {
     const double scaleX = window_handle->screen()->logicalDotsPerInchX() / 96.0;
     const double scaleY = window_handle->screen()->logicalDotsPerInchY() / 96.0;
     if (resized) {
-        const int new_width = static_cast<int>(scaleX * width() / previous_scaleX);
-        const int new_height = static_cast<int>(scaleY * height() / previous_scaleY);
+        const int new_width = static_cast<int>(scaleX * width() / prev_scaleX);
+        const int new_height = static_cast<int>(scaleY * height() / prev_scaleY);
         setMinimumSize(0, 0); // Enforce this resize
         resize(new_width, new_height);
     } else {
@@ -63,10 +63,10 @@ void DPIAwareDialog::OnScreenChanged() {
         resized = false; // This resize isn't user-initiated
     }
 
-    SetContentSizes(previous_width, previous_height);
-    previous_scaleX = scaleX;
-    previous_scaleY = scaleY;
-    previous_width = width();
-    previous_height = height();
+    SetContentSizes(prev_width, prev_height);
+    prev_scaleX = scaleX;
+    prev_scaleY = scaleY;
+    prev_width = width();
+    prev_height = height();
 }
 #endif

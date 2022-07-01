@@ -184,7 +184,7 @@ ImportDialog::ImportDialog(QWidget* parent, const Core::Config& config_)
 
 ImportDialog::~ImportDialog() = default;
 
-void ImportDialog::SetContentSizes(int previous_width, int previous_height) {
+void ImportDialog::SetContentSizes(int previous_width, [[maybe_unused]] int previous_height) {
     const int current_width = width();
     if (previous_width == 0) { // first time
         ui->main->setColumnWidth(0, current_width * 0.66);
@@ -345,7 +345,7 @@ void ImportDialog::InsertSecondLevelItem(std::size_t row, const Core::ContentSpe
         item->setCheckState(0, Qt::Unchecked);
     }
 
-    ui->main->invisibleRootItem()->child(row)->addChild(item);
+    ui->main->invisibleRootItem()->child(static_cast<int>(row))->addChild(item);
 }
 
 void ImportDialog::OnItemChanged(QTreeWidgetItem* item, int column) {

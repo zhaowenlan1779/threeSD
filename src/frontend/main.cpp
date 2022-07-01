@@ -94,7 +94,7 @@ MainDialog::MainDialog(QWidget* parent)
 
 MainDialog::~MainDialog() = default;
 
-void MainDialog::SetContentSizes(int previous_width, int previous_height) {
+void MainDialog::SetContentSizes(int previous_width, [[maybe_unused]] int previous_height) {
     const int current_width = width();
     if (previous_width == 0) { // first time
         ui->main->setColumnWidth(0, 0.3 * current_width);

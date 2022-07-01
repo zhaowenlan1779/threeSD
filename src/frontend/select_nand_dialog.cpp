@@ -33,7 +33,7 @@ SelectNandDialog::SelectNandDialog(QWidget* parent,
         }
         connect(button, &QRadioButton::toggled, this, [this, i](bool checked) {
             if (checked) {
-                result = i;
+                result = static_cast<int>(i);
             }
         });
         ui->contentLayout->addWidget(button);

@@ -117,11 +117,11 @@ void SDMCImporter::LoadSystemLanguage() {
             return;
         }
 
-        ConfigSavegame config;
-        if (!config.Init(std::move(data))) {
+        ConfigSavegame config_savegame;
+        if (!config_savegame.Init(std::move(data))) {
             return;
         }
-        system_language = static_cast<SMDH::TitleLanguage>(config.GetSystemLanguage());
+        system_language = static_cast<SMDH::TitleLanguage>(config_savegame.GetSystemLanguage());
         break;
     }
 }
@@ -352,7 +352,7 @@ static const std::regex title_regex{"[0-9a-f]{8}"};
 
 static std::string FindTMD(const std::string& path) {
     std::string title_metadata;
-    const bool ret = FileUtil::ForeachDirectoryEntry(
+    FileUtil::ForeachDirectoryEntry(
         nullptr, path,
         [&title_metadata](u64* /*num_entries_out*/, const std::string& directory,
                           const std::string& virtual_name) {

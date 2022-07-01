@@ -121,7 +121,8 @@ std::size_t SDMCFile::Read(char* data, std::size_t length) {
     return length_read;
 }
 
-std::size_t SDMCFile::Write(const char* data, std::size_t length) {
+std::size_t SDMCFile::Write([[maybe_unused]] const char* data,
+                            [[maybe_unused]] std::size_t length) {
     UNREACHABLE_MSG("Cannot write to a SDMCFile");
 }
 

@@ -16,7 +16,8 @@ protected:
 
     // Called with two zeroes to set up content sizes that are relative to dialog size. Also called
     // when screen is changed, to update those sizes.
-    virtual void SetContentSizes(int previous_width = 0, int previous_height = 0){};
+    virtual void SetContentSizes([[maybe_unused]] int previous_width = 0,
+                                 [[maybe_unused]] int previous_height = 0){};
 
 private:
     QWindow* window_handle{};
@@ -31,9 +32,9 @@ private:
     void OnScreenChanged();
 
     bool resized = false; // whether this dialog has been manually resized
-    double previous_scaleX{};
-    double previous_scaleY{};
-    int previous_width{};
-    int previous_height{};
+    double prev_scaleX{};
+    double prev_scaleY{};
+    int prev_width{};
+    int prev_height{};
 #endif
 };
