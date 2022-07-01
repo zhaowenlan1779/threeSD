@@ -607,8 +607,9 @@ std::vector<u8> LoadSharedRomFS(const std::vector<u8>& data) {
     std::vector<u8> result(ivfc.levels[2].size);
 
     // Calculation from ctrtool
-    const std::size_t data_offset = offset + Common::AlignUp(sizeof(ivfc) + ivfc.master_hash_size,
-                                                             (1 << ivfc.levels[2].block_size));
+    const std::size_t data_offset =
+        offset + Common::AlignUp(sizeof(ivfc) + ivfc.master_hash_size,
+                                 (1 << static_cast<std::size_t>(ivfc.levels[2].block_size)));
     if (!CheckedMemcpy(result.data(), data, data_offset, ivfc.levels[2].size)) {
         return {};
     }

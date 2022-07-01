@@ -117,7 +117,7 @@ bool CIABuilder::Init(CIABuildType type_, const std::string& destination, TitleM
 
     // TMD will be written in Finalize (we need to set content hash, etc)
     tmd_offset = Common::AlignUp(ticket_offset + header.tik_size, CIA_ALIGNMENT);
-    header.tmd_size = tmd.GetSize();
+    header.tmd_size = static_cast<u32_le>(tmd.GetSize());
 
     content_offset = Common::AlignUp(tmd_offset + header.tmd_size, CIA_ALIGNMENT);
     header.content_size = 0;
@@ -221,7 +221,7 @@ bool CIABuilder::WriteTicket() {
     }
     title_key = GetTitleKey(ticket);
 
-    header.tik_size = ticket.GetSize();
+    header.tik_size = static_cast<u32_le>(ticket.GetSize());
 
     file->Seek(ticket_offset, SEEK_SET);
     if (!ticket.Save(*file)) {
