@@ -75,7 +75,7 @@ bool Extdata::Init() {
         return false;
     }
 
-    DataContainer vsxe_container(std::move(vsxe_raw));
+    const DataContainer vsxe_container(std::move(vsxe_raw));
     if (!vsxe_container.IsGood()) {
         return false;
     }
@@ -88,14 +88,14 @@ bool Extdata::Init() {
     return Archive<Extdata>::Init(std::move(data));
 }
 
-bool Extdata::ExtractFile(const std::string& path, std::size_t index) const {
+bool Extdata::ExtractFile(const std::string& path, u32 index) const {
     /// Maximum amount of device files a device directory can hold.
     constexpr u32 DeviceDirCapacity = 126;
 
-    u32 file_index = index + 1;
-    u32 sub_directory_id = file_index / DeviceDirCapacity;
-    u32 sub_file_id = file_index % DeviceDirCapacity;
-    std::string device_file_path =
+    const u32 file_index = index + 1;
+    const u32 sub_directory_id = file_index / DeviceDirCapacity;
+    const u32 sub_file_id = file_index % DeviceDirCapacity;
+    const std::string device_file_path =
         fmt::format("{}{:08x}/{:08x}", data_path, sub_directory_id, sub_file_id);
 
     auto container_data = ReadFile(device_file_path);
@@ -104,7 +104,7 @@ bool Extdata::ExtractFile(const std::string& path, std::size_t index) const {
         return true;
     }
 
-    DataContainer container(std::move(container_data));
+    const DataContainer container(std::move(container_data));
     if (!container.IsGood()) {
         return false;
     }
@@ -119,12 +119,10 @@ bool Extdata::ExtractFile(const std::string& path, std::size_t index) const {
 
 ArchiveFormatInfo Extdata::GetFormatInfo() const {
     // This information is based on how Citra created the metadata in FS
-    ArchiveFormatInfo format_info = {/* total_size */ 0,
-                                     /* number_directories */ fs_info.maximum_directory_count,
-                                     /* number_files */ fs_info.maximum_file_count,
-                                     /* duplicate_data */ false};
-
-    return format_info;
+    return {/* total_size */ 0,
+            /* number_directories */ fs_info.maximum_directory_count,
+            /* number_files */ fs_info.maximum_file_count,
+            /* duplicate_data */ false};
 }
 
 } // namespace Core

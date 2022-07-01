@@ -52,9 +52,8 @@ bool DPFSContainer::GetByte(u8& out, u8 level, u8 selector, u64 index) const {
 bool DPFSContainer::GetLevel3Data(std::vector<u8>& out) const {
     std::vector<u8> level3_data(descriptor.levels[2].size);
     for (std::size_t i = 0; i < level3_data.size(); i++) {
-        auto level2_bit_index = i / std::pow(2, descriptor.levels[2].block_size);
-        auto level1_bit_index =
-            (level2_bit_index / 8) / std::pow(2, descriptor.levels[1].block_size);
+        const u64 level2_bit_index = static_cast<u64>(i) >> descriptor.levels[2].block_size;
+        const u64 level1_bit_index = (level2_bit_index / 8) >> descriptor.levels[1].block_size;
 
         u8 level2_selector, level3_selector;
         if (!GetBit(level2_selector, 0, level1_selector, level1_bit_index) ||

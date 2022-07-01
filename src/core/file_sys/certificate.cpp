@@ -33,8 +33,6 @@ inline std::size_t GetPublicKeySize(u32 public_key_type) {
 }
 
 bool Certificate::Load(std::vector<u8> file_data, std::size_t offset) {
-    const auto total_size = static_cast<std::size_t>(file_data.size() - offset);
-
     if (!signature.Load(file_data, offset)) {
         return false;
     }

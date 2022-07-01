@@ -34,7 +34,7 @@ private:
     bool Init();
     bool CheckMagic() const;
     std::vector<u8> ReadFile(const std::string& path) const;
-    bool ExtractFile(const std::string& path, std::size_t index) const;
+    bool ExtractFile(const std::string& path, u32 index) const;
     ArchiveFormatInfo GetFormatInfo() const;
 
     bool is_good = false;

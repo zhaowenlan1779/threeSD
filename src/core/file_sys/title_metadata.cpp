@@ -54,8 +54,6 @@ bool TitleMetadata::Load(const std::vector<u8> file_data, std::size_t offset) {
 }
 
 bool TitleMetadata::Save(FileUtil::IOFile& file) {
-    const std::size_t offset = file.Tell();
-
     if (!file.IsOpen())
         return false;
 
